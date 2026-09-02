@@ -1,0 +1,9 @@
+# 统一换行符，避免 Windows/Linux/macOS 协作者之间 CRLF 冲突
+* text=auto eol=lf
+
+# 明确二进制资源（不对其做换行符/差异处理）
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.exe binary
+*.bat text eol=crlf

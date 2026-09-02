@@ -1,0 +1,29 @@
+# 依赖与虚拟环境
+backend/.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Node / Next.js
+frontend/node_modules/
+frontend/.next/
+frontend/next-env.d.ts
+frontend/*.tsbuildinfo
+.vercel/
+
+# 环境变量与密钥（如未来引入）
+.env
+.env.local
+
+# 日志与临时文件
+logs/*.log
+logs/*.txt
+*.log
+.DS_Store
+Thumbs.db
+
+# 打包 / 构建产物（可重现，不入库）
+backend/build/
+backend/dist/
+frontend/out/
