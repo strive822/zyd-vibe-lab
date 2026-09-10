@@ -4,6 +4,53 @@ import hashlib
 import json
 from pathlib import Path
 import sys
+from datetime import datetime, timezone
+
+
+def review_inputs(root):
+    """Bind the review to records and their referenced files, not mutable progress logs."""
+    root = Path(root).resolve()
+    paths = set()
+
+    def add(value):
+        if not isinstance(value, str) or not value.strip():
+            return
+        path = (root / value).resolve()
+        if Path(value).is_absolute() or not path.is_relative_to(root):
+            raise ValueError('Review input path must stay inside project')
+        paths.add(path)
+
+    def visit(value):
+        if isinstance(value, dict):
+            for key, child in value.items():
+                if key == 'path' or key.endswith('_path'):
+                    add(child)
+                else:
+                    visit(child)
+        elif isinstance(value, list):
+            for child in value:
+                visit(child)
+
+    for name in ('requirements.json', 'evidence.json', 'claims.json', 'artifacts.json', 'polishing.json'):
+        add(name)
+        visit(json.loads((root / name).read_text(encoding='utf-8-sig')))
+    return {path.relative_to(root).as_posix(): digest(path) for path in sorted(paths)}
+
+
+def review_snapshot(root, report):
+    """Record current bytes AFTER substantive review. This does not perform that review."""
+    root = Path(root).resolve()
+    path = (root / report).resolve()
+    if Path(report).is_absolute() or not path.is_relative_to(root) or path.name == 'final-review.json':
+        raise ValueError('Review report must be a separate file inside project')
+    if not path.is_file() or path.stat().st_size == 0:
+        raise ValueError('Actual review report is missing or empty')
+    record = {'schema_version': 1, 'created_at': datetime.now(timezone.utc).isoformat(),
+              'report_path': path.relative_to(root).as_posix(), 'report_sha256': digest(path),
+              'inputs': review_inputs(root),
+              'notice': 'Byte snapshot only; does not perform or certify substantive review.'}
+    write_json(root / 'final-review.json', record)
+    return record
 
 
 def digest(path):
@@ -101,13 +148,14 @@ def audit(root):
     artifacts = index(read('artifacts.json', list), 'artifacts')
     require(req.get('schema_version') == 1 and state.get('schema_version') == 1, 'Unsupported schema version')
     require(req.get('confirmed') is True, 'Requirements not confirmed')
-    require(isinstance(req.get('version'), int) and req.get('version', 0) > 0, 'Invalid requirements version')
+    require(type(req.get('version')) is int and req.get('version', 0) > 0, 'Invalid requirements version')
     require(state.get('requirements_version') == req.get('version'), 'State uses stale requirements')
     require(state.get('status') in {'intake', 'design', 'research', 'drafting', 'review', 'polishing', 'delivery', 'needs_input', 'complete'}, 'Unknown state')
     require(polishing.get('tool') == 'humanizer', 'Humanizer record missing')
     require(polishing.get('status') in ('applied', 'skipped_school_policy'), 'Humanizer stage not completed')
     file_check(polishing.get('review_path'), 'Humanizer review', polishing.get('review_sha256', ''))
     if polishing.get('status') == 'applied':
+        require(polishing.get('before_path') != polishing.get('after_path'), 'Humanizer must preserve a separate original file')
         file_check(polishing.get('before_path'), 'Before Humanizer', polishing.get('before_sha256', ''))
         file_check(polishing.get('after_path'), 'After Humanizer', polishing.get('after_sha256', ''))
     elif polishing.get('status') == 'skipped_school_policy':
@@ -180,19 +228,30 @@ def audit(root):
         require(bool(item.get('id')) and bool(item.get('requirement')), 'Criterion lacks id/requirement')
         require(item.get('status') == 'met', f'Criterion {item.get("id")}: unmet')
         file_check(item.get('review_path'), 'Criterion review', item.get('review_sha256', ''))
+    snapshot = read('final-review.json', dict)
+    file_check(snapshot.get('report_path'), 'Final review report', snapshot.get('report_sha256', ''))
+    require(snapshot.get('schema_version') == 1, 'Final review snapshot missing or unsupported')
+    try:
+        require(snapshot.get('inputs') == review_inputs(root), 'Final review is stale: changed records or files require substantive re-review and a new snapshot')
+    except (OSError, ValueError) as exc:
+        errors.append(f'Final review inputs: {exc}')
     return errors
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command', choices=['init', 'audit', 'hash'])
+    parser.add_argument('command', choices=['init', 'audit', 'hash', 'review-snapshot'])
     parser.add_argument('path')
+    parser.add_argument('--report', default='reviews/final-review.md')
     args = parser.parse_args()
     try:
         if args.command == 'init':
             print(f'Initialized: {init(args.path)}')
         elif args.command == 'hash':
             print(digest(args.path))
+        elif args.command == 'review-snapshot':
+            review_snapshot(args.path, args.report)
+            print('Snapshot saved. This records bytes only; substantive review must have actually occurred.')
         else:
             errors = audit(args.path)
             print(json.dumps({'structural_check': 'FAIL' if errors else 'PASS', 'errors': errors,

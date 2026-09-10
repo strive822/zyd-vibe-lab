@@ -24,6 +24,7 @@ def load(name, path):
 project = load('project', SKILL / 'scripts' / 'project.py')
 literature = load('literature', SKILL / 'scripts' / 'literature.py')
 package = load('package', ROOT / 'scripts' / 'package.py')
+polish = load('polish_check', SKILL / 'scripts' / 'polish_check.py')
 
 
 class WorkflowTests(unittest.TestCase):
@@ -40,11 +41,11 @@ class WorkflowTests(unittest.TestCase):
 
     def fixture(self):
         # A structurally complete synthetic fixture, not a real thesis or real approval.
-        for name in ('confirmation.md', 'school.md', 'policy.md', 'evidence.txt', 'thesis.md', 'review.md'):
+        for name in ('confirmation.md', 'school.md', 'policy.md', 'evidence.txt', 'thesis.md', 'before.md', 'review.md'):
             (self.root / name).write_text('SYNTHETIC TEST FIXTURE ONLY\n', encoding='utf-8')
         review_hash = project.digest(self.root / 'review.md')
         self.write('polishing.json', {'tool': 'humanizer', 'status': 'applied',
-                   'before_path': 'thesis.md', 'after_path': 'thesis.md',
+                   'before_path': 'before.md', 'after_path': 'thesis.md',
                    'before_sha256': project.digest(self.root / 'thesis.md'),
                    'after_sha256': project.digest(self.root / 'thesis.md'),
                    'review_path': 'review.md', 'review_sha256': review_hash})
@@ -69,6 +70,41 @@ class WorkflowTests(unittest.TestCase):
         self.write('artifacts.json', [{'id': 'thesis', 'path': 'thesis.md', 'status': 'reviewed',
                     'sha256': project.digest(self.root / 'thesis.md'),
                     'review_path': 'review.md', 'review_sha256': review_hash}])
+        project.review_snapshot(self.root, 'review.md')
+
+    def test_updated_hash_cannot_reuse_old_review(self):
+        self.fixture()
+        (self.root / 'thesis.md').write_text('CHANGED SYNTHETIC CONTENT', encoding='utf-8')
+        artifacts = self.read('artifacts.json')
+        artifacts[0]['sha256'] = project.digest(self.root / 'thesis.md')
+        self.write('artifacts.json', artifacts)
+        self.assertTrue(any('stale' in e for e in project.audit(self.root)))
+
+    def test_state_completion_does_not_invalidate_review(self):
+        self.fixture()
+        state = self.read('state.json')
+        state['status'] = 'complete'
+        self.write('state.json', state)
+        self.assertEqual(project.audit(self.root), [])
+
+    def test_missing_snapshot_fails(self):
+        self.fixture()
+        (self.root / 'final-review.json').unlink()
+        self.assertTrue(project.audit(self.root))
+
+    def test_snapshot_rejects_path_escape(self):
+        self.fixture()
+        with self.assertRaises(ValueError):
+            project.review_snapshot(self.root, '../outside.md')
+
+    def test_polish_detects_changed_number_citation_and_math(self):
+        changes = polish.compare('结果为 20% [1]，$x+y$。', '结果为 30% [2]，$x-y$。')
+        self.assertEqual(set(changes), {'numbers', 'citations', 'math'})
+
+    def test_polish_allows_prose_change_but_is_not_semantic_proof(self):
+        self.assertEqual(polish.compare('结果为 20% [1]。', '结果达到 20% [1]。'), {})
+        # A semantic inversion can evade token comparison; a substantive review is required.
+        self.assertEqual(polish.compare('存在关联', '不存在关联'), {})
 
     def test_empty_project_cannot_pass(self):
         self.assertTrue(project.audit(self.root))

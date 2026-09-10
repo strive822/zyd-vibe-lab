@@ -1,13 +1,11 @@
 # GitHub 发布
 
-本仓库可以公开，实际论文项目应放在仓库之外。创建仓库和推送是单独的外部操作；本地打包不会自动发布。
+公开副本位于 zyd-vibe-lab/graduation-thesis-workflow。用户在 E:\zyd-vibe-lab 的 main 分支推送已经检查的本地提交；不要初始化新仓库或替换 remote。
 
-1. 运行 SOP 中的测试与打包，阅读 VALIDATION 的实际覆盖范围。
-2. 检查暂存文件：只包含工作流、文档和测试，不含真实论文、访问凭证、个人数据或第三方全文。`.gitignore` 不是自动保密保证。
-3. 在 GitHub 创建你选择名称的空仓库，选择公开或私有。然后在本地按自己的分支策略初始化、添加明确文件、提交、设置该仓库 remote 并推送。不要使用其他项目的 remote。
-4. 可创建 Release 并上传 `dist/` 的三个 ZIP 与 checksums.json。dist 默认不纳入源码 Git 历史。
-5. 发布说明区分“格式兼容”“脚本已测”“客户端已测”，只声称实际验证过的能力。
+1. 修改技能源后运行 `python -m unittest discover -s tests -v`。
+2. 运行 `python scripts/package.py --out packages`，把三个 ZIP 与 checksums.json 随本项目一起提交。规范源目录也可以用默认 dist 暂存构建结果。
+3. 核对本地链接、ZIP 完整性、许可与校验和；只提交本项目文件，不混入原始论文、学校模板、凭证或其他项目修改。
+4. 推送前核对 origin/main 与本地分支，保持使用者未提交的其他改动。推送不等于发布 GitHub Release。
+5. 安装/脚本测试与实际宿主端到端验收分别记录，不能把一种说成另一种。
 
-默认 MIT 许可覆盖本仓库原创代码与文本，不替用户授权学校模板、论文原文、数据集、字体或外部技能。引入第三方代码前核验仓库、固定版本、许可证和执行行为，并记录来源；不要因名称相似就直接安装图片中的未知包。
-
-本副本在 zyd-vibe-lab/graduation-thesis-workflow；packages 随源码提交供直接下载，修改技能后须重新生成。
+原创内容适用 MIT；Humanizer 保留上游许可。调研来源与实际复制组件分开记录。实际论文项目应放在公开仓库之外。

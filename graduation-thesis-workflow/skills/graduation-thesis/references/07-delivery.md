@@ -11,3 +11,5 @@ Word 使用学校提供的模板和样式；LaTeX 使用学校认可的文档类
 为每个已完成产物计算 SHA256，填入 artifacts.json，与需求 id 一一对应。将审查报告也按 contract 登记哈希。运行 project.py audit，修复结构问题，然后重新核验实际内容。满足所有条件才写 status=complete。
 
 最终交付列出文件、实际验证、已知局限及用户后续提交事项。complete 只表示约定本地产物完成，不表示学校批准、毕业成功或 GitHub 发布完成。论文原始材料与工作流源代码的公开范围分开，禁止自动把用户论文上传到公共仓库。
+
+最终顺序：生成与渲染实际交付文件 → 完成审查报告 → 更新 artifacts、polishing 与需求验收记录 → `project.py review-snapshot <项目目录>` → `project.py audit <项目目录>` → 通过且实质问题已解决后更新 state。快照后改稿必须重审并重新快照。

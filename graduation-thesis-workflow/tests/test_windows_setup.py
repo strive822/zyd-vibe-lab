@@ -6,6 +6,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 POWERSHELL = shutil.which('powershell.exe')
@@ -23,8 +24,11 @@ class WindowsSetupTests(unittest.TestCase):
                               capture_output=True, timeout=120)
 
     def test_three_clients_install_and_repeat(self):
+        packages = self.base / 'packages'
+        subprocess.run([sys.executable, str(ROOT / 'scripts/package.py'), '--out', str(packages)],
+                       check=True, capture_output=True)
         for client in ('codex', 'claude-code', 'workbuddy'):
-            target = self.base / client
+            target = self.base / '中文 带空格路径' / client
             args = ('-Client', client, '-SkillsDir', target)
             result = self.run_script('scripts/install.ps1', *args)
             self.assertEqual(result.returncode, 0, result.stderr)
@@ -33,6 +37,16 @@ class WindowsSetupTests(unittest.TestCase):
             repeated = self.run_script('scripts/install.ps1', *args)
             self.assertEqual(repeated.returncode, 0, repeated.stderr)
             self.assertIn(b'already_installed', repeated.stdout)
+            with zipfile.ZipFile(packages / f'graduation-thesis-{client}.zip') as archive:
+                for name in archive.namelist():
+                    self.assertEqual((target / name).read_bytes(), archive.read(name), name)
+            project = self.base / f'{client}-论文项目'
+            entry = target / 'graduation-thesis/scripts/project.py'
+            initialized = subprocess.run([sys.executable, str(entry), 'init', str(project)], capture_output=True)
+            self.assertEqual(initialized.returncode, 0, initialized.stderr)
+            checked = subprocess.run([sys.executable, str(entry), 'audit', str(project)], capture_output=True)
+            self.assertEqual(checked.returncode, 1, checked.stderr)
+            self.assertIn(b'FAIL', checked.stdout)
 
     def test_existing_different_skill_is_preserved(self):
         target = self.base / 'skills/graduation-thesis'

@@ -46,3 +46,11 @@ audit 检查：必需记录、非空文件、路径范围、哈希、需求版�
 ## polishing.json
 
 初始为 tool=humanizer、status=pending。实际润色后填写 status=applied、before_path/before_sha256、after_path/after_sha256、review_path/review_sha256。前后文件和审查报告都必须实际存在且哈希匹配。学校明确禁止时允许 status=skipped_school_policy，另需 reason、policy_source_path 和审查报告。工具检查不能证明润色质量，仍须审查其语义与最终文件来源。旧项目缺少此记录时创建 pending 并补做，不能直接标完成。
+
+## final-review.json：绑定实际审查版本
+
+完成内容、语言、排版和交付记录的实质审查后运行 `project.py review-snapshot <项目目录> --report reviews/final-review.md`。该命令只生成当前文件哈希快照，不执行审查、不自动批准、也不设置 complete。
+
+快照绑定 requirements/evidence/claims/artifacts/polishing 五份 JSON 及其中 path 或 *_path 指向的文件，以及最终审查报告。变更这些文件后，audit 拒绝沿用旧快照，即使人工刷新 artifacts 中的哈希也会失败。未登记文件不受此检查覆盖，必须把实际使用的材料和交付物完整登记。进度日志与 state 不绑定，便于交付后记录 complete。
+
+旧项目保持 schema_version=1，无需重建或删除。先补齐独立润色前后稿及真实审查报告，再建立快照；不能为了通过检查补造历史记录。

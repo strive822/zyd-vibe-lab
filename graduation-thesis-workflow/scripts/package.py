@@ -23,8 +23,8 @@ def build(output):
                     continue
                 data = path.read_bytes()
                 if path.relative_to(SOURCE).as_posix() == 'SKILL.md' and platform == 'workbuddy':
-                    text = data.decode('utf-8')
-                    text = text.replace('\n---\n', '\ndescription_zh: 本科毕业论文需求澄清、真实研究与写作交付工作流\ndescription_en: Evidence-based undergraduate thesis workflow\nversion: 0.2.0\nauthor: Graduation Thesis Workflow contributors\n---\n', 1)
+                    text = data.decode('utf-8').replace('\r\n', '\n')
+                    text = text.replace('\n---\n', '\ndescription_zh: Evidence-based undergraduate thesis workflow\ndescription_en: Evidence-based undergraduate thesis workflow\nversion: 0.3.0\nauthor: Graduation Thesis Workflow contributors\n---\n', 1)
                     data = text.encode('utf-8')
                 archive.writestr('graduation-thesis/' + path.relative_to(SOURCE).as_posix(), data)
             archive.write(ROOT / 'LICENSE', 'graduation-thesis/LICENSE')

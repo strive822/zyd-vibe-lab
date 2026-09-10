@@ -20,3 +20,15 @@
 ## 许可与可追溯性
 
 上游为 blader/humanizer，固定提交和文件 SHA256 见 [UPSTREAM.json](vendor/humanizer/UPSTREAM.json)，许可证为 [MIT](vendor/humanizer/LICENSE)，Copyright (c) 2025 Siqi Chen。上游内容原样保存，学术约束写在本模块，不伪造为原作者规则。安装和打包时必须保留许可与来源文件。
+
+## 辅助比较与失败处理
+
+前后稿必须是不同路径，保存 UTF-8 Markdown、文本或 LaTeX 源稿后运行：
+
+```text
+python <技能目录>/scripts/polish_check.py <润色前源稿> <润色后源稿> --out <项目目录>/reviews/polish-tokens-001.json
+```
+
+报告只比较常见数字、方括号/LaTeX 引用及部分公式标记，退出码 1 表示发现变化待核查，不是程序崩溃。它不能识别所有引用格式或判断语义；即使 no_token_changes，也须逐段检查单位、术语、归属、否定、因果、显著性、适用范围和结论强度。直接引语应逐字核对。二进制 Word/PDF 必须先用宿主能力提取并核对文本，不能直接输入本脚本。
+
+把检查报告路径记入 polishing.json 的 token_check_path；语义审查结论写入 humanizer-review.md。任何事实漂移都先修复或恢复原稿，不得以“降 AI 率”为理由放行。报告文件不覆盖旧版本。

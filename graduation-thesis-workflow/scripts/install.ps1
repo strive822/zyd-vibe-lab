@@ -35,7 +35,7 @@ foreach ($file in Get-ChildItem -LiteralPath $source -File -Recurse) {
         $text = [Text.Encoding]::UTF8.GetString($bytes).Replace("`r`n", "`n")
         $boundary = $text.IndexOf("`n---`n", 3)
         if ($boundary -lt 0) { throw 'Invalid skill frontmatter.' }
-        $extra = "`ndescription_zh: Evidence-based undergraduate thesis workflow`ndescription_en: Evidence-based undergraduate thesis workflow`nversion: 0.2.0`nauthor: Graduation Thesis Workflow contributors"
+        $extra = "`ndescription_zh: Evidence-based undergraduate thesis workflow`ndescription_en: Evidence-based undergraduate thesis workflow`nversion: 0.3.0`nauthor: Graduation Thesis Workflow contributors"
         $text = $text.Insert($boundary, $extra)
         $bytes = [Text.Encoding]::UTF8.GetBytes($text)
     }

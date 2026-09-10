@@ -99,3 +99,14 @@ python scripts/package.py --out packages
 本仓库原创流程与脚本采用 [MIT License](LICENSE)。访谈流程为原创实现；Humanizer 3.0.0 已按 MIT 许可内置，保留上游版权、固定提交和文件哈希，见 [第三方说明](THIRD_PARTY_NOTICES.md)。未复制图片中来源不明的技能。可复用宿主已有文档技能，但不分发其受独立许可约束的内容。
 
 官方格式与接口依据：[Codex Skills](https://learn.chatgpt.com/docs/build-skills)、[Claude Code Skills](https://code.claude.com/docs/en/skills)、[WorkBuddy 技能结构](https://open.workbuddy.cn/docs/skill)、[Crossref REST API](https://www.crossref.org/documentation/retrieve-metadata/rest-api/)。
+
+## 本次优化（0.3.0）
+
+- 文献笔记记录原文定位、支持范围和局限；多来源论点逐项回溯。
+- Humanizer 保存独立原稿，提供数字/引用/公式变化提示，并要求语义复核。
+- 最终审查绑定稿件、证据与交付记录版本，改稿后旧审查失效。
+- 会计专业按案例、财务分析、规范或实证类型选择方法。
+
+使用者仍只需先说安装，随后上传学校模板并说“开始我的毕业论文，先了解必要需求，其余准备工作请你自动完成”。新增记录与检查由助手维护。
+
+技术参考及取舍见 [上游调研](docs/UPSTREAM_REVIEW.md)；支持范围和实际测试边界见 [三端兼容](docs/COMPATIBILITY.md)。
