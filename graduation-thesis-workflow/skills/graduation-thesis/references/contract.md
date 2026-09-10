@@ -14,7 +14,7 @@ acceptance_criteria 每项包含 id、requirement、status（pending/met）、re
 
 ## state.json
 
-schema_version=1，requirements_version 必须匹配需求版本。status 取 intake/design/research/drafting/review/delivery/needs_input/complete。blockers 是未解决问题的字符串列表；不得为了通过检查清空真实缺口。next_action 写具体恢复动作。阶段完成更新 NEXT.md 与 DEVLOG.md。不要把等待时间当成用户确认。
+schema_version=1，requirements_version 必须匹配需求版本。status 取 intake/design/research/drafting/review/polishing/delivery/needs_input/complete。blockers 是未解决问题的字符串列表；不得为了通过检查清空真实缺口。next_action 写具体恢复动作。阶段完成更新 NEXT.md 与 DEVLOG.md。不要把等待时间当成用户确认。
 
 ## evidence.json（对象列表）
 
@@ -42,3 +42,7 @@ schema_version=1，requirements_version 必须匹配需求版本。status 取 in
 ## 检查的边界
 
 audit 检查：必需记录、非空文件、路径范围、哈希、需求版本、阻塞、引用 id 和阅读范围。它无法判定文件内容是真实原始数据，不能认证研究伦理、文献质量、正文覆盖率、学校认可或毕业结果。通过后还要完成阶段 06 的实质审查和阶段 07 的渲染检查。
+
+## polishing.json
+
+初始为 tool=humanizer、status=pending。实际润色后填写 status=applied、before_path/before_sha256、after_path/after_sha256、review_path/review_sha256。前后文件和审查报告都必须实际存在且哈希匹配。学校明确禁止时允许 status=skipped_school_policy，另需 reason、policy_source_path 和审查报告。工具检查不能证明润色质量，仍须审查其语义与最终文件来源。旧项目缺少此记录时创建 pending 并补做，不能直接标完成。

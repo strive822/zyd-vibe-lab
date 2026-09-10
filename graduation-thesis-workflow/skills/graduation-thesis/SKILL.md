@@ -12,7 +12,7 @@ description: 面向各专业本科毕业论文的需求访谈、真实文献检�
 ## 每次进入
 
 1. 确定用户要启动还是继续项目。继续时先读项目 `requirements.json`、`state.json`、`NEXT.md`、`DECISIONS.md` 和最近审查记录，避免重问已确认事项。不要把某个用户的要求当成所有学校通用规则。
-2. 检查宿主可用能力：文件读写、联网检索/浏览器、Python、文档生成及渲染。写入 `capabilities.md`，注明哪些实际执行过。无联网时只能整理已有材料，不能声称完成在线核验。缺少生成/渲染能力时保留可编辑源稿并报告交付缺口。
+2. 先读 [零基础环境准备](references/00-setup.md)。用户授权后由助手自动检查、下载和配置缺少的必要免费依赖，不让用户手动安装 Python 或敲命令。记录文件、联网、Python、文档生成与渲染能力；项目初始化后写入 `capabilities.md`。无联网或无执行权限时报告真实限制，不能声称已准备完成。
 3. 新项目运行 `python <技能目录>/scripts/project.py init <论文项目目录>`；目录必须不存在或为空。依 [grilling 访谈](references/01-grilling.md) 澄清必要需求，取得一次明确确认并记录。未确认时可以整理资料、评估可行性，不能擅定题目或生成正式研究结论。
 4. 读取 [证据与状态协议](references/contract.md)，按下表选择当前模块，不必一次加载全部材料。
 
@@ -25,6 +25,7 @@ description: 面向各专业本科毕业论文的需求访谈、真实文献检�
 | research | [文献检索](references/03-literature.md)、[研究执行](references/04-execution.md) | 所需证据取得；缺项明确，不假装取得 |
 | drafting | [写作](references/05-writing.md) | 章节、图表和引用都有证据映射 |
 | review | [真实性审查](references/06-review.md) | 实质错误修复，未解决问题明确 |
+| polishing | [自动 Humanizer](references/08-humanizer.md) | 润色与前后事实核对完成，随后重新审查再交付 |
 | delivery | [排版交付](references/07-delivery.md) | 使用者要求的每个交付物已经生成和检查 |
 | complete | [证据与状态协议](references/contract.md) | 机械检查与实质审查均通过，只代表本地交付完成 |
 

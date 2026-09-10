@@ -1,3 +1,7 @@
+# 安装说明
+
+普通使用者只需让助手“安装 https://github.com/strive822/zyd-vibe-lab 里的论文工作流”。助手按 [自动安装入口](../INSTALL.md) 执行。下面仅供手动安装备用。
+
 # 安装与平台差异
 
 唯一源目录是 `skills/graduation-thesis/`，必须完整复制其中 references 与 scripts，不要只复制 SKILL.md。三端复用同一核心规则；不使用特定平台的工具名称、动态 shell frontmatter 或绝对个人路径。
@@ -14,7 +18,7 @@
 
 ## WorkBuddy
 
-直接下载仓库 `packages/graduation-thesis-workbuddy.zip`，在技能界面使用“添加技能 → 上传技能”导入；维护者可运行 `python scripts/package.py --out packages` 重建，启用后在对话中要求使用 graduation-thesis。依据：[官方安装说明](https://www.workbuddy.cn/docs/workbuddy/From-Beginner-to-Expert-Guide/Function-Description/Skills-Market)、[包结构说明](https://open.workbuddy.cn/docs/skill)。
+下载已提供的 packages 包，或由维护者运行 `python scripts/package.py --out packages`，在技能界面使用“添加技能 → 上传技能”导入 `packages/graduation-thesis-workbuddy.zip`，启用后在对话中要求使用 graduation-thesis。依据：[官方安装说明](https://www.workbuddy.cn/docs/workbuddy/From-Beginner-to-Expert-Guide/Function-Description/Skills-Market)、[包结构说明](https://open.workbuddy.cn/docs/skill)。
 
 WorkBuddy 分发包附加中英文描述、版本和作者字段。未将 `.codebuddy` 等其他产品目录混同为 WorkBuddy 安装目录。不同版本界面可能变化，导入失败时参考当前官方说明；可暂用“读取本地 SKILL.md”方式验证文件工作流，不能据此声称原生导入已验证。
 

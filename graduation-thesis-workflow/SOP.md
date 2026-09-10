@@ -8,3 +8,5 @@
 6. 更新 DEVLOG、GOTCHAS、DECISIONS 与 docs/VALIDATION。发布按 docs/RELEASE.md。
 
 开始真实论文：读完整入口，初始化独立私有目录，确认需求，再按状态推进。检查器报错先查实际产物，不为通过测试修改真假判定或删掉需求。
+
+新增安装器测试需在允许执行 PowerShell 的正常用户权限下运行，不修改系统执行策略。技能、脚本或 vendor 变更后重建 packages，保留第三方许可。polishing.json 缺失的旧论文项目应先创建 pending 记录并实际执行润色，不回填虚假完成状态。

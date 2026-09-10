@@ -33,6 +33,7 @@ def init(root):
         'blockers': ['Requirements have not been confirmed.'], 'next_action': 'Run the intake interview.'})
     for name in ('evidence', 'claims', 'artifacts'):
         write_json(root / (name + '.json'), [])
+    write_json(root / 'polishing.json', {'status': 'pending', 'tool': 'humanizer'})
     for name, text in {
         'README.md': '# 私有论文项目\n\n先确认需求；个人材料不得自动进入公共工作流仓库。\n',
         'NEXT.md': '# 下一步\n\n完成需求访谈并取得用户确认。\n',
@@ -94,6 +95,7 @@ def audit(root):
 
     req = read('requirements.json', dict)
     state = read('state.json', dict)
+    polishing = read('polishing.json', dict)
     evidence = index(read('evidence.json', list), 'evidence')
     claims = index(read('claims.json', list), 'claims')
     artifacts = index(read('artifacts.json', list), 'artifacts')
@@ -101,7 +103,16 @@ def audit(root):
     require(req.get('confirmed') is True, 'Requirements not confirmed')
     require(isinstance(req.get('version'), int) and req.get('version', 0) > 0, 'Invalid requirements version')
     require(state.get('requirements_version') == req.get('version'), 'State uses stale requirements')
-    require(state.get('status') in {'intake', 'design', 'research', 'drafting', 'review', 'delivery', 'needs_input', 'complete'}, 'Unknown state')
+    require(state.get('status') in {'intake', 'design', 'research', 'drafting', 'review', 'polishing', 'delivery', 'needs_input', 'complete'}, 'Unknown state')
+    require(polishing.get('tool') == 'humanizer', 'Humanizer record missing')
+    require(polishing.get('status') in ('applied', 'skipped_school_policy'), 'Humanizer stage not completed')
+    file_check(polishing.get('review_path'), 'Humanizer review', polishing.get('review_sha256', ''))
+    if polishing.get('status') == 'applied':
+        file_check(polishing.get('before_path'), 'Before Humanizer', polishing.get('before_sha256', ''))
+        file_check(polishing.get('after_path'), 'After Humanizer', polishing.get('after_sha256', ''))
+    elif polishing.get('status') == 'skipped_school_policy':
+        require(bool(polishing.get('reason')), 'Humanizer policy exception lacks reason')
+        file_check(polishing.get('policy_source_path'), 'Humanizer policy exception source')
     require(state.get('blockers') == [], 'Unresolved or malformed blockers')
     file_check(req.get('confirmation_path'), 'User confirmation')
     file_check(req.get('school_requirements_path'), 'School requirements')

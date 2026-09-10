@@ -43,6 +43,11 @@ class WorkflowTests(unittest.TestCase):
         for name in ('confirmation.md', 'school.md', 'policy.md', 'evidence.txt', 'thesis.md', 'review.md'):
             (self.root / name).write_text('SYNTHETIC TEST FIXTURE ONLY\n', encoding='utf-8')
         review_hash = project.digest(self.root / 'review.md')
+        self.write('polishing.json', {'tool': 'humanizer', 'status': 'applied',
+                   'before_path': 'thesis.md', 'after_path': 'thesis.md',
+                   'before_sha256': project.digest(self.root / 'thesis.md'),
+                   'after_sha256': project.digest(self.root / 'thesis.md'),
+                   'review_path': 'review.md', 'review_sha256': review_hash})
         req = self.read('requirements.json')
         req.update(confirmed=True, confirmation_path='confirmation.md', discipline='TEST', topic='TEST',
                    methods=['literature'], school_requirements_path='school.md',
@@ -67,6 +72,23 @@ class WorkflowTests(unittest.TestCase):
 
     def test_empty_project_cannot_pass(self):
         self.assertTrue(project.audit(self.root))
+
+    def test_humanizer_cannot_be_silently_skipped(self):
+        self.fixture()
+        self.write('polishing.json', {'tool': 'humanizer', 'status': 'pending'})
+        self.assertTrue(any('Humanizer stage' in e for e in project.audit(self.root)))
+
+    def test_vendor_is_unmodified_in_packages(self):
+        output = Path(self.temp.name) / 'vendor-packages'
+        package.build(output)
+        vendor = SKILL / 'references/vendor/humanizer'
+        manifest = json.loads((vendor / 'UPSTREAM.json').read_text())
+        for name, sha in manifest['files'].items():
+            self.assertEqual(project.digest(vendor / name), sha)
+        for target in output.glob('*.zip'):
+            with zipfile.ZipFile(target) as archive:
+                self.assertEqual(archive.read('graduation-thesis/references/vendor/humanizer/SKILL.md'),
+                                 (vendor / 'SKILL.md').read_bytes())
 
     def test_init_never_overwrites(self):
         with self.assertRaises(ValueError):

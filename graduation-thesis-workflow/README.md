@@ -4,57 +4,64 @@
 
 **不编造文献、数据、实验、引文、审批或导师反馈。材料不足时完成能做的部分并列出缺口，补齐后续做。** 规则和脚本降低出错风险，不能数学保证模型永不犯错，也不能代替作者、导师对学术内容负责。
 
-## 先看这里：怎么用？
+## 零基础使用：只对助手说一句话
 
-你需要已有的 **Codex、Claude Code 或 WorkBuddy**。这不是一个点击后独立运行的网站，也不包含大模型账号。下载技能包不收费，运行助手可能使用你已有的订阅或额度。
-
-### 第一步：下载与你的工具对应的包
-
-| 你使用的工具 | 下载 | 安装位置或方式 |
-| --- | --- | --- |
-| Codex | [下载 Codex ZIP](https://github.com/strive822/zyd-vibe-lab/raw/refs/heads/main/graduation-thesis-workflow/packages/graduation-thesis-codex.zip) | 解压后把完整 `graduation-thesis` 文件夹放到论文项目的 `.agents/skills/` |
-| Claude Code | [下载 Claude Code ZIP](https://github.com/strive822/zyd-vibe-lab/raw/refs/heads/main/graduation-thesis-workflow/packages/graduation-thesis-claude-code.zip) | 解压后放到论文项目的 `.claude/skills/`，或个人 `~/.claude/skills/` |
-| WorkBuddy | [下载 WorkBuddy ZIP](https://github.com/strive822/zyd-vibe-lab/raw/refs/heads/main/graduation-thesis-workflow/packages/graduation-thesis-workbuddy.zip) | 技能界面 → 添加技能 → 上传技能，导入 ZIP 并启用 |
-
-ZIP 内包含一个 `graduation-thesis` 文件夹。不要多套一层同名文件夹，也不要只复制 SKILL.md。完整安装说明和兼容性边界见 [安装指南](docs/INSTALL.md)。
-
-### 第二步：新建一个私有论文目录，发送这段话
+打开 **Codex、Claude Code 或 WorkBuddy**，发送：
 
 ```text
-使用 graduation-thesis，在我指定的私有论文目录启动本科毕业论文工作流。
-先用 grilling 式访谈确认我的专业、学校要求、选题、材料和交付物。
-确认需求后自动推进；不得编造文献、引用、数据、实验或结论。
-缺少必要材料时先完成其他可做工作，再集中告诉我需要补什么。
+安装 https://github.com/strive822/zyd-vibe-lab 里的论文工作流。
 ```
 
-Codex 可用 `$graduation-thesis`，Claude Code 可用 `/graduation-thesis`；WorkBuddy 在对话中选择或要求使用该技能。安装后按工具需要重新打开会话。
+电脑上只有 WorkBuddy 也可以从这一步开始，**不需要先学 Git、Python，不需要自己敲终端命令**。助手会读取本仓库的 [安装入口](INSTALL.md)，下载工作流、识别当前工具并安装，再检查运行环境。
 
-**技能可以安装在论文工作目录内，但初始化的资料子目录必须是新的或空的。** 例如工作目录中已有 `.agents/skills/`，就让助手把资料初始化到其下的 `thesis-project/`，不要在非空工作目录根部初始化。
+### 接下来会发生什么？
 
-### 第三步：回答问题，提供真实材料
+1. **助手安装技能。** 你不用自己寻找隐藏文件夹或解压到特定路径。
+2. **助手准备环境。** Windows 缺 Python 时自动从官网取得安装器并配置隔离环境；写文档所需免费依赖按实际需求补齐。系统或助手弹出权限确认时，由你点击确认。
+3. **助手了解论文要求。** 你回答专业、学校要求、截止时间、题目方向和已有材料等问题。没有题目也可以先讨论。
+4. **确认后继续完成工作。** 获取真实文献、研究和写作，最后自动执行 Humanizer 润色，再检查引用、数字、结论和排版。
 
-可以先不知道题目，由访谈协助确定。学校要求/模板、截止时间、已有文献和数据按实际情况提供，不需要自己填 JSON。论文格式、是否需要开题/中期/PPT 等由你确认；助手负责维护项目文件。
-
-没有问卷、访谈或实验结果时，流程不会替你制造数据。它会完成有依据的部分，列出缺口，材料补齐后继续。
-
-### 中断后如何继续？
+如果安装后助手暂时停在完成提示，直接说：
 
 ```text
-使用 graduation-thesis 继续这个论文目录，先读 requirements.json、state.json 和 NEXT.md。
+开始我的毕业论文，先了解必要需求，其余准备工作请你自动完成。
 ```
 
-**预期产出**：你确认需要的论文稿件与附件、文献和证据记录、审查记录。是否真正满足学校要求仍需作者与导师核对，不能保证毕业或检测分数。
+你只需准备学校模板/要求和实际拥有的材料，不需要手填配置文件。学校要求不同，生成的论文格式、开题、中期、答辩附件也会不同。缺真实数据时，助手会先做其他部分，再告诉你需要补什么，不会编造问卷或实验。
 
-辅助脚本需要 Python 3.10+，没有第三方 Python 依赖；联网检索需要网络，Word/PDF/PPT 生成与排版检查需要助手环境具备相应工具。首次启动会检查能力并报告缺项。
+中断后说“继续我的论文”，并让助手打开原来的论文文件夹即可。
 
-不安装也能尝试：下载完整仓库，在能读文件的助手中要求读取 `graduation-thesis-workflow/skills/graduation-thesis/SKILL.md` 并执行，提供实际本地路径。
+### 自动安装的条件
 
-## 第一版包含什么
+助手需要能联网、读写文件、执行必要工具；Windows 10/11 提供本包的自动环境脚本，不要求预装 Git/Python。macOS/Linux 由助手使用对应平台工具准备，尚未实测其零依赖启动。企业限制、网络故障或系统权限不能由提示词跳过。文件复制成功、客户端识别成功和环境准备成功会分别核验。
 
-- 一个自包含技能入口，按需读取七个阶段模块：访谈、设计、检索、研究执行、写作、审查、排版交付。
+**Humanizer 用于改善语言表达，不保证降低 AI 检测分数或文字重复率。** 润色保留来源、研究事实和学校要求的披露。工作流不保证毕业，也不会伪造检测报告。
+
+### 如果助手没有找到安装入口
+
+发送这句补充：
+
+```text
+请读取该仓库根目录 INSTALL.md，然后执行 graduation-thesis-workflow/INSTALL.md。
+不要只给我手动安装教程，请在权限允许范围内完成安装并检查环境。
+```
+
+也保留直接导入包作为备用，不需要运行打包命令：
+
+| 工具 | 安装包 |
+| --- | --- |
+| WorkBuddy | [下载 WorkBuddy ZIP](https://github.com/strive822/zyd-vibe-lab/raw/refs/heads/main/graduation-thesis-workflow/packages/graduation-thesis-workbuddy.zip) |
+| Codex | [下载 Codex ZIP](https://github.com/strive822/zyd-vibe-lab/raw/refs/heads/main/graduation-thesis-workflow/packages/graduation-thesis-codex.zip) |
+| Claude Code | [下载 Claude Code ZIP](https://github.com/strive822/zyd-vibe-lab/raw/refs/heads/main/graduation-thesis-workflow/packages/graduation-thesis-claude-code.zip) |
+
+以下内容面向希望了解实现或维护仓库的人，普通使用者无需操作。
+
+## 当前包含什么
+
+- 一个自包含技能入口，按需读取环境准备及八个阶段模块：访谈、设计、检索、研究执行、写作、审查、Humanizer、排版交付。
 - 五类研究方法分支：文献研究、定量、定性、工程系统和实验；支持组合。各专业的具体规范需要项目内补充。
 - 真实 Crossref 元数据检索脚本，以及 arXiv、PubMed/PMC、ERIC、中文数据库等合法来源的检索指引。没有声称实现所有数据库 API。
-- 项目初始化、文件哈希、交付结构检查和断点续做协议。
+- 无 Git/Python 的 Windows 技能安装脚本、按需环境准备、项目初始化、文件哈希、交付检查和断点续做。
 - Codex / Claude Code / WorkBuddy 分发 ZIP 生成器。
 
 不是独立后台应用。自动程度取决于宿主权限、联网、运行能力、额度和材料是否可得。用户关闭应用后不会因此保持运行。机械检查 PASS 只表示登记与文件一致，不证明研究结论真实。
@@ -89,6 +96,6 @@ python scripts/package.py --out packages
 
 ## 来源与许可
 
-本仓库原创流程与脚本采用 [MIT License](LICENSE)。未复制第三方 grilling、humanizer 或图片中来源不明的技能；访谈能力内置，humanizer 为可选外部工具，不是启动依赖。可复用宿主已有文档技能，但不分发其受独立许可约束的内容。
+本仓库原创流程与脚本采用 [MIT License](LICENSE)。访谈流程为原创实现；Humanizer 3.0.0 已按 MIT 许可内置，保留上游版权、固定提交和文件哈希，见 [第三方说明](THIRD_PARTY_NOTICES.md)。未复制图片中来源不明的技能。可复用宿主已有文档技能，但不分发其受独立许可约束的内容。
 
 官方格式与接口依据：[Codex Skills](https://learn.chatgpt.com/docs/build-skills)、[Claude Code Skills](https://code.claude.com/docs/en/skills)、[WorkBuddy 技能结构](https://open.workbuddy.cn/docs/skill)、[Crossref REST API](https://www.crossref.org/documentation/retrieve-metadata/rest-api/)。

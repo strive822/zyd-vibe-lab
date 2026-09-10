@@ -8,3 +8,7 @@
 - 本地通过不代表已经在 Claude Code、WorkBuddy 客户端运行。官方说明核对和原生导入实测是不同证据。
 - 旧 Crossref GitHub 文档页面标注 deprecated；实现依据现行 Crossref 官网，并通过实际请求核对。
 - 项目默认忽略个人产物，仍需发布前检查；ignore 不能阻止手动强制添加文件。
+
+- Windows PowerShell 5.1 对原生程序的嵌套引号可能产生不同结果，探测代码已避免这种写法。沙箱账户若禁用脚本需正常权限流程，不能将此当作功能测试通过。
+- Python 安装器 AMD64 下载地址已实际 HEAD 验证返回 200；未在干净机器上执行完整安装，也未实测 ARM64/32 位。
+- Word/PPT 文档库成功导入不代表排版可视检查完成，可能仍需实际配置 Office/LibreOffice。

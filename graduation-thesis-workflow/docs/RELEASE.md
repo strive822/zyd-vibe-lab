@@ -5,9 +5,9 @@
 1. 运行 SOP 中的测试与打包，阅读 VALIDATION 的实际覆盖范围。
 2. 检查暂存文件：只包含工作流、文档和测试，不含真实论文、访问凭证、个人数据或第三方全文。`.gitignore` 不是自动保密保证。
 3. 在 GitHub 创建你选择名称的空仓库，选择公开或私有。然后在本地按自己的分支策略初始化、添加明确文件、提交、设置该仓库 remote 并推送。不要使用其他项目的 remote。
-4. 可创建 Release 并上传 `packages/` 的三个 ZIP 与 checksums.json。dist 默认不纳入源码 Git 历史。
+4. 可创建 Release 并上传 `dist/` 的三个 ZIP 与 checksums.json。dist 默认不纳入源码 Git 历史。
 5. 发布说明区分“格式兼容”“脚本已测”“客户端已测”，只声称实际验证过的能力。
 
 默认 MIT 许可覆盖本仓库原创代码与文本，不替用户授权学校模板、论文原文、数据集、字体或外部技能。引入第三方代码前核验仓库、固定版本、许可证和执行行为，并记录来源；不要因名称相似就直接安装图片中的未知包。
 
-本副本位于 zyd-vibe-lab 的 graduation-thesis-workflow 子目录。packages 内的 ZIP 与校验清单随源码提交，供首页直接下载；技能变更后必须重建这些包。
+本副本在 zyd-vibe-lab/graduation-thesis-workflow；packages 随源码提交供直接下载，修改技能后须重新生成。

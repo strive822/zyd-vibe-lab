@@ -1,14 +1,14 @@
 [
   {
     "file": "graduation-thesis-codex.zip",
-    "sha256": "84c9ff04c277982b19f614444c6747ca3ac5b79a5d0f2c1c623bfc77b74b78cf"
+    "sha256": "c87a3840f03a5c0ac8c24dd205cb7aa100741d741d7d9385e20161426c5f6029"
   },
   {
     "file": "graduation-thesis-claude-code.zip",
-    "sha256": "84c9ff04c277982b19f614444c6747ca3ac5b79a5d0f2c1c623bfc77b74b78cf"
+    "sha256": "c87a3840f03a5c0ac8c24dd205cb7aa100741d741d7d9385e20161426c5f6029"
   },
   {
     "file": "graduation-thesis-workbuddy.zip",
-    "sha256": "076150de5dc66c133fc4b3d2696e2688211f904516dea8f8f8e9d6d7121fa72a"
+    "sha256": "17ef8cb9083395239911cea1466417fed7b8909b4382cae26c9d386ae27eb163"
   }
 ]
