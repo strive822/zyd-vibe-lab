@@ -43,6 +43,9 @@ public class S3 {
         IntPtr dc = g.GetHdc();
         PrintWindow(Hwnd, dc, 2);
         g.ReleaseHdc(dc);
+        using (var b = new SolidBrush(Color.FromArgb(16, 17, 20))) {
+          g.FillRectangle(b, pad, pad + H - 2, W, 2); // 压掉 PrintWindow 对分层窗口的底边白带毛刺
+        }
       }
       bmp.Save(path);
     }
