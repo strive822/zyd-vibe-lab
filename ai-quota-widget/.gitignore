@@ -4,3 +4,5 @@ config.json
 config.json.bak
 config.json.tmp
 *.exe
+shot-*.png
+startup.log
