@@ -156,60 +156,73 @@ namespace QuotaWidget
             }
         }
 
+        private static string Esc(string s)
+        {
+            if (s == null) return "";
+            return s.Replace("\\", "\\\\").Replace("\"", "\\\"");
+        }
+
+        private static string B(bool v) { return v ? "true" : "false"; }
+
+        private static string BuildPretty(AppConfig cfg)
+        {
+            StringBuilder sb = new StringBuilder();
+            sb.Append("{\n");
+            sb.Append("  \"refreshIntervalSeconds\": " + cfg.RefreshIntervalSeconds + ",\n");
+            sb.Append("  \"zaiAuthorization\": \"" + Esc(cfg.ZaiAuthorization) + "\",\n");
+            sb.Append("  \"warnThreshold\": " + cfg.WarnThreshold + ",\n");
+            sb.Append("\n");
+            sb.Append("  \"accounts\": {\n");
+            sb.Append("    \"codex\": {\n");
+            sb.Append("      \"enabled\": " + B(cfg.Codex.Enabled) + ",\n");
+            sb.Append("      \"visible\": " + B(cfg.Codex.Visible) + ",\n");
+            sb.Append("      \"name\": \"" + Esc(cfg.Codex.Name) + "\",\n");
+            sb.Append("      \"authJsonPath\": \"" + Esc(cfg.Codex.AuthJsonPath) + "\"\n");
+            sb.Append("    },\n");
+            sb.Append("    \"zhipu\": [\n");
+            for (int i = 0; i < cfg.Zhipu.Count; i++)
+            {
+                ZhipuCfg z = cfg.Zhipu[i];
+                sb.Append("      {\n");
+                sb.Append("      \"visible\": " + B(z.Visible) + ",\n");
+                sb.Append("      \"name\": \"" + Esc(z.Name) + "\",\n");
+                sb.Append("      \"apiKey\": \"" + Esc(z.ApiKey) + "\"\n");
+                sb.Append("      }" + (i < cfg.Zhipu.Count - 1 ? "," : "") + "\n");
+            }
+            sb.Append("    ],\n");
+            sb.Append("    \"deepseek\": {\n");
+            sb.Append("      \"enabled\": " + B(cfg.DeepSeek.Enabled) + ",\n");
+            sb.Append("      \"visible\": " + B(cfg.DeepSeek.Visible) + ",\n");
+            sb.Append("      \"name\": \"" + Esc(cfg.DeepSeek.Name) + "\",\n");
+            sb.Append("      \"apiKey\": \"" + Esc(cfg.DeepSeek.ApiKey) + "\"\n");
+            sb.Append("    }\n");
+            sb.Append("  },\n");
+            sb.Append("\n");
+            sb.Append("  \"ui\": {\n");
+            sb.Append("    \"left\": " + cfg.Ui.Left + ",\n");
+            sb.Append("    \"top\": " + cfg.Ui.Top + ",\n");
+            sb.Append("    \"opacity\": " + cfg.Ui.Opacity.ToString(System.Globalization.CultureInfo.InvariantCulture) + ",\n");
+            sb.Append("    \"topMost\": " + B(cfg.Ui.TopMost) + ",\n");
+            sb.Append("    \"mode\": \"" + Esc(cfg.Ui.Mode) + "\",\n");
+            sb.Append("    \"autoCollapseSeconds\": " + cfg.Ui.AutoCollapseSeconds + "\n");
+            sb.Append("  }\n");
+            sb.Append("}\n");
+            return sb.ToString();
+        }
+
         public static void Save(AppConfig cfg)
         {
             try
             {
                 if (cfg.LoadError) return; // 配置解析失败时禁止覆盖写回
                 if (string.IsNullOrEmpty(ConfigPath)) ConfigPath = FindConfigPath();
-                Dictionary<string, object> root = new Dictionary<string, object>();
-                root["refreshIntervalSeconds"] = cfg.RefreshIntervalSeconds;
-                root["zaiAuthorization"] = cfg.ZaiAuthorization;
-                root["warnThreshold"] = cfg.WarnThreshold;
-
-                Dictionary<string, object> accounts = new Dictionary<string, object>();
-                Dictionary<string, object> codex = new Dictionary<string, object>();
-                codex["enabled"] = cfg.Codex.Enabled;
-                codex["visible"] = cfg.Codex.Visible;
-                codex["name"] = cfg.Codex.Name;
-                codex["authJsonPath"] = cfg.Codex.AuthJsonPath;
-                accounts["codex"] = codex;
-
-                object[] zhipuArr = new object[cfg.Zhipu.Count];
-                for (int i = 0; i < cfg.Zhipu.Count; i++)
-                {
-                    Dictionary<string, object> z = new Dictionary<string, object>();
-                    z["visible"] = cfg.Zhipu[i].Visible;
-                    z["name"] = cfg.Zhipu[i].Name;
-                    z["apiKey"] = cfg.Zhipu[i].ApiKey;
-                    zhipuArr[i] = z;
-                }
-                accounts["zhipu"] = zhipuArr;
-
-                Dictionary<string, object> ds = new Dictionary<string, object>();
-                ds["enabled"] = cfg.DeepSeek.Enabled;
-                ds["visible"] = cfg.DeepSeek.Visible;
-                ds["name"] = cfg.DeepSeek.Name;
-                ds["apiKey"] = cfg.DeepSeek.ApiKey;
-                accounts["deepseek"] = ds;
-                root["accounts"] = accounts;
-
-                Dictionary<string, object> ui = new Dictionary<string, object>();
-                ui["left"] = cfg.Ui.Left;
-                ui["top"] = cfg.Ui.Top;
-                ui["collapsed"] = cfg.Ui.Collapsed;
-                ui["opacity"] = cfg.Ui.Opacity;
-                ui["topMost"] = cfg.Ui.TopMost;
-                ui["mode"] = cfg.Ui.Mode;
-                ui["autoCollapseSeconds"] = cfg.Ui.AutoCollapseSeconds;
-                root["ui"] = ui;
 
                 string dir = Path.GetDirectoryName(ConfigPath);
                 if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir)) Directory.CreateDirectory(dir);
-                // 原子写 + 上一版备份，防止半截文件损坏用户配置
+                // 手拼格式化 JSON：字段固定、逐行缩进，方便 notepad 里查找编辑；原子写 + 上一版备份
                 string tmp = ConfigPath + ".tmp";
                 string bak = ConfigPath + ".bak";
-                File.WriteAllText(tmp, NewJson().Serialize(root), Encoding.UTF8);
+                File.WriteAllText(tmp, BuildPretty(cfg), Encoding.UTF8);
                 if (File.Exists(ConfigPath))
                 {
                     try { if (File.Exists(bak)) File.Delete(bak); }

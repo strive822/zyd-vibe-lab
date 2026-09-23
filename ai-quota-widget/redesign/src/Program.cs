@@ -29,8 +29,11 @@ namespace QuotaWidget
         private static EventWaitHandle _showSignal;
 
         [STAThread]
-        private static void Main()
+        private static void Main(string[] args)
         {
+            bool mock = args != null && Array.IndexOf(args, "--mock") >= 0;
+            bool menuDemo = args != null && Array.IndexOf(args, "--menu-demo") >= 0;
+            Log.W("start, mock=" + mock + " menuDemo=" + menuDemo);
             try { SetProcessDPIAware(); }
             catch { }
 
@@ -68,7 +71,13 @@ namespace QuotaWidget
             {
                 Log.W("unhandled-exception: " + e.ExceptionObject);
             };
-            WidgetForm form = new WidgetForm(cfg);
+            WidgetForm form = new WidgetForm(cfg, mock);
+            if (mock) Log.W("mock mode on");
+            if (menuDemo)
+            {
+                form.OpenMenuForDemo();
+                Log.W("menu demo opened");
+            }
             Log.W("form constructed");
             Application.Run(form);
             Log.W("app run ended");

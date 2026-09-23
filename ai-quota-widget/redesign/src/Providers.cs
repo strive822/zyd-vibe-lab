@@ -132,6 +132,16 @@ namespace QuotaWidget
             return WeekDayNames[(int)dt.DayOfWeek] + " " + dt.ToString("HH:mm");
         }
 
+        // 5h 窗口的绝对时刻：同日 HH:mm，跨天补日期
+        public static string FormatTimeAnchor(long? resetAt)
+        {
+            if (resetAt == null) return null;
+            DateTime dt = EpochUtc.AddSeconds(resetAt.Value).ToLocalTime();
+            if (dt.Date == DateTime.Now.Date) return dt.ToString("HH:mm");
+            if (dt.Date == DateTime.Now.Date.AddDays(1)) return "明 " + dt.ToString("HH:mm");
+            return dt.ToString("M/d HH:mm");
+        }
+
         public static string FormatCountdown(long? resetAt)
         {
             if (resetAt == null) return null;

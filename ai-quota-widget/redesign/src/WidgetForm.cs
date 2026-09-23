@@ -61,6 +61,7 @@ namespace QuotaWidget
         private int _animToH;
         private DateTime _animStart;
         private bool _hover;
+        private readonly bool _mock;
         private bool _pressing;
         private bool _dragging;
         private Point _downScreen;
@@ -71,6 +72,7 @@ namespace QuotaWidget
         private Font _fontSmall;
         private Font _fontMicro;
         private Font _fontMono;
+        private Font _fontMonoSmall;
         private Font _fontMonoNum;
         private Icon _trayIcon;
         private bool _balloonTemplateShown;
@@ -107,6 +109,9 @@ namespace QuotaWidget
         [DllImport("user32.dll")]
         private static extern bool DestroyIcon(IntPtr hIcon);
 
+        [DllImport("dwmapi.dll")]
+        private static extern void DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int val, int size);
+
         [DllImport("user32.dll")]
         private static extern bool SetWindowPos(IntPtr hWnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
         [DllImport("user32.dll")]
@@ -118,9 +123,10 @@ namespace QuotaWidget
         private static readonly IntPtr HTCAPTION = (IntPtr)2;
         private const uint SWP_FLAGS = 0x1 | 0x2 | 0x10; // NOSIZE | NOMOVE | NOACTIVATE
 
-        public WidgetForm(AppConfig cfg)
+        public WidgetForm(AppConfig cfg, bool mock)
         {
             _cfg = cfg;
+            _mock = mock;
             _mode = cfg.Ui.Mode == "line" ? "line" : "bridge";
             BuildAccountsFromConfig(null);
             InitForm();
@@ -135,6 +141,7 @@ namespace QuotaWidget
             _anim.Interval = 15;
             _anim.Tick += OnAnimTick;
             _nextRefresh = DateTime.Now.AddSeconds(2);
+            AppConfig.Save(_cfg); // 启动即重写，把旧单行配置迁移成缩进格式
             Log.W("ctor done, mode=" + _mode + " accounts=" + _accounts.Count);
         }
 
@@ -184,6 +191,7 @@ namespace QuotaWidget
             _fontSmall = new Font("Microsoft YaHei UI", 8f);
             _fontMicro = new Font("Microsoft YaHei UI", 7.5f);
             _fontMono = new Font("Consolas", 8.25f);
+            _fontMonoSmall = new Font("Consolas", 7.5f);
             _fontMonoNum = new Font("Consolas", 10.5f, FontStyle.Bold);
             ApplySize(false); // scale 就绪后重算三态尺寸（InitForm 时 scale 尚未初始化）
             UpdateLineKeying();
@@ -206,6 +214,18 @@ namespace QuotaWidget
             }
             RefreshNow();
             Log.W("onload done");
+        }
+
+        protected override void OnHandleCreated(EventArgs e)
+        {
+            base.OnHandleCreated(e);
+            try
+            {
+                // Win11 DWM 默认给顶层窗画圆角+边缘高光（底部亮带来源）；直角仪器窗禁用
+                int pref = 1; // DWMWCP_DONOTROUND
+                DwmSetWindowAttribute(Handle, 33, ref pref, 4);
+            }
+            catch { }
         }
 
         protected override void OnShown(EventArgs e)
@@ -244,16 +264,16 @@ namespace QuotaWidget
             _accounts.Clear();
             _accounts.AddRange(list);
 
-            // 缩写：同各出现重名时追加序号，避免桥上歧义（智谱多 Key → 智1/智2）
+            // 单字母标签系统：O=OpenAI Codex、Z=智谱、D=DeepSeek；同提供商多账户才追加序号
             var groups = new Dictionary<string, List<AccountState>>();
             foreach (AccountState s in list)
             {
-                s.Abbr = AbbrOf(s.Name);
+                s.Abbr = s.Provider == "codex" ? "O" : s.Provider == "zhipu" ? "Z" : "D";
                 List<AccountState> gl;
-                if (!groups.TryGetValue(s.Abbr, out gl))
+                if (!groups.TryGetValue(s.Provider, out gl))
                 {
                     gl = new List<AccountState>();
-                    groups[s.Abbr] = gl;
+                    groups[s.Provider] = gl;
                 }
                 gl.Add(s);
             }
@@ -263,7 +283,7 @@ namespace QuotaWidget
                 {
                     for (int i = 0; i < kv.Value.Count; i++)
                     {
-                        kv.Value[i].Abbr = kv.Key + (i + 1);
+                        kv.Value[i].Abbr = kv.Key == "O" ? "O" + (i + 1) : kv.Key + (i + 1);
                     }
                 }
             }
@@ -346,7 +366,7 @@ namespace QuotaWidget
 
         private int ChannelWidth(AccountState acc)
         {
-            return IsUnconfigured(acc) ? S(150) : S(126);
+            return IsUnconfigured(acc) ? S(150) : S(140);
         }
 
         private void ComputeTargetSize(out int w, out int h)
@@ -380,7 +400,9 @@ namespace QuotaWidget
             int h = S(3);
             foreach (AccountState a in vis)
             {
-                h += a.IsBalance ? S(24) : S(18) * 3 + S(8);
+                h += a.IsBalance ? S(24)
+                    : IsUnconfigured(a) ? S(18) * 2 + S(8)
+                    : S(18) * 3 + S(8);
             }
             return h;
         }
@@ -714,12 +736,7 @@ namespace QuotaWidget
                         TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
 
                     double worst = WorstPercentOf(acc);
-                    bool warn = Breathing(acc);
                     bool noData = !acc.IsBalance && acc.Windows.Count == 0;
-
-                    // 单根微型电平条：最紧窗口的真实百分比（与展开态 bar 同一语言）
-                    int ledX = ux + S(28);
-                    DrawLed(g, ledX, cy - S(3), S(6), LedSegIdle, LedGapIdle, worst, acc.Stale, warn);
 
                     // 数字带 %，随阈值变色
                     string num = acc.IsBalance
@@ -729,22 +746,19 @@ namespace QuotaWidget
                         : acc.IsBalance ? (acc.Balance == null ? ColSub : ColText)
                         : (noData ? ColSub : StatusColor(worst));
                     TextRenderer.DrawText(g, num, _fontMonoNum,
-                        new Rectangle(ledX + LedIdleW + S(4), 0, S(38), client.Height),
+                        new Rectangle(ux + S(19), 0, S(34), client.Height),
                         numColor,
                         TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
 
-                    // 紧凑重置倒计时（最近窗口）
-                    QuotaWindow nearest = FindWindow(acc, WindowKind.FiveHour) ?? FindWindow(acc, WindowKind.Week);
-                    string cd = acc.IsBalance || nearest == null ? null : Providers.FormatCountdown(nearest.ResetAt);
-                    if (cd != null)
-                    {
-                        TextRenderer.DrawText(g, cd, _fontMono,
-                            new Rectangle(ledX + LedIdleW + S(4) + S(38), 0, S(30), client.Height),
-                            ColSub,
-                            TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
-                    }
+                    // 右块双行：5h / 7d 重置时刻（直接显示日期时间，不用倒计时）
+                    QuotaWindow five = FindWindow(acc, WindowKind.FiveHour);
+                    QuotaWindow week = FindWindow(acc, WindowKind.Week);
+                    string l1 = "5h " + (five == null ? "--" : Providers.FormatTimeAnchor(five.ResetAt) ?? "--");
+                    string l2 = "7d " + (week == null ? "--" : Providers.FormatResetAnchor(week.ResetAt) ?? "--");
+                    TextRenderer.DrawText(g, l1, _fontMonoSmall, new Point(ux + S(56), cy - S(10)), ColSub);
+                    TextRenderer.DrawText(g, l2, _fontMonoSmall, new Point(ux + S(56), cy), ColSub);
 
-                    ux += S(126);
+                    ux += S(140);
                 }
 
                 // 通道分隔
@@ -809,20 +823,24 @@ namespace QuotaWidget
                     TextRenderer.DrawText(g, text, _fontSmall, new Point(S(26), top), tc);
                     top += S(18);
                 }
+                else if (IsUnconfigured(acc))
+                {
+                    // 空态塌缩：标题行下直接一行「未配置 Key」，不出空轨道与 --
+                    TextRenderer.DrawText(g, "未配置 Key", _fontSmall, new Point(S(26), top), ColSub);
+                    top += S(18);
+                }
                 else
                 {
                     QuotaWindow five = FindWindow(acc, WindowKind.FiveHour);
                     QuotaWindow week = FindWindow(acc, WindowKind.Week);
-                    DrawPanelRow(g, "5h", five, S(26), ref top, acc, true);
-                    DrawPanelRow(g, "7d", week, S(26), ref top, acc, false);
+                    DrawPanelRow(g, "5h", five, S(26), ref top, acc, false);
+                    DrawPanelRow(g, "7d", week, S(26), ref top, acc, true);
                 }
 
-                if (!string.IsNullOrEmpty(acc.Error) && !acc.IsBalance && acc.Windows.Count == 0)
+                if (!string.IsNullOrEmpty(acc.Error) && !acc.IsBalance && !IsUnconfigured(acc) && acc.Windows.Count == 0)
                 {
-                    bool unconf = acc.Error.Contains("未配置");
-                    TextRenderer.DrawText(g,
-                        unconf ? "未配置 Key" : "刷新失败（" + Providers.Truncate(acc.Error, 34) + "）",
-                        _fontMicro, new Point(S(44), top), unconf ? ColSub : ColRed);
+                    TextRenderer.DrawText(g, "刷新失败（" + Providers.Truncate(acc.Error, 34) + "）",
+                        _fontMicro, new Point(S(44), top), ColRed);
                     top += S(14);
                 }
 
@@ -835,7 +853,7 @@ namespace QuotaWidget
             }
         }
 
-        private void DrawPanelRow(Graphics g, string label, QuotaWindow w, int x, ref int top, AccountState acc, bool relativeCountdown)
+        private void DrawPanelRow(Graphics g, string label, QuotaWindow w, int x, ref int top, AccountState acc, bool weekly)
         {
             TextRenderer.DrawText(g, label, _fontMono,
                 new Rectangle(x, top, S(16), S(16)),
@@ -854,7 +872,7 @@ namespace QuotaWidget
             TextRenderer.DrawText(g, num, _fontMonoNum,
                 new Point(ledX + LedFullW + S(6), top - S(1)),
                 acc.Stale ? ColSub : StatusColor(w.UsedPercent));
-            string cd = relativeCountdown ? Providers.FormatCountdown(w.ResetAt) : Providers.FormatResetAnchor(w.ResetAt);
+            string cd = weekly ? Providers.FormatResetAnchor(w.ResetAt) : Providers.FormatTimeAnchor(w.ResetAt);
             if (cd != null)
             {
                 TextRenderer.DrawText(g, "重置 " + cd, _fontMicro,
@@ -939,6 +957,14 @@ namespace QuotaWidget
         }
 
         // 菜单自身仍打开时不可立即 Dispose 重建，延迟到消息循环下一轮
+        // 供截图工具使用：程序启动时主动弹出右键菜单（--menu-demo）
+        internal void OpenMenuForDemo()
+        {
+            BuildMenu();
+            Rectangle r = ClientRectangle;
+            _menu.Show(new Point(Location.X + S(30), Location.Y + S(8)));
+        }
+
         private void SafeRebuildMenu()
         {
             if (IsDisposed || !IsHandleCreated) return;
@@ -1056,47 +1082,22 @@ namespace QuotaWidget
                 _menu = null;
             }
             _menu = new ContextMenuStrip();
-            _menu.Items.Add("立即刷新", null, delegate { RefreshNow(); });
+            _menu.Renderer = new ToolStripProfessionalRenderer(new DarkMenuColors());
+            _menu.BackColor = ColBg;
+            _menu.ForeColor = ColText;
+            _menu.ShowImageMargin = true;
+            _menu.Font = _font;
+
+            _menu.Items.Add(PlainItem("立即刷新", delegate { RefreshNow(); }));
             _menu.Items.Add(new ToolStripSeparator());
 
-            ToolStripMenuItem miLine = new ToolStripMenuItem("收成一线");
-            miLine.Checked = _mode == "line";
-            miLine.Click += delegate
-            {
-                SetMode(_mode == "line" ? "bridge" : "line");
-                SafeRebuildMenu();
-            };
-            _menu.Items.Add(miLine);
-
-            ToolStripMenuItem miTop = new ToolStripMenuItem("置顶显示");
-            miTop.Checked = _cfg.Ui.TopMost;
-            miTop.Click += delegate
+            // 显示类
+            _menu.Items.Add(CheckItem("置顶显示", _cfg.Ui.TopMost, delegate
             {
                 _cfg.Ui.TopMost = !_cfg.Ui.TopMost;
                 TopMost = _cfg.Ui.TopMost;
                 SaveUi();
-                SafeRebuildMenu();
-            };
-            _menu.Items.Add(miTop);
-
-            ToolStripMenuItem miAccounts = new ToolStripMenuItem("显示账号");
-            foreach (AccountState acc in _accounts)
-            {
-                AccountState a = acc;
-                ToolStripMenuItem mi = new ToolStripMenuItem(a.Name);
-                mi.Checked = a.Visible;
-                mi.Click += delegate
-                {
-                    a.Visible = !a.Visible;
-                    SetConfigVisible(a, a.Visible);
-                    ApplySize(true);
-                    SaveUi();
-                    RefreshNow();
-                    SafeRebuildMenu();
-                };
-                miAccounts.DropDownItems.Add(mi);
-            }
-            _menu.Items.Add(miAccounts);
+            }));
 
             ToolStripMenuItem miOpacity = new ToolStripMenuItem("透明度");
             AddOpacityItem(miOpacity, "100%", 1.0);
@@ -1106,45 +1107,127 @@ namespace QuotaWidget
             AddOpacityItem(miOpacity, "50%", 0.5);
             _menu.Items.Add(miOpacity);
 
-            ToolStripMenuItem miAuto = new ToolStripMenuItem("开机自启");
-            miAuto.Checked = AppConfig.GetAutostart();
-            miAuto.Click += delegate
+            ToolStripMenuItem miAccounts = new ToolStripMenuItem("显示账号");
+            foreach (AccountState acc in _accounts)
             {
-                bool cur = AppConfig.GetAutostart();
-                AppConfig.SetAutostart(!cur, Application.ExecutablePath);
-                SafeRebuildMenu();
-            };
-            _menu.Items.Add(miAuto);
+                AccountState a = acc;
+                ToolStripMenuItem mi = CheckItem(a.Name, a.Visible, delegate
+                {
+                    a.Visible = !a.Visible;
+                    SetConfigVisible(a, a.Visible);
+                    ApplySize(true);
+                    SaveUi();
+                    RefreshNow();
+                });
+                miAccounts.DropDownItems.Add(mi);
+            }
+            _menu.Items.Add(miAccounts);
+
+            _menu.Items.Add(CheckItem("收成一线", _mode == "line", delegate
+            {
+                SetMode(_mode == "line" ? "bridge" : "line");
+            }));
 
             _menu.Items.Add(new ToolStripSeparator());
-            _menu.Items.Add("打开配置", null, delegate
+
+            // 配置类
+            _menu.Items.Add(PlainItem("打开配置", delegate
             {
                 try { Process.Start("notepad.exe", "\"" + AppConfig.ConfigPath + "\""); }
                 catch { }
-            });
-            _menu.Items.Add("重载配置", null, delegate { ReloadConfig(); });
+            }));
+            _menu.Items.Add(PlainItem("重载配置", delegate { ReloadConfig(); }));
+            _menu.Items.Add(CheckItem("开机自启", AppConfig.GetAutostart(), delegate
+            {
+                AppConfig.SetAutostart(!AppConfig.GetAutostart(), Application.ExecutablePath);
+            }));
+
             _menu.Items.Add(new ToolStripSeparator());
-            _menu.Items.Add("退出", null, delegate { ExitApp(); });
+            _menu.Items.Add(PlainItem("退出", delegate { ExitApp(); }));
+
+            // 深色子菜单同步
+            StyleDropDown(_menu);
 
             if (_tray != null) _tray.ContextMenuStrip = _menu;
         }
 
+        private ToolStripMenuItem PlainItem(string text, EventHandler onClick)
+        {
+            ToolStripMenuItem mi = new ToolStripMenuItem(text);
+            mi.ForeColor = ColText;
+            if (onClick != null) mi.Click += onClick;
+            return mi;
+        }
+
+        // 勾选项用 accent 绿自定义勾选标记（自绘 image），不用系统默认
+        private ToolStripMenuItem CheckItem(string text, bool on, EventHandler onClick)
+        {
+            ToolStripMenuItem mi = new ToolStripMenuItem(text);
+            mi.Image = MakeCheckIcon(on);
+            mi.ForeColor = on ? ColText : ColSub;
+            mi.Click += delegate { onClick(this, EventArgs.Empty); };
+            return mi;
+        }
+
+        private Bitmap MakeCheckIcon(bool on)
+        {
+            Bitmap bmp = new Bitmap(14, 14);
+            if (on)
+            {
+                using (Graphics g = Graphics.FromImage(bmp))
+                {
+                    g.SmoothingMode = SmoothingMode.AntiAlias;
+                    using (Pen p = new Pen(ColGreen, 2f))
+                    {
+                        g.DrawLines(p, new[] { new Point(3, 8), new Point(6, 11), new Point(11, 3) });
+                    }
+                }
+            }
+            return bmp;
+        }
+
+        private void StyleDropDown(ToolStrip drop)
+        {
+            drop.BackColor = ColBg;
+            drop.ForeColor = ColText;
+            drop.Font = _font;
+            foreach (ToolStripItem item in drop.Items)
+            {
+                item.ForeColor = ColText;
+                ToolStripMenuItem mi = item as ToolStripMenuItem;
+                if (mi != null && mi.HasDropDownItems) StyleDropDown(mi.DropDown);
+            }
+        }
+
         private void AddOpacityItem(ToolStripMenuItem parent, string label, double value)
         {
-            ToolStripMenuItem mi = new ToolStripMenuItem(label);
-            mi.Checked = Math.Abs(_cfg.Ui.Opacity - value) < 0.01;
-            mi.Click += delegate
+            ToolStripMenuItem mi = CheckItem(label, Math.Abs(_cfg.Ui.Opacity - value) < 0.01, delegate
             {
                 _cfg.Ui.Opacity = value;
                 Opacity = value;
                 UpdateLineKeying();
                 SaveUi();
-                SafeRebuildMenu();
-            };
+            });
             parent.DropDownItems.Add(mi);
         }
 
-        // ---------- 刷新 ----------
+        private void ApplyMock()
+        {
+            foreach (AccountState acc in _accounts)
+            {
+                if (acc.IsBalance || acc.Provider != "codex") continue;
+                long now = Providers.NowUnixSeconds();
+                acc.Windows = new List<QuotaWindow>
+                {
+                    new QuotaWindow { Kind = WindowKind.FiveHour, DurationSeconds = 18000, UsedPercent = 93, ResetAt = now + 2400 },
+                    new QuotaWindow { Kind = WindowKind.Week, DurationSeconds = 604800, UsedPercent = 75, ResetAt = now + 432000 }
+                };
+                acc.Error = null;
+                acc.Warning = null;
+                acc.Stale = false;
+            }
+            Invalidate();
+        }
 
         private void OnTick(object sender, EventArgs e)
         {
@@ -1225,6 +1308,7 @@ namespace QuotaWidget
                         _refreshing = false;
                         _lastRefresh = DateTime.Now;
                         _nextRefresh = DateTime.Now.AddSeconds(Math.Max(5, _cfg.RefreshIntervalSeconds));
+                        if (_mock) ApplyMock();
                         UpdateTrayIcon();
                         if (_tray != null)
                         {
@@ -1269,5 +1353,30 @@ namespace QuotaWidget
             _cfg.Ui.TopMost = TopMost;
             AppConfig.Save(_cfg);
         }
+    }
+
+    // 深色菜单色表：与挂件同一套背景/边框/hover 语言
+    internal class DarkMenuColors : ProfessionalColorTable
+    {
+        private static Color Bg() { return Color.FromArgb(16, 17, 20); }
+        private static Color Hover() { return Color.FromArgb(38, 40, 46); }
+        private static Color Sep() { return Color.FromArgb(35, 37, 43); }
+
+        public override Color ToolStripDropDownBackground { get { return Bg(); } }
+        public override Color ImageMarginGradientBegin { get { return Bg(); } }
+        public override Color ImageMarginGradientMiddle { get { return Bg(); } }
+        public override Color ImageMarginGradientEnd { get { return Bg(); } }
+        public override Color MenuBorder { get { return Sep(); } }
+        public override Color MenuItemBorder { get { return Sep(); } }
+        public override Color MenuItemSelected { get { return Hover(); } }
+        public override Color MenuItemSelectedGradientBegin { get { return Hover(); } }
+        public override Color MenuItemSelectedGradientEnd { get { return Hover(); } }
+        public override Color MenuItemPressedGradientBegin { get { return Color.FromArgb(22, 24, 28); } }
+        public override Color MenuItemPressedGradientEnd { get { return Color.FromArgb(22, 24, 28); } }
+        public override Color SeparatorDark { get { return Sep(); } }
+        public override Color SeparatorLight { get { return Sep(); } }
+        public override Color CheckBackground { get { return Color.Transparent; } }
+        public override Color CheckSelectedBackground { get { return Color.Transparent; } }
+        public override Color CheckPressedBackground { get { return Color.Transparent; } }
     }
 }
