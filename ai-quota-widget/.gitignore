@@ -1,0 +1,6 @@
+# 本地产物：编译输出与含 API Key 的运行时配置
+bin/
+config.json
+config.json.bak
+config.json.tmp
+*.exe
