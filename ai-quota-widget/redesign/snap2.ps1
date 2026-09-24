@@ -16,8 +16,6 @@ public class S4 {
   [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out GR r);
   [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr h, IntPtr dc, uint f);
   [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr h, uint m, IntPtr w, IntPtr l);
-  [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
-  [DllImport("user32.dll")] public static extern void mouse_event(uint f, uint dx, uint dy, uint d, UIntPtr e);
   public struct GR { public int L, T, Rt, B; }
   public static IntPtr Hwnd = IntPtr.Zero;
   public static IntPtr FindHwnd(string title) {
@@ -38,18 +36,18 @@ public class S4 {
     System.Threading.Thread.Sleep(80);
     PostMessage(Hwnd, 0x202, (IntPtr)0, lp);
   }
-  public static string Snap(string path, int pad) {
+  public static string Snap(string path) {
     GR r = Rect();
     int W = r.Rt - r.L, H = r.B - r.T;
     if (W <= 0) return "zero";
-    using (var bmp = new Bitmap(W + 2 * pad, H + 2 * pad)) {
+    using (var bmp = new Bitmap(W, H)) {
       using (var g = Graphics.FromImage(bmp)) {
-        g.Clear(Color.FromArgb(40, 40, 46));
+        g.Clear(Color.FromArgb(16, 17, 20));
         IntPtr dc = g.GetHdc();
         PrintWindow(Hwnd, dc, 2);
         g.ReleaseHdc(dc);
         using (var b = new SolidBrush(Color.FromArgb(16, 17, 20))) {
-          g.FillRectangle(b, pad, pad + H - 2, W, 2);
+          g.FillRectangle(b, 0, H - 2, W, 2);
         }
       }
       bmp.Save(path);
@@ -67,7 +65,7 @@ public class S4 {
         if (cn.ToString().StartsWith("WindowsForms10")) {
           GR r = new GR(); GetWindowRect(h, out r);
           int w = r.Rt - r.L, ht = r.B - r.T;
-          if (w > 40 && w < 700 && ht > 40 && ht < 900) {
+          if (w > 30 && w < 700 && ht > 25 && ht < 900) {
             n++;
             using (var bmp = new Bitmap(w, ht)) {
               using (var g = Graphics.FromImage(bmp)) {
@@ -84,14 +82,64 @@ public class S4 {
     }, IntPtr.Zero);
     return n + " menu window(s)";
   }
+  public static string EnumPopups() {
+    GR mr = Rect();
+    uint pid = 0; GetWindowThreadProcessId(Hwnd, out pid);
+    var sb = new StringBuilder();
+    EnumWindows(delegate(IntPtr h, IntPtr l) {
+      uint p2; GetWindowThreadProcessId(h, out p2);
+      if (p2 == pid && h != Hwnd && IsWindowVisible(h)) {
+        var cn = new StringBuilder(256); GetClassName(h, cn, 256);
+        GR r = new GR(); GetWindowRect(h, out r);
+        sb.Append("popup class=[").Append(cn).Append("] rect=").Append(r.L).Append(",").Append(r.T)
+          .Append(" ").Append(r.Rt - r.L).Append("x").Append(r.B - r.T).Append("\r\n");
+      }
+      return true;
+    }, IntPtr.Zero);
+    return sb.ToString();
+  }
 }
 '@
 $root = 'E:\pi always\1a\redesign'
-[S4]::Hwnd = [S4]::FindHwnd('AIQuotaWidget')
-if ([S4]::Hwnd -eq [IntPtr]::Zero) { Write-Output 'no hwnd'; exit 1 }
+$exe = Join-Path $root 'bin\QuotaWidget.exe'
+
+function Restart-Widget([string]$arg) {
+  Get-Process QuotaWidget -ErrorAction SilentlyContinue | Stop-Process -Force
+  Start-Sleep -Milliseconds 800
+  if ($arg) { Start-Process -FilePath $exe -ArgumentList $arg }
+  else { Start-Process -FilePath $exe }
+  Start-Sleep -Seconds 7
+  [S4]::Hwnd = [S4]::FindHwnd('AIQuotaWidget')
+  if ([S4]::Hwnd -eq [IntPtr]::Zero) { Write-Output 'no hwnd'; exit 1 }
+}
+
 switch ($action) {
-  'collapsed' { Write-Output ('collapsed: ' + [S4]::Snap((Join-Path $root 'shot-bridge.png'), 20)) }
-  'expanded'  { [S4]::ClickCenter(); Start-Sleep -Milliseconds 900; Write-Output ('expanded: ' + [S4]::Snap((Join-Path $root 'shot-expanded.png'), 20)) }
-  'collapse'  { [S4]::ClickCenter(); Start-Sleep -Milliseconds 500; Write-Output ('collapsed: ' + [S4]::Snap((Join-Path $root 'shot-bridge.png'), 20)) }
-  'menus'     { Write-Output ([S4]::SnapAllMenus((Join-Path $root 'shot-menu.png'))) }
+  'collapsed' {
+    Restart-Widget $null
+    Write-Output ('collapsed: ' + [S4]::Snap((Join-Path $root 'shot-bridge.png')))
+  }
+  'expanded' {
+    Restart-Widget $null
+    [S4]::ClickCenter(); Start-Sleep -Milliseconds 900
+    Write-Output ('expanded: ' + [S4]::Snap((Join-Path $root 'shot-expanded.png')))
+  }
+  'menu' {
+    Restart-Widget '--menu-demo'
+    Start-Sleep -Milliseconds 500
+    Write-Output ([S4]::SnapAllMenus((Join-Path $root 'shot-menu.png')))
+  }
+  'submenu' {
+    Restart-Widget '--submenu-demo'
+    Start-Sleep -Milliseconds 900
+    Write-Output ([S4]::SnapAllMenus((Join-Path $root 'shot-submenu.png')))
+  }
+  'enum' {
+    [S4]::Hwnd = [S4]::FindHwnd('AIQuotaWidget')
+    if ([S4]::Hwnd -eq [IntPtr]::Zero) { Write-Output 'no hwnd'; exit 1 }
+    Write-Output ([S4]::EnumPopups())
+  }
+  'collapse' {
+    [S4]::ClickCenter(); Start-Sleep -Milliseconds 500
+    Write-Output ('collapsed: ' + [S4]::Snap((Join-Path $root 'shot-bridge.png')))
+  }
 }

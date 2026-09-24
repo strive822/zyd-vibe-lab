@@ -867,12 +867,7 @@ namespace QuotaWidget
                     top += S(14);
                 }
 
-                top += S(8);
-                using (SolidBrush sb = new SolidBrush(ColSep))
-                {
-                    g.FillRectangle(sb, S(10), top, client.Width - S(20), 1);
-                }
-                top += 1;
+                top += S(10); // 无分隔线：深底连成一体，块间距拉开层级
             }
         }
 
