@@ -57,11 +57,9 @@ namespace QuotaWidget
         private ContextMenuStrip _menu;
         private System.Windows.Forms.Timer _tick;   // 1s：心跳/自动收回/自动刷新/置顶重申
         private System.Windows.Forms.Timer _anim;   // 15ms：高度插值
-        private string _mode;                       // panel | mini
         private int _animFromH;
         private int _animToH;
         private DateTime _animStart;
-        private int _lastInteractTick = -1000000;
         private int _tickCount;
         private bool _hover;
         private bool _pressing;
@@ -120,7 +118,6 @@ namespace QuotaWidget
         {
             _cfg = cfg;
             _mock = mock;
-            _mode = NormalizeMode(cfg.Ui.Mode);
             BuildAccountsFromConfig(null);
             InitForm();
             EnsureScaleFonts();
@@ -135,13 +132,7 @@ namespace QuotaWidget
             _anim.Tick += OnAnimTick;
             _nextRefresh = DateTime.Now.AddSeconds(2);
             AppConfig.Save(_cfg); // 启动即重写，把旧配置迁移成缩进格式
-            Log.W("ctor done, mode=" + _mode + " accounts=" + _accounts.Count + " mock=" + _mock);
-        }
-
-        private static string NormalizeMode(string m)
-        {
-            if (m == "line" || m == "mini") return "mini";
-            return "panel";
+            Log.W("ctor done, accounts=" + _accounts.Count + " mock=" + _mock);
         }
 
         // ---------- 初始化 ----------
@@ -361,12 +352,6 @@ namespace QuotaWidget
 
         private void ComputeTargetSize(out int w, out int h)
         {
-            if (_mode == "mini")
-            {
-                w = S(170);
-                h = S(20);
-                return;
-            }
             w = S(290);
             List<AccountState> vis = VisibleAccounts();
             int hh = S(6);
@@ -416,15 +401,6 @@ namespace QuotaWidget
             double ease = 1 - (1 - t) * (1 - t) * (1 - t);
             int hh = _animFromH + (int)Math.Round((_animToH - _animFromH) * ease);
             if (hh != Height) { Height = hh; Invalidate(); }
-        }
-
-        private void SetMode(string mode)
-        {
-            if (_mode == mode) return;
-            _mode = mode;
-            _lastInteractTick = Environment.TickCount;
-            SaveUi();
-            ApplySize(true);
         }
 
         // ---------- 颜色与剩余语义 ----------
@@ -579,87 +555,27 @@ namespace QuotaWidget
                 g.FillRectangle(bg, ClientRectangle);
             }
 
-            if (_mode == "mini") PaintMini(g);
-            else PaintPanel(g);
-        }
-
-        private void PaintMini(Graphics g)
-        {
-            // 最危险的一个数字：剩余最少、色阶最高
-            AccountState worstAcc = null;
-            QuotaWindow worstWin = null;
-            double worstRem = double.MaxValue;
-            foreach (AccountState acc in _accounts)
-            {
-                if (!acc.Visible || acc.IsBalance) continue;
-                foreach (QuotaWindow w in acc.Windows)
-                {
-                    double rem = 100.0 - w.UsedPercent;
-                    if (rem < worstRem)
-                    {
-                        worstRem = rem;
-                        worstAcc = acc;
-                        worstWin = w;
-                    }
-                }
-            }
-
-            Rectangle client = ClientRectangle;
-            int cy = client.Height / 2;
-            if (worstAcc == null || worstWin == null)
-            {
-                bool anyUnconf = false;
-                foreach (AccountState a in _accounts)
-                {
-                    if (a.Visible && IsUnconfigured(a)) { anyUnconf = true; break; }
-                }
-                DrawDot(g, S(8), cy - S(2), S(4), ColDimDot);
-                TextRenderer.DrawText(g, anyUnconf ? "未配置 Key" : "等待数据…", _fontMonoSmall,
-                    new Point(S(16), 0), ColSub,
-                    TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
-                return;
-            }
-
-            double r = 100.0 - worstRem;
-            Color c = RemainingColor(r);
-            bool warn = Breathing(worstAcc);
-            if (warn) c = WithAlpha(c, FlashOn() ? 255 : 150);
-
-            // 状态点（连接/配置状态，不复用用量色）
-            DrawDot(g, S(8), cy - S(2), S(4), ChannelDot(worstAcc));
-
-            TextRenderer.DrawText(g, worstAcc.Abbr, _fontMono,
-                new Rectangle(S(16), 0, S(14), client.Height),
-                ColText,
-                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
-
-            string winLabel = worstWin.Kind == WindowKind.Week ? "7d" : "5h";
-            TextRenderer.DrawText(g, winLabel, _fontMonoSmall,
-                new Point(S(32), 0), ColSub,
-                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
-
-            TextRenderer.DrawText(g, "剩 " + Math.Round(r) + "%", _fontMonoNum,
-                new Rectangle(S(46), 0, S(70), client.Height),
-                c,
-                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
+            PaintPanel(g);
         }
 
         private void PaintPanel(Graphics g)
         {
-            try
-            {
             Rectangle client = ClientRectangle;
             int pad = S(10);
             int halfW = (client.Width - pad * 2 - S(12)) / 2; // 列宽（5h / 7d）
             int tubeW = S(26);
             int tubeH = S(64);
-            int y = S(6);
+            int y = S(4);
+
+            // 顶部铭牌：AI QUOTA（仪器铭牌）
+            TextRenderer.DrawText(g, "AI QUOTA", _fontMono,
+                new Point(pad + S(2), y), ColSubDim,
+                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
+            y += S(16);
 
             List<AccountState> vis = VisibleAccounts();
-            Log.W("PaintPanel vis=" + vis.Count);
             foreach (AccountState acc in vis)
             {
-                Log.W("block " + acc.Key + " unconf=" + IsUnconfigured(acc) + " bal=" + acc.IsBalance + " winCount=" + acc.Windows.Count + " err=[" + (acc.Error ?? "") + "]");
                 int bx = pad;
 
                 // 行头：dot + Abbr + Name
@@ -671,7 +587,7 @@ namespace QuotaWidget
                 string suffix = acc.Stale ? "  ·数据过期" : (acc.Warning != null ? "  ·⚠" : "");
                 TextRenderer.DrawText(g, acc.Name + suffix, _fontBold,
                     new Point(bx + S(28), y), ColText);
-                y += S(18);
+                y += S(16);
 
                 if (acc.IsBalance)
                 {
@@ -720,21 +636,21 @@ namespace QuotaWidget
                         TextFormatFlags.Left | TextFormatFlags.Top | TextFormatFlags.NoPadding);
                     y += S(10);
 
-                    // 竖管
+                    // 竖管（无数据时 rem=-1 → 空管）
                     DrawTube(g, colX, y, tubeW, tubeH,
-                        five == null ? 0 : Math.Max(0, Math.Min(100, 100.0 - five.UsedPercent)),
+                        five == null ? -1 : Math.Max(0, Math.Min(100, 100.0 - five.UsedPercent)),
                         acc.Stale, Breathing(acc));
                     DrawTube(g, col2X, y, tubeW, tubeH,
-                        week == null ? 0 : Math.Max(0, Math.Min(100, 100.0 - week.UsedPercent)),
+                        week == null ? -1 : Math.Max(0, Math.Min(100, 100.0 - week.UsedPercent)),
                         acc.Stale, Breathing(acc));
 
-                    // 管旁大号剩余数字（等宽；剩余语义 + 阈值色）
+                    // 管旁大号剩余数字（等宽；剩余语义 + 阈值色；无数据 → 灰「无数据」）
                     int numY = y + tubeH / 2 - S(12);
                     DrawRemainNum(g, five, colX + tubeW + S(5), numY, acc);
                     DrawRemainNum(g, week, col2X + tubeW + S(5), numY, acc);
                     y += tubeH + S(2);
 
-                    // 底部绝对重置时刻（列内右对齐）
+                    // 底部绝对重置时刻（列内右对齐；无数据画灰「—」）
                     DrawResetFoot(g, five, colX, halfW - S(8), y);
                     DrawResetFoot(g, week, col2X, halfW - S(8), y);
                     y += S(14);
@@ -742,19 +658,20 @@ namespace QuotaWidget
 
                 y += S(10); // 块间距
             }
-            }
-            catch (Exception exPaint)
-            {
-                Log.W("PaintPanel ex: " + exPaint);
-            }
+
+            // 底部状态行：上次刷新（压灰）
+            string last = _lastRefresh == DateTime.MinValue ? "—" : _lastRefresh.ToString("HH:mm:ss");
+            TextRenderer.DrawText(g, "刷新 " + last, _fontMicro,
+                new Point(pad + S(2), client.Bottom - S(12)), ColSubDim,
+                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
         }
 
-        // 「剩 N%」：剩余语义 + 阈值色，等宽大号
+        // 「剩 N%」：剩余语义 + 阈值色，等宽大号；无数据 → 灰「无数据」（不占红）
         private void DrawRemainNum(Graphics g, QuotaWindow w, int x, int y, AccountState acc)
         {
             if (w == null)
             {
-                TextRenderer.DrawText(g, "--", _fontMonoBig, new Point(x, y), ColSub);
+                TextRenderer.DrawText(g, "无数据", _fontMonoSmall, new Point(x + S(4), y + S(6)), ColSub);
                 return;
             }
             double rem = Math.Max(0, Math.Min(100, 100.0 - w.UsedPercent));
@@ -762,7 +679,7 @@ namespace QuotaWidget
                 new Point(x, y), acc.Stale ? ColSub : RemainingColor(rem));
         }
 
-        // 底部绝对重置时刻（列内右对齐）
+        // 底部绝对重置时刻（列内右对齐；无数据画灰「—」）
         private void DrawResetFoot(Graphics g, QuotaWindow w, int x, int w2, int y)
         {
             string reset = w == null || w.ResetAt == null ? "--" : Providers.FormatResetAnchor(w.ResetAt);
@@ -794,13 +711,11 @@ namespace QuotaWidget
             _pressing = true;
             _dragging = false;
             _downScreen = Cursor.Position;
-            _lastInteractTick = Environment.TickCount;
         }
 
         protected override void OnMouseMove(MouseEventArgs e)
         {
             base.OnMouseMove(e);
-            _lastInteractTick = Environment.TickCount;
             if (!_pressing || _dragging) return;
             Size drag = SystemInformation.DragSize;
             if (Math.Abs(Cursor.Position.X - _downScreen.X) > drag.Width ||
@@ -821,14 +736,7 @@ namespace QuotaWidget
             bool wasDragging = _dragging;
             _pressing = false;
             _dragging = false;
-            if (wasDragging) return; // 系统拖动结束不触发点击
-            ToggleMode();
-        }
-
-        private void ToggleMode()
-        {
-            _lastInteractTick = Environment.TickCount;
-            SetMode(_mode == "panel" ? "mini" : "panel");
+            if (wasDragging) return;
         }
 
         protected override void OnMouseClick(MouseEventArgs e)
@@ -836,8 +744,7 @@ namespace QuotaWidget
             base.OnMouseClick(e);
             if (e.Button == MouseButtons.Right)
             {
-                _lastInteractTick = Environment.TickCount;
-                BuildMenu();
+                    BuildMenu();
                 _menu.Show(Cursor.Position);
             }
         }
@@ -998,11 +905,6 @@ namespace QuotaWidget
             _menu.Font = _font;
 
             _menu.Items.Add(PlainItem("立即刷新", delegate { RefreshNow(); }));
-            _menu.Items.Add(CheckItem("收成 mini", _mode == "mini", delegate
-            {
-                SetMode(_mode == "mini" ? "panel" : "mini");
-            }));
-
             _menu.Items.Add(new ToolStripSeparator());
 
             // 显示类（开关项同组）
@@ -1134,12 +1036,6 @@ namespace QuotaWidget
                     SetWindowPos(Handle, HWND_TOPMOST, 0, 0, 0, 0, SWP_FLAGS);
                 }
             }
-            // 面板态无操作自动收进 mini
-            if (_mode == "panel" && _cfg.Ui.AutoCollapseSeconds > 0 &&
-                Environment.TickCount - _lastInteractTick > _cfg.Ui.AutoCollapseSeconds * 1000)
-            {
-                SetMode("mini");
-            }
             if (!_refreshing && _nextRefresh != DateTime.MinValue && DateTime.Now >= _nextRefresh)
             {
                 RefreshNow();
@@ -1259,7 +1155,6 @@ namespace QuotaWidget
         {
             _cfg.Ui.Left = Location.X;
             _cfg.Ui.Top = Location.Y;
-            _cfg.Ui.Mode = _mode;
             _cfg.Ui.Opacity = Opacity;
             _cfg.Ui.TopMost = TopMost;
             AppConfig.Save(_cfg);
