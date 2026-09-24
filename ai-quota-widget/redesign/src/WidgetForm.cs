@@ -352,19 +352,20 @@ namespace QuotaWidget
 
         private void ComputeTargetSize(out int w, out int h)
         {
-            w = S(290);
             List<AccountState> vis = VisibleAccounts();
-            int hh = S(6);
+            // 块高：头14 + 行(标签9+管40+数字行内) + 重置9 + 间6 = 78（正常）；单行块 48
+            int per = S(78);
+            int perSmall = S(48);
+            int hh = S(6) + S(14);
             foreach (AccountState a in vis)
             {
-                // 块高实测：头18 + 标签10 + 管64 + 重置14 + 间10 = 116；
-                // 余额/未配置块 = 头18 + 行20 + 间10 = 48
-                hh += a.IsBalance ? S(48) : (IsUnconfigured(a) ? S(48) : S(116));
+                hh += a.IsBalance ? perSmall : (IsUnconfigured(a) ? perSmall + S(6) : per);
             }
-            hh += S(6);
-            if (hh < S(198)) hh = S(198);
+            hh += S(9) + S(6);
+            if (hh < S(150)) hh = S(150);
             if (hh > S(242)) hh = S(242);
             h = hh;
+            w = S(280);
         }
 
         private void ApplySize(bool animate)
@@ -408,9 +409,8 @@ namespace QuotaWidget
         // 剩余视角色阶：剩余充足绿 → 接近阈值橙 → 将耗尽红
         private Color RemainingColor(double remaining)
         {
-            double redLine = 100.0 - _cfg.WarnThreshold; // 默认剩 10 以内红
-            if (remaining <= redLine) return ColRed;
-            if (remaining <= redLine + 20) return ColOrange;
+            if (remaining < 10) return ColRed;
+            if (remaining <= 25) return ColOrange;
             return ColGreen;
         }
 
@@ -424,7 +424,7 @@ namespace QuotaWidget
             foreach (QuotaWindow w in acc.Windows)
             {
                 double rem = 100.0 - w.UsedPercent;
-                if (rem <= 100.0 - _cfg.WarnThreshold) return true;
+                if (rem < 10) return true;
             }
             return false;
         }
@@ -441,8 +441,8 @@ namespace QuotaWidget
 
         private Color ChannelDot(AccountState acc)
         {
-            if (IsUnconfigured(acc)) return ColDimDot;
-            if (!string.IsNullOrEmpty(acc.Error)) return ColRed;
+            if (IsUnconfigured(acc)) return ColDimDot;      // 未配置 → 灰
+            if (!string.IsNullOrEmpty(acc.Error)) return ColDimDot; // 刷新失败 → 灰（红只给剩余耗尽）
             if (acc.IsBalance) return acc.Balance == null ? ColDimDot : ColGreen;
             return acc.Windows.Count == 0 ? ColDimDot : ColGreen;
         }
@@ -513,10 +513,8 @@ namespace QuotaWidget
                 }
             }
 
-            // 警戒红线：刻在管壁剩余红阈处（默认剩 10%）
-            double redRem = 100.0 - _cfg.WarnThreshold;
-            if (redRem < 0) redRem = 0;
-            int redY = innerY + innerH - (int)Math.Round(innerH * redRem / 100.0);
+            // 警戒红线：固定刻在剩 10% 高度（距管底 10%，红线以下为危险区）
+            int redY = innerY + innerH - (int)Math.Round(innerH * 10.0 / 100.0);
             using (Pen rp = new Pen(WithAlpha(ColRed, stale ? 120 : 200), 1f))
             {
                 g.DrawLine(rp, innerX - 2, redY, innerX + innerW + 2, redY);
@@ -608,7 +606,7 @@ namespace QuotaWidget
                     else if (!string.IsNullOrEmpty(acc.Error))
                     {
                         text = "刷新失败（" + Providers.Truncate(acc.Error, 30) + "）";
-                        tc = ColRed;
+                        tc = ColSub; // 错误不占用告警红
                     }
                     TextRenderer.DrawText(g, text, _fontSmall, new Point(bx + S(8), y), tc);
                     y += S(20);
