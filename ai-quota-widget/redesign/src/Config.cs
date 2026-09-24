@@ -108,7 +108,7 @@ namespace QuotaWidget
             cfg.RefreshIntervalSeconds = Clamp(Int(root, "refreshIntervalSeconds", 5), 5, 3600);
             string scheme = Str(root, "zaiAuthorization", "raw");
             cfg.ZaiAuthorization = scheme == "bearer" ? "bearer" : "raw";
-            cfg.WarnThreshold = Clamp(Int(root, "warnThreshold", 90), 50, 100);
+            cfg.WarnThreshold = Clamp(Int(root, "warnThreshold", 90), 5, 100);
 
             Dictionary<string, object> accounts = Dict(root, "accounts");
             Dictionary<string, object> codex = Dict(accounts, "codex");

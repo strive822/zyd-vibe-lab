@@ -97,6 +97,7 @@ namespace QuotaWidget
         private static readonly Color ColOrange = Color.FromArgb(232, 134, 58);
         private static readonly Color ColRed = Color.FromArgb(229, 83, 75);
         private static readonly Color ColDimDot = Color.FromArgb(58, 62, 70);
+        private static readonly Color ColSubDim = Color.FromArgb(90, 96, 104); // 微表标签：比 ColSub 再低一档
 
         // ---- LED 几何（物理像素，小元件不随 DPI 缩放更锐） ----
         private const int LedSegIdle = 2;   // 桥上：段宽 2
@@ -251,7 +252,9 @@ namespace QuotaWidget
             for (int i = 0; i < _cfg.Zhipu.Count; i++)
             {
                 ZhipuCfg z = _cfg.Zhipu[i];
-                string name = string.IsNullOrEmpty(z.Name) ? ("智谱" + (i + 1)) : z.Name;
+                string name = string.IsNullOrEmpty(z.Name)
+                    ? (_cfg.Zhipu.Count > 1 ? "智谱" + (i + 1) : "智谱")
+                    : z.Name;
                 list.Add(MakeAccount(previous, "zhipu:" + i, name, "zhipu", z.ApiKey, z.Visible, false));
             }
             if (_cfg.DeepSeek.Enabled)
@@ -366,7 +369,7 @@ namespace QuotaWidget
 
         private int ChannelWidth(AccountState acc)
         {
-            return IsUnconfigured(acc) ? S(150) : S(140);
+            return IsUnconfigured(acc) ? S(150) : S(174);
         }
 
         private void ComputeTargetSize(out int w, out int h)
@@ -497,6 +500,7 @@ namespace QuotaWidget
 
         private Color StatusColor(double pct)
         {
+            if (pct >= _cfg.WarnThreshold) return ColRed; // 预警阈值覆盖：到阈值直接红（呼吸提醒）
             if (pct > 90) return ColRed;
             if (pct >= 70) return ColOrange;
             return ColGreen;
@@ -718,7 +722,7 @@ namespace QuotaWidget
                 if (IsUnconfigured(acc))
                 {
                     DrawDot(g, ux, cy - S(2), S(4), ColDimDot, false, false);
-                    TextRenderer.DrawText(g, acc.Name + "  —  未配置 Key", _fontSmall,
+                    TextRenderer.DrawText(g, acc.Abbr + "  —  未配置 Key", _fontSmall,
                         new Rectangle(ux + S(8), 0, S(140), client.Height),
                         ColSub,
                         TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
@@ -738,27 +742,39 @@ namespace QuotaWidget
                     double worst = WorstPercentOf(acc);
                     bool noData = !acc.IsBalance && acc.Windows.Count == 0;
 
-                    // 数字带 %，随阈值变色
+                    // 数字带 %，随阈值变色；前置归属微标（5h/7d 小一号灰一档），消除歧义
+                    QuotaWindow worstWin = null;
+                    foreach (QuotaWindow w in acc.Windows)
+                    {
+                        if (worstWin == null || w.UsedPercent > worstWin.UsedPercent) worstWin = w;
+                    }
+                    string tag = worstWin == null ? ""
+                        : (worstWin.Kind == WindowKind.Week ? "7d" : "5h");
                     string num = acc.IsBalance
                         ? (acc.Balance == null ? "--%" : CurrencySymbol(acc.Balance.Currency) + acc.Balance.Total.ToString("0", System.Globalization.CultureInfo.InvariantCulture))
                         : (noData ? "--%" : Math.Round(worst) + "%");
                     Color numColor = acc.Stale ? ColSub
                         : acc.IsBalance ? (acc.Balance == null ? ColSub : ColText)
                         : (noData ? ColSub : StatusColor(worst));
+                    if (tag != "")
+                    {
+                        TextRenderer.DrawText(g, tag, _fontMonoSmall,
+                            new Rectangle(ux + S(19), 0, S(20), client.Height),
+                            ColSubDim,
+                            TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
+                    }
                     TextRenderer.DrawText(g, num, _fontMonoNum,
-                        new Rectangle(ux + S(19), 0, S(34), client.Height),
+                        new Rectangle(ux + S(19) + S(20), 0, S(34), client.Height),
                         numColor,
                         TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
 
-                    // 右块双行：5h / 7d 重置时刻（直接显示日期时间，不用倒计时）
+                    // 右块双行微表：标签降一档灰度，与时间值拉开层级；两行相对中线对称
                     QuotaWindow five = FindWindow(acc, WindowKind.FiveHour);
                     QuotaWindow week = FindWindow(acc, WindowKind.Week);
-                    string l1 = "5h " + (five == null ? "--" : Providers.FormatTimeAnchor(five.ResetAt) ?? "--");
-                    string l2 = "7d " + (week == null ? "--" : Providers.FormatResetAnchor(week.ResetAt) ?? "--");
-                    TextRenderer.DrawText(g, l1, _fontMonoSmall, new Point(ux + S(56), cy - S(10)), ColSub);
-                    TextRenderer.DrawText(g, l2, _fontMonoSmall, new Point(ux + S(56), cy), ColSub);
+                    DrawMicroRow(g, "5h", five == null ? null : Providers.FormatTimeAnchor(five.ResetAt), ux + S(82), cy - S(10), acc.Stale);
+                    DrawMicroRow(g, "7d", week == null ? null : Providers.FormatResetAnchor(week.ResetAt), ux + S(82), cy, acc.Stale);
 
-                    ux += S(140);
+                    ux += S(174);
                 }
 
                 // 通道分隔
@@ -771,6 +787,13 @@ namespace QuotaWidget
                     ux += 1;
                 }
             }
+        }
+
+        // 微表行：标签降一档灰度，时间值高一档，拉开层级
+        private void DrawMicroRow(Graphics g, string label, string value, int x, int y, bool stale)
+        {
+            TextRenderer.DrawText(g, label, _fontMonoSmall, new Point(x, y), ColSubDim);
+            TextRenderer.DrawText(g, value ?? "--", _fontMonoSmall, new Point(x + S(20), y), stale ? ColDimDot : ColSub);
         }
 
         private static QuotaWindow FindWindow(AccountState acc, WindowKind kind)
@@ -958,11 +981,24 @@ namespace QuotaWidget
 
         // 菜单自身仍打开时不可立即 Dispose 重建，延迟到消息循环下一轮
         // 供截图工具使用：程序启动时主动弹出右键菜单（--menu-demo）
-        internal void OpenMenuForDemo()
+        internal void OpenMenuForDemo(bool expandOpacity)
         {
             BuildMenu();
             Rectangle r = ClientRectangle;
             _menu.Show(new Point(Location.X + S(30), Location.Y + S(8)));
+            if (expandOpacity)
+            {
+                System.Threading.Thread.Sleep(400); // 等主菜单完成显示
+                foreach (ToolStripItem item in _menu.Items)
+                {
+                    ToolStripMenuItem mi = item as ToolStripMenuItem;
+                    if (mi != null && mi.Text == "透明度" && mi.HasDropDownItems)
+                    {
+                        mi.ShowDropDown();
+                        break;
+                    }
+                }
+            }
         }
 
         private void SafeRebuildMenu()
@@ -1089,14 +1125,24 @@ namespace QuotaWidget
             _menu.Font = _font;
 
             _menu.Items.Add(PlainItem("立即刷新", delegate { RefreshNow(); }));
+            _menu.Items.Add(CheckItem("收成一线", _mode == "line", delegate
+            {
+                SetMode(_mode == "line" ? "bridge" : "line");
+            }));
+
             _menu.Items.Add(new ToolStripSeparator());
 
-            // 显示类
+            // 显示类（开关项同组）
             _menu.Items.Add(CheckItem("置顶显示", _cfg.Ui.TopMost, delegate
             {
                 _cfg.Ui.TopMost = !_cfg.Ui.TopMost;
                 TopMost = _cfg.Ui.TopMost;
                 SaveUi();
+            }));
+
+            _menu.Items.Add(CheckItem("开机自启", AppConfig.GetAutostart(), delegate
+            {
+                AppConfig.SetAutostart(!AppConfig.GetAutostart(), Application.ExecutablePath);
             }));
 
             ToolStripMenuItem miOpacity = new ToolStripMenuItem("透明度");
@@ -1123,11 +1169,6 @@ namespace QuotaWidget
             }
             _menu.Items.Add(miAccounts);
 
-            _menu.Items.Add(CheckItem("收成一线", _mode == "line", delegate
-            {
-                SetMode(_mode == "line" ? "bridge" : "line");
-            }));
-
             _menu.Items.Add(new ToolStripSeparator());
 
             // 配置类
@@ -1137,10 +1178,6 @@ namespace QuotaWidget
                 catch { }
             }));
             _menu.Items.Add(PlainItem("重载配置", delegate { ReloadConfig(); }));
-            _menu.Items.Add(CheckItem("开机自启", AppConfig.GetAutostart(), delegate
-            {
-                AppConfig.SetAutostart(!AppConfig.GetAutostart(), Application.ExecutablePath);
-            }));
 
             _menu.Items.Add(new ToolStripSeparator());
             _menu.Items.Add(PlainItem("退出", delegate { ExitApp(); }));
@@ -1229,13 +1266,21 @@ namespace QuotaWidget
             Invalidate();
         }
 
+        private int _tickCount;
+
         private void OnTick(object sender, EventArgs e)
         {
-            // 置顶双保险：属性重申 + 每秒 SetWindowPos 强制回最上层
+            _tickCount++;
+            if (_tickCount % 5 == 0) Log.W("tick " + _tickCount); // 心跳：判定 UI 线程死活
+            // 置顶：TopMost 属性即置顶语义；SetWindowPos 强制重申降为低频（每 30s），
+            // 每秒调用会与 PrintWindow/DWM 合成竞争导致截图挂起
             if (_cfg.Ui.TopMost)
             {
                 if (!TopMost) TopMost = true;
-                SetWindowPos(Handle, HWND_TOPMOST, 0, 0, 0, 0, SWP_FLAGS);
+                if (_tickCount % 30 == 0)
+                {
+                    SetWindowPos(Handle, HWND_TOPMOST, 0, 0, 0, 0, SWP_FLAGS);
+                }
             }
             if (_expanded && _cfg.Ui.AutoCollapseSeconds > 0 &&
                 Environment.TickCount - _lastInteractTick > _cfg.Ui.AutoCollapseSeconds * 1000)

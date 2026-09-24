@@ -33,7 +33,8 @@ namespace QuotaWidget
         {
             bool mock = args != null && Array.IndexOf(args, "--mock") >= 0;
             bool menuDemo = args != null && Array.IndexOf(args, "--menu-demo") >= 0;
-            Log.W("start, mock=" + mock + " menuDemo=" + menuDemo);
+            bool submenuDemo = args != null && Array.IndexOf(args, "--submenu-demo") >= 0;
+            Log.W("start, mock=" + mock + " menuDemo=" + menuDemo + " submenuDemo=" + submenuDemo);
             try { SetProcessDPIAware(); }
             catch { }
 
@@ -73,9 +74,9 @@ namespace QuotaWidget
             };
             WidgetForm form = new WidgetForm(cfg, mock);
             if (mock) Log.W("mock mode on");
-            if (menuDemo)
+            if (menuDemo || submenuDemo)
             {
-                form.OpenMenuForDemo();
+                form.OpenMenuForDemo(submenuDemo);
                 Log.W("menu demo opened");
             }
             Log.W("form constructed");
