@@ -1,12 +1,16 @@
 param([string]$action)
+# 只读截图工具：绝不启动/重启/停止挂件进程。
+# menu/submenu 动作要求挂件已以 --menu-demo / --submenu-demo 模式运行（由调用方显式启动）。
 Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public class DPI0 { [DllImport("user32.dll")] public static extern bool SetProcessDPIAware(); }'
-[DPI0]::SetProcessDPIAware() | Out-Null
+try { [DPI0]::SetProcessDPIAware() | Out-Null } catch { }
 Add-Type -ReferencedAssemblies System.Drawing -TypeDefinition @'
 using System;
 using System.Text;
 using System.Drawing;
 using System.Runtime.InteropServices;
 public class S4 {
+  [DllImport("user32.dll")] public static extern bool SetProcessDPIAware();
+  public static void EnsureDpi() { try { SetProcessDPIAware(); } catch { } }
   public delegate bool P(IntPtr h, IntPtr l);
   [DllImport("user32.dll")] public static extern bool EnumWindows(P cb, IntPtr l);
   [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr h);
@@ -58,6 +62,7 @@ public class S4 {
     GR mr = Rect();
     uint pid = 0; GetWindowThreadProcessId(Hwnd, out pid);
     int n = 0;
+    string first = null;
     EnumWindows(delegate(IntPtr h, IntPtr l) {
       uint p2; GetWindowThreadProcessId(h, out p2);
       if (p2 == pid && h != Hwnd && IsWindowVisible(h)) {
@@ -67,20 +72,23 @@ public class S4 {
           int w = r.Rt - r.L, ht = r.B - r.T;
           if (w > 30 && w < 700 && ht > 25 && ht < 900) {
             n++;
+            string p = (n == 1) ? pathBase : pathBase.Replace(".png", "-" + n + ".png");
             using (var bmp = new Bitmap(w, ht)) {
               using (var g = Graphics.FromImage(bmp)) {
                 IntPtr dc = g.GetHdc();
                 PrintWindow(h, dc, 2);
                 g.ReleaseHdc(dc);
               }
-              bmp.Save(pathBase.Replace(".png", "-" + n + ".png"));
+              bmp.Save(p);
             }
+            if (first == null) first = p;
           }
         }
       }
       return true;
     }, IntPtr.Zero);
-    return n + " menu window(s)";
+    if (n == 0) return "0 menu window(s)";
+    return n + " menu window(s); first=" + first;
   }
   public static string EnumPopups() {
     GR mr = Rect();
@@ -100,46 +108,58 @@ public class S4 {
   }
 }
 '@
+[S4]::EnsureDpi()
 $root = 'E:\pi always\1a\redesign'
-$exe = Join-Path $root 'bin\QuotaWidget.exe'
 
-function Restart-Widget([string]$arg) {
-  Get-Process QuotaWidget -ErrorAction SilentlyContinue | Stop-Process -Force
-  Start-Sleep -Milliseconds 800
-  if ($arg) { Start-Process -FilePath $exe -ArgumentList $arg }
-  else { Start-Process -FilePath $exe }
-  Start-Sleep -Seconds 7
-  [S4]::Hwnd = [S4]::FindHwnd('AIQuotaWidget')
-  if ([S4]::Hwnd -eq [IntPtr]::Zero) { Write-Output 'no hwnd'; exit 1 }
+function Assert-File([string]$p) {
+  if (-not (Test-Path -LiteralPath $p)) {
+    Write-Output ("FAIL(missing): " + $p)
+    exit 1
+  }
+  $len = (Get-Item -LiteralPath $p).Length
+  if ($len -le 0) {
+    Write-Output ("FAIL(empty): " + $p)
+    exit 1
+  }
+  Write-Output ("file-ok: " + $p + " (" + $len + " bytes)")
+}
+
+[S4]::Hwnd = [S4]::FindHwnd('AIQuotaWidget')
+if ([S4]::Hwnd -eq [IntPtr]::Zero) {
+  Write-Output 'FAIL: widget window not found (is it running?)'
+  exit 1
 }
 
 switch ($action) {
   'collapsed' {
-    Restart-Widget $null
     Write-Output ('collapsed: ' + [S4]::Snap((Join-Path $root 'shot-bridge.png')))
+    Assert-File (Join-Path $root 'shot-bridge.png')
   }
   'expanded' {
-    Restart-Widget $null
-    [S4]::ClickCenter(); Start-Sleep -Milliseconds 900
+    [S4]::ClickCenter()  # 注入一次点击展开（3s 后挂件自动收回）
+    Start-Sleep -Milliseconds 900
     Write-Output ('expanded: ' + [S4]::Snap((Join-Path $root 'shot-expanded.png')))
+    Assert-File (Join-Path $root 'shot-expanded.png')
   }
   'menu' {
-    Restart-Widget '--menu-demo'
-    Start-Sleep -Milliseconds 500
-    Write-Output ([S4]::SnapAllMenus((Join-Path $root 'shot-menu.png')))
+    # 要求挂件已以 --menu-demo 模式运行（菜单保持打开）
+    Remove-Item (Join-Path $root 'shot-menu*.png') -ErrorAction SilentlyContinue
+    $res = [S4]::SnapAllMenus((Join-Path $root 'shot-menu.png'))
+    Write-Output $res
+    if ($res -like '0 *') { Write-Output 'FAIL: no menu window captured'; exit 1 }
+    Assert-File (Join-Path $root 'shot-menu.png')
   }
   'submenu' {
-    Restart-Widget '--submenu-demo'
-    Start-Sleep -Milliseconds 900
-    Write-Output ([S4]::SnapAllMenus((Join-Path $root 'shot-submenu.png')))
+    # 要求挂件已以 --submenu-demo 模式运行（主菜单+透明度子菜单保持打开）
+    Remove-Item (Join-Path $root 'shot-submenu*.png') -ErrorAction SilentlyContinue
+    $res = [S4]::SnapAllMenus((Join-Path $root 'shot-submenu.png'))
+    Write-Output $res
+    if ($res -like '0 *') { Write-Output 'FAIL: no menu window captured'; exit 1 }
+    Assert-File (Join-Path $root 'shot-submenu.png')
+    Assert-File (Join-Path $root 'shot-submenu-2.png')
   }
   'enum' {
-    [S4]::Hwnd = [S4]::FindHwnd('AIQuotaWidget')
-    if ([S4]::Hwnd -eq [IntPtr]::Zero) { Write-Output 'no hwnd'; exit 1 }
     Write-Output ([S4]::EnumPopups())
   }
-  'collapse' {
-    [S4]::ClickCenter(); Start-Sleep -Milliseconds 500
-    Write-Output ('collapsed: ' + [S4]::Snap((Join-Path $root 'shot-bridge.png')))
-  }
+  default { Write-Output ("unknown action: " + $action); exit 1 }
 }
