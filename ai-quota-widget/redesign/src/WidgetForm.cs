@@ -3,804 +3,954 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
-using System.IO;
+using System.Drawing.Text;
+using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows.Forms;
 
 namespace QuotaWidget
 {
-    public class AccountState
-    {
-        public string Key;
-        public string Name;
-        public string Abbr;
-        public string Provider; // codex | zhipu | deepseek
-        public bool Visible = true;
-        public bool IsBalance;
-        public string ApiKey;
-        public string AuthJsonPath;
-        public List<QuotaWindow> Windows = new List<QuotaWindow>();
-        public BalanceData Balance;
-        public string Error;
-        public string Warning;
-        public bool Stale;
-        public DateTime LastSuccess = DateTime.MinValue;
-    }
-
-    internal class JobPair
-    {
-        public AccountState Acc;
-        public Func<FetchResult> Run;
-    }
-
-    // ============================================================
-    // LED 油量表视觉系统 v3（形态重定义）
-    //
-    // 面板态（默认常驻，~290×220）：2×2 竖刻度管网格
-    //   行 = 提供商（O / Z），列 = 窗口（5h / 7d）
-    //   每管：剩余 = 液面高度，10 格刻度，警戒红线刻在管壁，
-    //         管旁大号等宽数字「剩 N%」（随阈值变色），格底绝对重置时刻
-    // mini 态：一条细线，只显示最危险的一个数字（剩余最少、色阶最高）
-    //
-    // 剩余语义贯穿：液面/数字/色阶全部按「剩余」表达（满格=充足）。
-    // 危险判定 = 剩余少。
-    //
-    // 动效纪律：零渐变、零发光、零玻璃；数据更新零动画。
-    // ============================================================
-
-    public class WidgetForm : Form
+    // One always-visible dispatch board. Each provider owns its data, failure and next poll.
+    public sealed class WidgetForm : Form
     {
         private AppConfig _cfg;
-        private readonly List<AccountState> _accounts = new List<AccountState>();
+        private IList<AccountState> _accounts = new List<AccountState>();
+        private RefreshCoordinator _coordinator;
+        private string _uiMessage;
+        private bool _resourcesDisposed;
         private NotifyIcon _tray;
-        private ContextMenuStrip _menu;
-        private System.Windows.Forms.Timer _tick;   // 1s：心跳/自动收回/自动刷新/置顶重申
-        private System.Windows.Forms.Timer _anim;   // 15ms：高度插值
-        private int _animFromH;
-        private int _animToH;
-        private DateTime _animStart;
-        private int _tickCount;
-        private bool _hover;
-        private bool _pressing;
-        private bool _dragging;
-        private Point _downScreen;
-        private float _scale = 1f;
-        private Font _font;
-        private Font _fontBold;
-        private Font _fontSmall;
-        private Font _fontMicro;
-        private Font _fontMono;
-        private Font _fontMonoSmall;
-        private Font _fontMonoNum;
-        private Font _fontMonoBig;
-        private ToolTip _toolTip;
         private Icon _trayIcon;
-        private bool _balloonTemplateShown;
-        private bool _balloonHideShown;
+        private ContextMenuStrip _menu;
+        private SettingsForm _activeSettings;
+        private System.Windows.Forms.Timer _tick;
         private readonly bool _mock;
-        private DateTime _nextRefresh = DateTime.MinValue;
+        private readonly string _mockScenario;
+        private readonly Func<bool> _getAutostart;
+        private readonly Func<bool, string, bool> _setAutostart;
+        private const string AutostartError = "开机自启设置失败，请检查当前用户权限后重试。";
+        private bool _exiting, _pressing, _dragging, _firstRunHint;
+        private Point _downScreen;
         private DateTime _lastRefresh = DateTime.MinValue;
-        private bool _refreshing;
-        private bool _exiting;
+        private int _scroll, _bodyHeight, _viewportHeight, _ticks;
+        private float _scale = 1f;
+        private Font _text, _small, _heading, _number, _mono;
+        private readonly ToolTip _footerTip = new ToolTip();
+        private PixelButton _configure;
+        private bool _overFooter;
 
-        // ---- 色板 ----
-        private static readonly Color ColBg = Color.FromArgb(16, 17, 20);
-        private static readonly Color ColBgHover = Color.FromArgb(24, 26, 30);
-        private static readonly Color ColText = Color.FromArgb(210, 215, 222);
-        private static readonly Color ColSub = Color.FromArgb(140, 147, 156);
-        private static readonly Color ColSubDim = Color.FromArgb(92, 98, 106);
-        private static readonly Color ColGreen = Color.FromArgb(70, 192, 138);
-        private static readonly Color ColOrange = Color.FromArgb(232, 134, 58);
-        private static readonly Color ColRed = Color.FromArgb(229, 83, 75);
-        private static readonly Color ColDimDot = Color.FromArgb(70, 76, 84);
-        private static readonly Color ColTubeWall = Color.FromArgb(58, 64, 72);
-        private static readonly Color ColTick = Color.FromArgb(52, 58, 66);
-        private static readonly Color ColHandle = Color.FromArgb(46, 49, 56);
+        private static Color Bg { get { return PixelTheme.Background; } }
+        private static Color Line { get { return PixelTheme.Line; } }
+        private static Color TextColor { get { return PixelTheme.Text; } }
+        private static Color Muted { get { return PixelTheme.Secondary; } }
+        private static Color Accent { get { return PixelTheme.Accent; } }
+        private static Color Caution { get { return PixelTheme.Warning; } }
+        private static Color Danger { get { return PixelTheme.Error; } }
 
-        [DllImport("user32.dll")]
-        private static extern bool DestroyIcon(IntPtr hIcon);
-
-        [DllImport("user32.dll")]
-        private static extern bool SetWindowPos(IntPtr hWnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
         [DllImport("user32.dll")]
         private static extern bool ReleaseCapture();
         [DllImport("user32.dll")]
-        private static extern IntPtr SendMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+        private static extern IntPtr SendMessage(IntPtr hwnd, uint msg, IntPtr w, IntPtr l);
         [DllImport("dwmapi.dll")]
-        private static extern void DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int val, int size);
-        private static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
-        private const uint WM_NCLBUTTONDOWN = 0xA1;
-        private static readonly IntPtr HTCAPTION = (IntPtr)2;
-        private const uint SWP_FLAGS = 0x1 | 0x2 | 0x10; // NOSIZE | NOMOVE | NOACTIVATE
+        private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int value, int size);
+        [DllImport("user32.dll")]
+        private static extern bool DestroyIcon(IntPtr icon);
 
-        public WidgetForm(AppConfig cfg, bool mock)
+        private int S(int n) { return (int)Math.Round(n * _scale); }
+        private int FooterH { get { return Math.Max(S(18), TextHeight("最近请求结束", _small, Width)); } }
+        private int RowH { get { return QuotaNumberH + S(5); } }
+        private static DateTime ReferenceTime { get { return new DateTime(2026, 9, 25, 17, 11, 30, DateTimeKind.Local); } }
+
+        public WidgetForm(AppConfig cfg, bool mock, string mockScenario, float previewScale)
+            : this(cfg, mock, mockScenario, previewScale, true)
+        {
+        }
+
+        internal WidgetForm(AppConfig cfg, bool mock, string mockScenario, float previewScale, bool enableTray)
+            : this(cfg, mock, mockScenario, previewScale, enableTray,
+                AppConfig.GetAutostart, AppConfig.SetAutostart)
+        {
+        }
+
+        internal WidgetForm(AppConfig cfg, bool mock, string mockScenario, float previewScale, bool enableTray,
+            Func<bool> getAutostart, Func<bool, string, bool> setAutostart)
         {
             _cfg = cfg;
             _mock = mock;
-            BuildAccountsFromConfig(null);
-            InitForm();
-            EnsureScaleFonts();
-            InitTray();
-            BuildMenu();
-            _tick = new System.Windows.Forms.Timer();
-            _tick.Interval = 1000;
-            _tick.Tick += OnTick;
-            _tick.Start();
-            _anim = new System.Windows.Forms.Timer();
-            _anim.Interval = 15;
-            _anim.Tick += OnAnimTick;
-            _nextRefresh = DateTime.Now.AddSeconds(2);
-            AppConfig.Save(_cfg); // 启动即重写，把旧配置迁移成缩进格式
-            Log.W("ctor done, accounts=" + _accounts.Count + " mock=" + _mock);
-        }
-
-        // ---------- 初始化 ----------
-
-        private void InitForm()
-        {
-            Text = "AIQuotaWidget"; // 无边框不显示，但让窗口枚举可用
+            _mockScenario = mockScenario;
+            _getAutostart = getAutostart;
+            _setAutostart = setAutostart;
+            Text = mock ? "AIQuotaWidgetPreview" : "AIQuotaWidget";
             FormBorderStyle = FormBorderStyle.None;
             StartPosition = FormStartPosition.Manual;
             ShowInTaskbar = false;
-            AllowTransparency = true;
             DoubleBuffered = true;
-            BackColor = ColBg;
-            double op = _cfg.Ui.Opacity;
-            if (op < 0.3 || op > 1.0) op = 1.0;
-            Opacity = op;
-            TopMost = _cfg.Ui.TopMost;
-            int w, h;
-            ComputeTargetSize(out w, out h);
-            if (_cfg.Ui.Left >= 0 && _cfg.Ui.Top >= 0)
-            {
-                Location = new Point(_cfg.Ui.Left, _cfg.Ui.Top);
-            }
-            else
-            {
-                Rectangle wa = Screen.PrimaryScreen.WorkingArea;
-                Location = new Point(wa.Right - w - S(24), wa.Bottom - h - S(56));
-            }
-            Size = new Size(w, h);
-        }
-
-        private void EnsureScaleFonts()
-        {
-            if (_font != null) return;
-            try
-            {
-                using (Graphics g = CreateGraphics())
-                {
-                    _scale = Math.Max(1f, g.DpiX / 96f);
-                }
-            }
+            BackColor = Bg;
+            TopMost = cfg.Ui.TopMost;
+            try { using (Graphics g = CreateGraphics()) _scale = Math.Max(1f, g.DpiX / 96f); }
             catch { _scale = 1f; }
-            Log.W("scale=" + _scale);
-            _font = new Font("Microsoft YaHei UI", 9f);
-            _fontBold = new Font("Microsoft YaHei UI", 9f, FontStyle.Bold);
-            _fontSmall = new Font("Microsoft YaHei UI", 8f);
-            _fontMicro = new Font("Microsoft YaHei UI", 7.5f);
-            _fontMono = new Font("Consolas", 8.25f);
-            _fontMonoSmall = new Font("Consolas", 7.5f);
-            _fontMonoNum = new Font("Consolas", 11f, FontStyle.Bold);
-            _fontMonoBig = new Font("Consolas", 13f, FontStyle.Bold);
-            _toolTip = new ToolTip();
-            _toolTip.SetToolTip(this, "点击切换 面板/mini · 按住拖动 · 右键菜单");
-            ApplySize(false);
+            if (mock && previewScale > 0) _scale = previewScale;
+            _text = new Font("Microsoft YaHei UI", 12f * _scale, FontStyle.Regular, GraphicsUnit.Pixel);
+            _small = new Font("Microsoft YaHei UI", Math.Max(12f, 10f * _scale), FontStyle.Regular, GraphicsUnit.Pixel);
+            _heading = new Font("Microsoft YaHei UI", Math.Max(13f, 12f * _scale), FontStyle.Bold, GraphicsUnit.Pixel);
+            _number = new Font("Consolas", Math.Max(20f, 16f * _scale), FontStyle.Bold, GraphicsUnit.Pixel);
+            _mono = new Font("Consolas", Math.Max(12f, 9f * _scale), FontStyle.Regular, GraphicsUnit.Pixel);
+            AccessibleName = "AI 额度悬浮窗 · 像素能源控制器";
+            AccessibleDescription = "查看剩余额度和数据状态；菜单键或 Shift+F10 打开操作菜单。";
+            _configure = new PixelButton(true) { Text = "打开设置", Font = _text, AccessibleName = "打开账号设置" };
+            _configure.Click += delegate { ShowSettings(false); };
+            Controls.Add(_configure);
+            _footerTip.OwnerDraw = true;
+            _footerTip.BackColor = PixelTheme.Surface;
+            _footerTip.ForeColor = TextColor;
+            _footerTip.Popup += delegate(object sender, PopupEventArgs e)
+            {
+                e.ToolTipSize = new Size(S(252), TextHeight(_footerTip.GetToolTip(this), _small, S(240)) + S(12));
+            };
+            _footerTip.Draw += delegate(object sender, DrawToolTipEventArgs e)
+            {
+                using (SolidBrush b = new SolidBrush(PixelTheme.Surface)) e.Graphics.FillRectangle(b, e.Bounds);
+                using (Pen p = new Pen(Line)) e.Graphics.DrawRectangle(p, 0, 0, e.Bounds.Width - 1, e.Bounds.Height - 1);
+                DrawText(e.Graphics, e.ToolTipText, _small, TextColor,
+                    new Rectangle(S(6), S(6), e.Bounds.Width - S(12), e.Bounds.Height - S(12)), TextFormatFlags.WordBreak);
+            };
+            _coordinator = new RefreshCoordinator(FetchAccount, () => DateTime.UtcNow,
+                DispatchResult, OnAccountsChanged);
+            _coordinator.Reconcile(cfg);
+            _accounts = _coordinator.Accounts;
+            if (cfg.LoadError) _uiMessage = "配置损坏，已停止刷新与保存；修复后请重新启动。";
+            if (_mock && (_mockScenario == "stale" || _mockScenario == "limited" || _mockScenario == "login" || _mockScenario == "refresh-error"))
+                foreach (AccountState a in _accounts)
+                    a.Apply(MockResult(a.Provider, "normal"), DateTime.Now.AddMinutes(-2), DateTime.UtcNow.AddMinutes(-2), 10);
+            ResizeForContent(false);
+            PlaceInitial();
+            if (enableTray) InitTray();
+            _tick = new System.Windows.Forms.Timer { Interval = 1000 };
+            _tick.Tick += OnTick;
+            _tick.Start();
         }
 
-        protected override void OnLoad(EventArgs e)
+        protected override bool ShowWithoutActivation { get { return true; } }
+
+        internal Bitmap RenderFrame()
         {
-            base.OnLoad(e);
-            if (_cfg.CreatedTemplate && !_balloonTemplateShown && _tray != null)
-            {
-                _tray.ShowBalloonTip(6000, "AI 额度悬浮窗",
-                    "已生成配置模板，请右键 → 打开配置 填入智谱 / DeepSeek 的 API Key", ToolTipIcon.Info);
-                _balloonTemplateShown = true;
-            }
-            RefreshNow();
-            Log.W("onload done");
+            Bitmap frame = new Bitmap(Width, Height);
+            using (Graphics graphics = Graphics.FromImage(frame)) PaintWidget(graphics);
+            if (_configure.Visible) _configure.DrawToBitmap(frame, _configure.Bounds);
+            return frame;
         }
 
         protected override void OnHandleCreated(EventArgs e)
         {
             base.OnHandleCreated(e);
-            try
-            {
-                // Win11 DWM 默认给顶层窗画圆角+边缘高光；直角仪器窗禁用（底部白带根修）
-                int pref = 1; // DWMWCP_DONOTROUND
-                DwmSetWindowAttribute(Handle, 33, ref pref, 4);
-            }
-            catch { }
+            try { int noRound = 1; DwmSetWindowAttribute(Handle, 33, ref noRound, 4); } catch { }
         }
 
         protected override void OnShown(EventArgs e)
         {
             base.OnShown(e);
             Program.StartSignalWorker(this);
-            Log.W("onshown");
-        }
-
-        // ---------- 账号列表 ----------
-
-        private void BuildAccountsFromConfig(List<AccountState> previous)
-        {
-            List<AccountState> list = new List<AccountState>();
-            if (_cfg.Codex.Enabled)
-            {
-                AccountState s = MakeAccount(previous, "codex",
-                    string.IsNullOrEmpty(_cfg.Codex.Name) ? "OpenAI Codex" : _cfg.Codex.Name,
-                    "codex", null, _cfg.Codex.Visible, false);
-                s.AuthJsonPath = _cfg.Codex.AuthJsonPath;
-                list.Add(s);
-            }
-            for (int i = 0; i < _cfg.Zhipu.Count; i++)
-            {
-                ZhipuCfg z = _cfg.Zhipu[i];
-                string name = string.IsNullOrEmpty(z.Name)
-                    ? (_cfg.Zhipu.Count > 1 ? "智谱" + (i + 1) : "智谱")
-                    : z.Name;
-                list.Add(MakeAccount(previous, "zhipu:" + i, name, "zhipu", z.ApiKey, z.Visible, false));
-            }
-            if (_cfg.DeepSeek.Enabled)
-            {
-                AccountState s = MakeAccount(previous, "deepseek",
-                    string.IsNullOrEmpty(_cfg.DeepSeek.Name) ? "DeepSeek" : _cfg.DeepSeek.Name,
-                    "deepseek", _cfg.DeepSeek.ApiKey, _cfg.DeepSeek.Visible, true);
-                list.Add(s);
-            }
-            _accounts.Clear();
-            _accounts.AddRange(list);
-
-            // 单字母标签：O=OpenAI Codex、Z=智谱、D=DeepSeek；同提供商多账户才编号
-            var groups = new Dictionary<string, List<AccountState>>();
-            foreach (AccountState s in list)
-            {
-                s.Abbr = s.Provider == "codex" ? "O" : s.Provider == "zhipu" ? "Z" : "D";
-                List<AccountState> gl;
-                if (!groups.TryGetValue(s.Provider, out gl))
-                {
-                    gl = new List<AccountState>();
-                    groups[s.Provider] = gl;
-                }
-                gl.Add(s);
-            }
-            foreach (KeyValuePair<string, List<AccountState>> kv in groups)
-            {
-                if (kv.Value.Count > 1)
-                {
-                    for (int i = 0; i < kv.Value.Count; i++)
-                    {
-                        kv.Value[i].Abbr = kv.Key + (i + 1);
-                    }
-                }
-            }
-        }
-
-        private AccountState MakeAccount(List<AccountState> previous, string key, string name,
-            string provider, string apiKey, bool visible, bool isBalance)
-        {
-            AccountState s = new AccountState();
-            s.Key = key;
-            s.Name = name;
-            s.Provider = provider;
-            s.ApiKey = apiKey;
-            s.Visible = visible;
-            s.IsBalance = isBalance;
-            if (previous != null)
-            {
-                foreach (AccountState old in previous)
-                {
-                    if (old.Key == key)
-                    {
-                        s.Windows = old.Windows;
-                        s.Balance = old.Balance;
-                        s.Error = old.Error;
-                        s.Warning = old.Warning;
-                        s.Stale = old.Stale;
-                        s.LastSuccess = old.LastSuccess;
-                    }
-                }
-            }
-            return s;
-        }
-
-        public void ReloadConfig()
-        {
-            AppConfig fresh = AppConfig.Load();
-            fresh.Ui = _cfg.Ui;
-            fresh.CreatedTemplate = false;
-            _cfg = fresh;
-            BuildAccountsFromConfig(_accounts);
-            ApplySize(true);
             RefreshNow();
-        }
-
-        private void SetConfigVisible(AccountState acc, bool visible)
-        {
-            if (acc.Provider == "codex") _cfg.Codex.Visible = visible;
-            else if (acc.Provider == "zhipu")
+            if (!_mock && !_cfg.LoadError && !_firstRunHint && !System.IO.File.Exists(AppConfig.ConfigPath))
             {
-                int idx = ParseZhipuIndex(acc.Key);
-                if (idx >= 0 && idx < _cfg.Zhipu.Count) _cfg.Zhipu[idx].Visible = visible;
+                _firstRunHint = true;
+                BeginInvoke((Action)delegate { ShowSettings(false); });
             }
-            else if (acc.Provider == "deepseek") _cfg.DeepSeek.Visible = visible;
         }
 
-        private static int ParseZhipuIndex(string key)
+        private void PlaceInitial()
         {
-            const string prefix = "zhipu:";
-            if (key == null || !key.StartsWith(prefix)) return -1;
-            int n;
-            if (int.TryParse(key.Substring(prefix.Length), out n)) return n;
-            return -1;
+            if (_cfg.Ui.Left != -1 || _cfg.Ui.Top != -1)
+                Location = new Point(_cfg.Ui.Left, _cfg.Ui.Top);
+            else
+            {
+                Rectangle wa = Screen.PrimaryScreen.WorkingArea;
+                Location = new Point(wa.Right - Width - S(24), wa.Bottom - Height - S(35));
+            }
+            ClampToScreen();
+        }
+
+        private void ClampToScreen()
+        {
+            Rectangle wa = Screen.FromRectangle(Bounds).WorkingArea;
+            int x = Math.Max(wa.Left, Math.Min(Left, wa.Right - Width));
+            int y = Math.Max(wa.Top, Math.Min(Top, wa.Bottom - Height));
+            Location = new Point(x, y);
+        }
+
+        private FetchResult FetchAccount(AccountRequest request, CancellationToken cancellation)
+        {
+            if (_mock)
+            {
+                if ((_mockScenario == "loading" || _mockScenario == "refresh-error") && cancellation.WaitHandle.WaitOne(4500))
+                    return new FetchResult { Canceled = true };
+                return MockResult(request.Provider, _mockScenario);
+            }
+            return RefreshCoordinator.FetchProvider(request, cancellation);
+        }
+
+        private void DispatchResult(Action action)
+        {
+            if (_exiting || IsDisposed || !IsHandleCreated) return;
+            try { BeginInvoke((Action)delegate { if (!_exiting && !IsDisposed) action(); }); }
+            catch (InvalidOperationException) { }
+        }
+
+        private void OnAccountsChanged()
+        {
+            if (_exiting || IsDisposed) return;
+            foreach (AccountState account in _accounts)
+                if (account.LastCompletedUtc != DateTime.MinValue && account.LastCompletedUtc.ToLocalTime() > _lastRefresh)
+                    _lastRefresh = account.LastCompletedUtc.ToLocalTime();
+            if (_mock && _mockScenario == "reference" && _lastRefresh != DateTime.MinValue) _lastRefresh = ReferenceTime;
+            ResizeForContent(false);
+            UpdateTrayIcon();
+            if (IsHandleCreated) AccessibilityNotifyClients(AccessibleEvents.ValueChange, -1);
         }
 
         private List<AccountState> VisibleAccounts()
         {
             List<AccountState> list = new List<AccountState>();
-            foreach (AccountState a in _accounts)
-            {
-                if (a.Visible) list.Add(a);
-            }
+            foreach (AccountState a in _accounts) if (a.Visible) list.Add(a);
             return list;
         }
 
-        // ---------- 尺寸与两态 ----------
-
-        private int S(int px) { return (int)Math.Round(px * _scale); }
-
-        private void ComputeTargetSize(out int w, out int h)
+        private int TextWidth(string value, Font font)
         {
-            List<AccountState> vis = VisibleAccounts();
-            // 块高：头14 + 行(标签9+管40+数字行内) + 重置9 + 间6 = 78（正常）；单行块 48
-            int per = S(78);
-            int perSmall = S(48);
-            int hh = S(6) + S(14);
-            foreach (AccountState a in vis)
+            using (Graphics g = CreateGraphics())
+            using (StringFormat f = new StringFormat(StringFormat.GenericTypographic))
             {
-                hh += a.IsBalance ? perSmall : (IsUnconfigured(a) ? perSmall + S(6) : per);
+                f.FormatFlags |= StringFormatFlags.NoWrap;
+                return (int)Math.Ceiling(g.MeasureString(value ?? "", font, int.MaxValue, f).Width) + S(2);
             }
-            hh += S(9) + S(6);
-            if (hh < S(150)) hh = S(150);
-            if (hh > S(242)) hh = S(242);
-            h = hh;
-            w = S(280);
         }
 
-        private void ApplySize(bool animate)
+        private int TextHeight(string value, Font font, int width)
         {
-            int nw, nh;
-            ComputeTargetSize(out nw, out nh);
-            int oldRight = Right;
-            Width = nw;
-            Left = Math.Max(0, oldRight - nw); // 右缘锚定
-            if (Height != nh)
+            using (Graphics g = CreateGraphics())
+            using (StringFormat f = new StringFormat(StringFormat.GenericTypographic))
+                return (int)Math.Ceiling(g.MeasureString(string.IsNullOrEmpty(value) ? " " : value,
+                    font, Math.Max(1, width), f).Height) + S(2);
+        }
+
+        private string QuotaDetail(QuotaWindow quota)
+        {
+            if (quota == null) return "重置时间未知";
+            DateTime now = _mock && _mockScenario == "reference" ? ReferenceTime : DateTime.Now;
+            return quota.Kind == WindowKind.FiveHour
+                ? Providers.FormatFiveHourReset(quota.ResetAt, now)
+                : Providers.FormatWeekReset(quota.ResetAt, now);
+        }
+
+        internal static double? Remaining(QuotaWindow quota)
+        {
+            if (quota == null || double.IsNaN(quota.UsedPercent) || double.IsInfinity(quota.UsedPercent)) return null;
+            return Math.Max(0, Math.Min(100, 100 - quota.UsedPercent));
+        }
+
+        internal static string QuotaValue(QuotaWindow quota)
+        {
+            double? value = Remaining(quota);
+            return value.HasValue ? Math.Round(value.Value).ToString("0", CultureInfo.InvariantCulture) + "%" : "—";
+        }
+
+        internal static string AccountStatus(AccountState a)
+        {
+            double lowest = 100;
+            foreach (QuotaWindow q in a.Windows)
             {
-                if (!animate) Height = nh;
-                else
-                {
-                    _animFromH = Height;
-                    _animToH = nh;
-                    _animStart = DateTime.UtcNow;
-                    if (!_anim.Enabled) _anim.Start();
-                }
+                double? value = Remaining(q);
+                if (value.HasValue) lowest = Math.Min(lowest, value.Value);
             }
+            return a.Fetching ? "刷新中" : a.RequiresLogin ? "需要登录" :
+                a.CooldownUntil > DateTime.UtcNow ? "限流冷却" : a.Stale ? "数据过期" :
+                !string.IsNullOrEmpty(a.Error) ? "请求失败" : a.LastSuccess == DateTime.MinValue ? "等待数据" :
+                lowest <= 10 ? "余量紧张" : lowest <= 25 ? "余量低" : "";
+        }
+
+        private int AccountHeaderH(AccountState a, int width)
+        {
+            int reserve = StatusWidth(a);
+            return Math.Max(S(16), TextHeight(a.Name, _heading, width - S(24) - reserve));
+        }
+
+        private int StatusWidth(AccountState a)
+        {
+            string status = AccountStatus(a);
+            return status.Length == 0 ? 0 : TextWidth(status, _small) + S(6);
+        }
+
+        private int QuotaLabelWidth { get { return TextWidth("周额度", _small); } }
+        private int QuotaValueWidth { get { return Math.Max(S(50), TextWidth("100%", _number) + S(4)); } }
+        private int QuotaDetailX { get { return S(8) + QuotaLabelWidth + S(6) + QuotaValueWidth + S(6); } }
+        private int QuotaNumberH { get { return TextHeight("100%", _number, QuotaValueWidth) - S(2); } }
+
+        internal static string AccountNotice(AccountState a)
+        {
+            List<string> messages = new List<string>();
+            string status = AccountStatus(a);
+            if (a.CooldownUntil > DateTime.UtcNow)
+                messages.Add(Math.Ceiling((a.CooldownUntil - DateTime.UtcNow).TotalSeconds) + " 秒后可刷新");
+            if (a.Stale && status != "数据过期") messages.Add("数据过期");
+            if (!string.IsNullOrEmpty(a.Error) && a.Error != status) messages.Add(a.Error);
+            if (!string.IsNullOrEmpty(a.Warning) && a.Warning != status && !messages.Contains(a.Warning)) messages.Add(a.Warning);
+            return string.Join(" · ", messages.ToArray());
+        }
+
+        private int AccountErrorH(AccountState a, int width)
+        {
+            string notice = AccountNotice(a);
+            return string.IsNullOrEmpty(notice) ? 0 : TextHeight(notice, _small, width - S(24)) + S(6);
+        }
+
+        private int MessageH(int width)
+        {
+            return string.IsNullOrEmpty(_uiMessage) ? 0 : TextHeight(_uiMessage, _small, width - S(24)) + S(12);
+        }
+
+        private int QuotaRowH(QuotaWindow q, int width)
+        {
+            return Math.Max(RowH, TextHeight(QuotaDetail(q), _small, width - S(8) - QuotaDetailX) + S(4));
+        }
+
+        private static string Amount(BalanceData b)
+        {
+            return b == null ? "—" : b.Total.ToString("N2", CultureInfo.InvariantCulture);
+        }
+
+        private bool StackedBalance(BalanceData b, int width)
+        {
+            return TextWidth(Amount(b), _number) + TextWidth(b == null ? "余额" : b.Currency, _text) + S(12) > width - S(24);
+        }
+
+        internal string BalanceDisplay(BalanceData balance, int width)
+        {
+            string value = Amount(balance);
+            int available = Math.Max(1, width - S(24));
+            List<string> lines = new List<string>();
+            string line = "";
+            string[] groups = value.Split(',');
+            for (int i = 0; i < groups.Length; i++)
+            {
+                string group = groups[i] + (i < groups.Length - 1 ? "," : "");
+                // Break only between integer groups, never within the final decimal group.
+                if (line.Length > 0 && TextWidth(line + group, _number) > available)
+                { lines.Add(line); line = ""; }
+                line += group;
+            }
+            lines.Add(line);
+            return string.Join("\n", lines.ToArray());
+        }
+
+        internal string CheckStatusLabel
+        {
+            get
+            {
+                return _cfg.LoadError ? "检查已停止" : VisibleAccounts().Count == 0 ? "暂无可检查账号"
+                    : _lastRefresh == DateTime.MinValue ? "等待首次检查" : "最近请求结束";
+            }
+        }
+
+        internal string CheckStatusText
+        {
+            get { return CheckStatusLabel + (CheckStatusLabel == "最近请求结束" ? " " + _lastRefresh.ToString("HH:mm:ss") : ""); }
+        }
+
+        private int BalanceRowH(BalanceData b, int width)
+        {
+            return StackedBalance(b, width)
+                ? S(20) + TextHeight(BalanceDisplay(b, width), _number, width - S(24)) + S(24) : S(48);
+        }
+
+        private int AccountH(AccountState a, int width)
+        {
+            int rows = 0;
+            if (a.IsBalance)
+            {
+                if (a.Balances.Count == 0) rows = BalanceRowH(null, width);
+                else foreach (BalanceData b in a.Balances) rows += BalanceRowH(b, width);
+            }
+            else rows = QuotaRowH(FindWindow(a, WindowKind.FiveHour), width) + QuotaRowH(FindWindow(a, WindowKind.Week), width);
+            return AccountHeaderH(a, width) + AccountErrorH(a, width) + rows + S(2);
+        }
+
+        private int DesiredWidth(List<AccountState> visible, Rectangle workArea)
+        {
+            int width = S(234);
+            // Fixed type size, content-measured columns: long reset text grows width before wrapping.
+            foreach (AccountState a in visible)
+                if (!a.IsBalance)
+                    foreach (WindowKind kind in new[] { WindowKind.FiveHour, WindowKind.Week })
+                        width = Math.Max(width, Math.Min(S(360), QuotaDetailX + TextWidth(QuotaDetail(FindWindow(a, kind)), _small) + S(8)));
+            foreach (AccountState a in visible)
+                if (a.IsBalance)
+                    foreach (BalanceData b in a.Balances)
+                        width = Math.Max(width, Math.Min(S(360), S(24) + TextWidth(Amount(b), _number)));
+            return Math.Min(width, Math.Max(1, workArea.Width - S(20)));
+        }
+
+        private void ResizeForContent(bool preserveRight)
+        {
+            int right = Right;
+            List<AccountState> visible = VisibleAccounts();
+            Rectangle wa = Screen.FromRectangle(Bounds).WorkingArea;
+            int width = DesiredWidth(visible, wa);
+            int body = MessageH(width);
+            if (visible.Count == 0) body += S(96);
+            else foreach (AccountState a in visible) body += AccountH(a, width);
+            _bodyHeight = body;
+            int maxHeight = Math.Max(FooterH + 1, (int)(wa.Height * .75));
+            int height = Math.Min(body + FooterH, maxHeight);
+            Size = new Size(width, height);
+            if (preserveRight) Left = right - Width;
+            _viewportHeight = Height - FooterH;
+            _scroll = Math.Max(0, Math.Min(_scroll, Math.Max(0, _bodyHeight - _viewportHeight)));
+            _configure.SetBounds(S(12), S(56) + MessageH(width) - _scroll, Math.Max(1, Width - S(24)), S(32));
+            _configure.Visible = visible.Count == 0;
+            ClampToScreen();
+            if (_activeSettings != null && !_activeSettings.IsDisposed && _activeSettings.Visible)
+                PlaceSettingsAbove(_activeSettings);
             Invalidate();
         }
 
-        private void OnAnimTick(object sender, EventArgs e)
-        {
-            double t = (DateTime.UtcNow - _animStart).TotalMilliseconds / 150.0;
-            if (t >= 1)
-            {
-                Height = _animToH;
-                _anim.Stop();
-                Invalidate();
-                return;
-            }
-            double ease = 1 - (1 - t) * (1 - t) * (1 - t);
-            int hh = _animFromH + (int)Math.Round((_animToH - _animFromH) * ease);
-            if (hh != Height) { Height = hh; Invalidate(); }
-        }
+        private Color RemainingColor(double remaining) { return PixelTheme.QuotaColor(remaining, "codex"); }
+        private static Color ProviderColor(string provider) { return PixelTheme.Provider(provider); }
 
-        // ---------- 颜色与剩余语义 ----------
-
-        // 剩余视角色阶：剩余充足绿 → 接近阈值橙 → 将耗尽红
-        private Color RemainingColor(double remaining)
+        private static QuotaWindow FindWindow(AccountState a, WindowKind kind)
         {
-            if (remaining < 10) return ColRed;
-            if (remaining <= 25) return ColOrange;
-            return ColGreen;
-        }
-
-        private static Color WithAlpha(Color c, int alpha)
-        {
-            return Color.FromArgb(alpha, c);
-        }
-
-        private bool Breathing(AccountState acc)
-        {
-            foreach (QuotaWindow w in acc.Windows)
-            {
-                double rem = 100.0 - w.UsedPercent;
-                if (rem < 10) return true;
-            }
-            return false;
-        }
-
-        private bool FlashOn()
-        {
-            return (Environment.TickCount / 500) % 2 == 0;
-        }
-
-        private static bool IsUnconfigured(AccountState acc)
-        {
-            return !string.IsNullOrEmpty(acc.Error) && acc.Error.Contains("未配置");
-        }
-
-        private Color ChannelDot(AccountState acc)
-        {
-            if (IsUnconfigured(acc)) return ColDimDot;      // 未配置 → 灰
-            if (!string.IsNullOrEmpty(acc.Error)) return ColDimDot; // 刷新失败 → 灰（红只给剩余耗尽）
-            if (acc.IsBalance) return acc.Balance == null ? ColDimDot : ColGreen;
-            return acc.Windows.Count == 0 ? ColDimDot : ColGreen;
-        }
-
-        private static QuotaWindow FindWindow(AccountState acc, WindowKind kind)
-        {
-            foreach (QuotaWindow w in acc.Windows)
-            {
-                if (w.Kind == kind) return w;
-            }
+            foreach (QuotaWindow w in a.Windows) if (w.Kind == kind) return w;
             return null;
         }
 
-        private static string CurrencySymbol(string currency)
+        private void DrawText(Graphics g, string value, Font font, Color color, Rectangle box, TextFormatFlags flags)
         {
-            if (currency == "CNY") return "¥";
-            if (currency == "USD") return "$";
-            return currency + " ";
-        }
-
-        private double WorstRemOf(AccountState acc)
-        {
-            double worstRem = double.MaxValue;
-            foreach (QuotaWindow w in acc.Windows)
+            g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
+            using (SolidBrush brush = new SolidBrush(color))
+            using (StringFormat format = new StringFormat(StringFormat.GenericTypographic))
             {
-                double rem = 100.0 - w.UsedPercent;
-                if (rem < worstRem) worstRem = rem;
-            }
-            return worstRem;
-        }
-
-        // ---------- 竖刻度管（油量表芯） ----------
-
-        // 剩余 = 液面高度（满格=充足）；10 格刻度；警戒红线刻在管壁剩余红阈处
-        private void DrawTube(Graphics g, int x, int y, int w, int h, double remaining, bool stale, bool breathing)
-        {
-            using (Pen wall = new Pen(ColTubeWall, 1f))
-            {
-                g.DrawRectangle(wall, x, y, w, h);
-            }
-            int innerX = x + 2, innerY = y + 2;
-            int innerW = w - 4, innerH = h - 4;
-            if (innerH < 4) innerH = 4;
-
-            using (SolidBrush off = new SolidBrush(Color.FromArgb(24, 26, 30)))
-            {
-                g.FillRectangle(off, innerX, innerY, innerW, innerH);
-            }
-
-            double clamped = Math.Max(0, Math.Min(100, remaining));
-            int lit = (int)Math.Round(clamped / 10.0);
-            if (clamped > 0 && lit < 1) lit = 1;
-            if (lit > 10) lit = 10;
-            int segH = Math.Max(2, innerH / 10);
-            int alpha = stale ? 140 : (breathing && !FlashOn() ? 120 : 240);
-            for (int i = 0; i < lit; i++)
-            {
-                // 从底部数第 i 段
-                int segBottom = innerY + innerH - i * segH;
-                int segTop = segBottom - segH + 1;
-                if (segTop < innerY) segTop = innerY;
-                // 段色按「剩余区间」语义：底段（剩余低）红，向上过渡绿
-                double segRemMid = (i + 0.5) * 10.0;
-                Color c = RemainingColor(segRemMid);
-                using (SolidBrush b = new SolidBrush(WithAlpha(c, alpha)))
-                {
-                    g.FillRectangle(b, innerX, segTop, innerW, segBottom - segTop);
-                }
-            }
-
-            // 警戒红线：固定刻在剩 10% 高度（距管底 10%，红线以下为危险区）
-            int redY = innerY + innerH - (int)Math.Round(innerH * 10.0 / 100.0);
-            using (Pen rp = new Pen(WithAlpha(ColRed, stale ? 120 : 200), 1f))
-            {
-                g.DrawLine(rp, innerX - 2, redY, innerX + innerW + 2, redY);
-            }
-
-            // 刻度：右侧每 10% 短横线
-            using (Pen tp = new Pen(ColTick, 1f))
-            {
-                for (int i = 1; i < 10; i++)
-                {
-                    int ty = innerY + innerH - (int)Math.Round(innerH * i / 10.0);
-                    g.DrawLine(tp, x + w + 1, ty, x + w + 4, ty);
-                }
+                format.Alignment = (flags & TextFormatFlags.Right) != 0 ? StringAlignment.Far
+                    : (flags & TextFormatFlags.HorizontalCenter) != 0 ? StringAlignment.Center : StringAlignment.Near;
+                format.LineAlignment = (flags & TextFormatFlags.VerticalCenter) != 0 ? StringAlignment.Center : StringAlignment.Near;
+                if ((flags & TextFormatFlags.WordBreak) == 0) format.FormatFlags |= StringFormatFlags.NoWrap;
+                g.DrawString(value ?? "", font, brush, box, format);
             }
         }
-
-        private void DrawDot(Graphics g, int x, int y, int d, Color c)
-        {
-            using (SolidBrush b = new SolidBrush(c))
-            {
-                g.FillEllipse(b, x, y, d, d);
-            }
-        }
-
-        // ---------- 绘制 ----------
 
         protected override void OnPaint(PaintEventArgs e)
         {
             base.OnPaint(e);
-            Graphics g = e.Graphics;
-            g.SmoothingMode = SmoothingMode.AntiAlias;
-            g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+            PaintWidget(e.Graphics);
+        }
 
-            using (SolidBrush bg = new SolidBrush(_hover ? ColBgHover : ColBg))
+        private void PaintWidget(Graphics g)
+        {
+            g.SmoothingMode = SmoothingMode.None;
+            g.Clear(Bg);
+            List<AccountState> visible = VisibleAccounts();
+            using (Bitmap body = new Bitmap(Width, Math.Max(1, _viewportHeight)))
+            using (Graphics b = Graphics.FromImage(body))
             {
-                g.FillRectangle(bg, ClientRectangle);
+                b.Clear(Bg);
+                int y = -_scroll;
+                if (!string.IsNullOrEmpty(_uiMessage))
+                {
+                    DrawText(b, _uiMessage, _small, Danger,
+                        new Rectangle(S(12), y, Width - S(24), MessageH(Width)), TextFormatFlags.WordBreak);
+                    y += MessageH(Width);
+                }
+                if (visible.Count == 0)
+                    DrawText(b, "暂无可见账号", _heading, TextColor,
+                        new Rectangle(S(12), y + S(8), Width - S(24), S(24)), TextFormatFlags.Left);
+                foreach (AccountState a in visible)
+                {
+                    if (y + AccountH(a, Width) >= 0 && y <= _viewportHeight) PaintAccount(b, a, y);
+                    y += AccountH(a, Width);
+                }
+                g.DrawImageUnscaled(body, 0, 0);
             }
-
-            PaintPanel(g);
+            if (_bodyHeight > _viewportHeight) PaintScrollBar(g);
+            using (SolidBrush footer = new SolidBrush(PixelTheme.Footer))
+                g.FillRectangle(footer, 0, Height - FooterH, Width, FooterH);
+            using (Pen p = new Pen(Line)) g.DrawLine(p, S(12), Height - FooterH, Width - S(12), Height - FooterH);
+            string checkLabel = CheckStatusLabel;
+            DrawText(g, checkLabel, _small, Muted, new Rectangle(S(12), Height - FooterH, Width - S(24), FooterH),
+                TextFormatFlags.Left | TextFormatFlags.VerticalCenter);
+            if (checkLabel == "最近请求结束")
+                DrawText(g, _lastRefresh.ToString("HH:mm:ss"), _mono, Muted,
+                    new Rectangle(Width - S(84), Height - FooterH, S(72), FooterH), TextFormatFlags.Right | TextFormatFlags.VerticalCenter);
         }
 
-        private void PaintPanel(Graphics g)
+        private void PaintAccount(Graphics g, AccountState a, int y)
         {
-            Rectangle client = ClientRectangle;
-            int pad = S(10);
-            int halfW = (client.Width - pad * 2 - S(12)) / 2; // 列宽（5h / 7d）
-            int tubeW = S(26);
-            int tubeH = S(64);
-            int y = S(4);
-
-            // 顶部铭牌：AI QUOTA（仪器铭牌）
-            TextRenderer.DrawText(g, "AI QUOTA", _fontMono,
-                new Point(pad + S(2), y), ColSubDim,
-                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
-            y += S(16);
-
-            List<AccountState> vis = VisibleAccounts();
-            foreach (AccountState acc in vis)
+            int x = 0, w = Width;
+            string status = AccountStatus(a);
+            int header = AccountHeaderH(a, Width);
+            using (SolidBrush surface = new SolidBrush(PixelTheme.ProviderSurface(a.Provider)))
+                g.FillRectangle(surface, x, y, w, AccountH(a, Width));
+            using (SolidBrush band = new SolidBrush(PixelTheme.ProviderHeader(a.Provider)))
+                g.FillRectangle(band, x, y, w, header);
+            DrawText(g, a.Name, _heading, PixelTheme.OnAccent,
+                new Rectangle(x + S(8), y, w - S(8) - StatusWidth(a), header), TextFormatFlags.WordBreak);
+            DrawText(g, status, _small, PixelTheme.OnAccent, new Rectangle(Width - S(8) - StatusWidth(a), y, StatusWidth(a), header),
+                TextFormatFlags.Right | TextFormatFlags.VerticalCenter);
+            int rowY = y + header;
+            string notice = AccountNotice(a);
+            if (notice.Length > 0)
             {
-                int bx = pad;
-
-                // 行头：dot + Abbr + Name
-                DrawDot(g, bx, y + S(4), S(4), ChannelDot(acc));
-                TextRenderer.DrawText(g, acc.Abbr, _fontMono,
-                    new Rectangle(bx + S(8), y, S(18), S(14)),
-                    acc.Stale ? ColSub : ColText,
-                    TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
-                string suffix = acc.Stale ? "  ·数据过期" : (acc.Warning != null ? "  ·⚠" : "");
-                TextRenderer.DrawText(g, acc.Name + suffix, _fontBold,
-                    new Point(bx + S(28), y), ColText);
-                y += S(16);
-
-                if (acc.IsBalance)
-                {
-                    string text = "等待数据…";
-                    Color tc = ColSub;
-                    if (acc.Balance != null)
-                    {
-                        string sym = CurrencySymbol(acc.Balance.Currency);
-                        text = "余额 " + sym + acc.Balance.Total.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) +
-                               (acc.Balance.Available ? "" : "（不可用）");
-                        tc = ColText;
-                    }
-                    else if (IsUnconfigured(acc))
-                    {
-                        text = "未配置 Key";
-                        tc = ColSub;
-                    }
-                    else if (!string.IsNullOrEmpty(acc.Error))
-                    {
-                        text = "刷新失败（" + Providers.Truncate(acc.Error, 30) + "）";
-                        tc = ColSub; // 错误不占用告警红
-                    }
-                    TextRenderer.DrawText(g, text, _fontSmall, new Point(bx + S(8), y), tc);
-                    y += S(20);
-                }
-                else if (IsUnconfigured(acc))
-                {
-                    // 空态单行：未配置 Key
-                    TextRenderer.DrawText(g, "未配置 Key", _fontSmall, new Point(bx + S(8), y), ColSub);
-                    y += S(20);
-                }
-                else
-                {
-                    // 2×2：行 = 提供商，列 = 5h / 7d
-                    QuotaWindow five = FindWindow(acc, WindowKind.FiveHour);
-                    QuotaWindow week = FindWindow(acc, WindowKind.Week);
-                    int colX = bx + S(8);
-                    int col2X = colX + halfW;
-
-                    // 列标签（降一档灰度）
-                    TextRenderer.DrawText(g, "5h", _fontMonoSmall,
-                        new Point(colX, y), ColSubDim,
-                        TextFormatFlags.Left | TextFormatFlags.Top | TextFormatFlags.NoPadding);
-                    TextRenderer.DrawText(g, "7d", _fontMonoSmall,
-                        new Point(col2X, y), ColSubDim,
-                        TextFormatFlags.Left | TextFormatFlags.Top | TextFormatFlags.NoPadding);
-                    y += S(10);
-
-                    // 竖管（无数据时 rem=-1 → 空管）
-                    DrawTube(g, colX, y, tubeW, tubeH,
-                        five == null ? -1 : Math.Max(0, Math.Min(100, 100.0 - five.UsedPercent)),
-                        acc.Stale, Breathing(acc));
-                    DrawTube(g, col2X, y, tubeW, tubeH,
-                        week == null ? -1 : Math.Max(0, Math.Min(100, 100.0 - week.UsedPercent)),
-                        acc.Stale, Breathing(acc));
-
-                    // 管旁大号剩余数字（等宽；剩余语义 + 阈值色；无数据 → 灰「无数据」）
-                    int numY = y + tubeH / 2 - S(12);
-                    DrawRemainNum(g, five, colX + tubeW + S(5), numY, acc);
-                    DrawRemainNum(g, week, col2X + tubeW + S(5), numY, acc);
-                    y += tubeH + S(2);
-
-                    // 底部绝对重置时刻（列内右对齐；无数据画灰「—」）
-                    DrawResetFoot(g, five, colX, halfW - S(8), y);
-                    DrawResetFoot(g, week, col2X, halfW - S(8), y);
-                    y += S(14);
-                }
-
-                y += S(10); // 块间距
+                DrawText(g, notice, _small, a.Stale || !string.IsNullOrEmpty(a.Warning) ? Caution : Muted,
+                    new Rectangle(x, rowY, w, AccountErrorH(a, Width)), TextFormatFlags.WordBreak);
+                rowY += AccountErrorH(a, Width);
             }
-
-            // 底部状态行：上次刷新（压灰）
-            string last = _lastRefresh == DateTime.MinValue ? "—" : _lastRefresh.ToString("HH:mm:ss");
-            TextRenderer.DrawText(g, "刷新 " + last, _fontMicro,
-                new Point(pad + S(2), client.Bottom - S(12)), ColSubDim,
-                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
-        }
-
-        // 「剩 N%」：剩余语义 + 阈值色，等宽大号；无数据 → 灰「无数据」（不占红）
-        private void DrawRemainNum(Graphics g, QuotaWindow w, int x, int y, AccountState acc)
-        {
-            if (w == null)
+            if (a.IsBalance)
             {
-                TextRenderer.DrawText(g, "无数据", _fontMonoSmall, new Point(x + S(4), y + S(6)), ColSub);
-                return;
+                if (a.Balances.Count == 0) PaintBalanceRow(g, null, rowY, a.Stale);
+                else foreach (BalanceData b in a.Balances)
+                {
+                    PaintBalanceRow(g, b, rowY, a.Stale);
+                    rowY += BalanceRowH(b, Width);
+                }
             }
-            double rem = Math.Max(0, Math.Min(100, 100.0 - w.UsedPercent));
-            TextRenderer.DrawText(g, "剩 " + Math.Round(rem) + "%", _fontMonoBig,
-                new Point(x, y), acc.Stale ? ColSub : RemainingColor(rem));
+            else
+            {
+                QuotaWindow five = FindWindow(a, WindowKind.FiveHour), week = FindWindow(a, WindowKind.Week);
+                PaintQuotaRow(g, "5小时", five, rowY, a.Stale, a.Provider);
+                PaintQuotaRow(g, "周额度", week, rowY + QuotaRowH(five, Width), a.Stale, a.Provider);
+            }
         }
 
-        // 底部绝对重置时刻（列内右对齐；无数据画灰「—」）
-        private void DrawResetFoot(Graphics g, QuotaWindow w, int x, int w2, int y)
+        // Each segment represents 5%. The last segment is clipped; never round it up.
+        internal static int SegmentFillWidth(int segmentWidth, double remaining, int index)
         {
-            string reset = w == null || w.ResetAt == null ? "--" : Providers.FormatResetAnchor(w.ResetAt);
-            TextRenderer.DrawText(g, "重置 " + reset, _fontMicro,
-                new Rectangle(x, y, w2, S(12)),
-                ColSub, TextFormatFlags.Right | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
+            if (double.IsNaN(remaining) || double.IsInfinity(remaining)) return 0;
+            double fraction = Math.Max(0, Math.Min(1, remaining / 5.0 - index));
+            return (int)Math.Floor(segmentWidth * fraction + 0.00000001);
         }
 
-        // ---------- 交互 ----------
-
-        protected override void OnMouseEnter(EventArgs e)
+        private void PaintQuotaRow(Graphics g, string label, QuotaWindow quota, int y, bool stale, string provider)
         {
-            base.OnMouseEnter(e);
-            _hover = true;
+            int rowHeight = QuotaRowH(quota, Width);
+            int valueX = S(8) + QuotaLabelWidth + S(6);
+            DrawText(g, label, _small, Muted, new Rectangle(S(8), y, QuotaLabelWidth, QuotaNumberH), TextFormatFlags.VerticalCenter);
+            double? remaining = Remaining(quota);
+            Color color = stale || !remaining.HasValue ? Muted : PixelTheme.QuotaColor(remaining.Value, provider);
+            Rectangle bar = new Rectangle(S(8), y + QuotaNumberH, valueX + QuotaValueWidth - S(8), Math.Max(3, S(5)));
+            using (Pen outline = new Pen(PixelTheme.Track))
+            using (SolidBrush fill = new SolidBrush(color))
+                for (int i = 0; i < 20; i++)
+                {
+                    int left = bar.X + (int)Math.Round(i * bar.Width / 20.0);
+                    int right = bar.X + (int)Math.Round((i + 1) * bar.Width / 20.0) - 1;
+                    int width = Math.Max(1, right - left);
+                    g.DrawRectangle(outline, left, bar.Y, width - 1, bar.Height - 1);
+                    int filled = remaining.HasValue ? SegmentFillWidth(width, remaining.Value, i) : 0;
+                    if (filled > 0) g.FillRectangle(fill, left, bar.Y, filled, bar.Height);
+                }
+            DrawText(g, QuotaValue(quota), _number, remaining.HasValue && !stale ? color : Muted,
+                new Rectangle(valueX, y, QuotaValueWidth, QuotaNumberH), TextFormatFlags.Right | TextFormatFlags.VerticalCenter);
+            DrawText(g, QuotaDetail(quota), _small, Muted,
+                new Rectangle(QuotaDetailX, y, Width - S(8) - QuotaDetailX, rowHeight), TextFormatFlags.WordBreak | TextFormatFlags.VerticalCenter);
+        }
+
+        private void PaintBalanceRow(Graphics g, BalanceData b, int y, bool stale)
+        {
+            string currency = b == null ? "余额" : b.Currency;
+            Color color = stale || b == null ? Muted : b.Available ? ProviderColor("deepseek") : Danger;
+            bool stacked = StackedBalance(b, Width);
+            string value = stacked ? BalanceDisplay(b, Width) : Amount(b);
+            int valueY = stacked ? y + S(20) : y;
+            int valueH = stacked ? TextHeight(value, _number, Width - S(24)) : S(26);
+            DrawText(g, currency, _text, Muted, new Rectangle(S(12), y, Width - S(24), S(22)), TextFormatFlags.VerticalCenter);
+            DrawText(g, value, _number, color,
+                new Rectangle(stacked ? S(12) : S(64), valueY, Width - (stacked ? S(24) : S(76)), valueH),
+                TextFormatFlags.Right | (stacked ? TextFormatFlags.WordBreak : TextFormatFlags.VerticalCenter));
+            DrawText(g, b == null ? "等待数据" : b.Available ? "可用余额" : "余额不可用", _small,
+                b != null && !b.Available ? Danger : Muted,
+                new Rectangle(S(12), valueY + valueH, Width - S(24), S(20)), TextFormatFlags.Left);
+        }
+
+        private void PaintScrollBar(Graphics g)
+        {
+            int track = _viewportHeight - S(12);
+            int thumb = Math.Max(S(24), track * _viewportHeight / _bodyHeight);
+            int travel = track - thumb;
+            int offset = (_bodyHeight - _viewportHeight) == 0 ? 0 :
+                travel * _scroll / (_bodyHeight - _viewportHeight);
+            using (SolidBrush b = new SolidBrush(PixelTheme.Track))
+                g.FillRectangle(b, Width - S(5), S(6) + offset, S(2), thumb);
+        }
+
+        protected override void OnMouseWheel(MouseEventArgs e)
+        {
+            base.OnMouseWheel(e);
+            if (_bodyHeight <= _viewportHeight) return;
+            _scroll = Math.Max(0, Math.Min(_bodyHeight - _viewportHeight, _scroll - Math.Sign(e.Delta) * S(45)));
             Invalidate();
         }
 
-        protected override void OnMouseLeave(EventArgs e)
+        internal bool HandleNavigationKey(Keys key)
         {
-            base.OnMouseLeave(e);
-            _hover = false;
-            Invalidate();
+            if (key == Keys.Apps || key == (Keys.Shift | Keys.F10))
+            {
+                BuildMenu();
+                _menu.Show(this, new Point(S(12), S(12)));
+                return true;
+            }
+            if (key == Keys.Escape) { Hide(); return true; }
+            int next = _scroll;
+            if (key == Keys.Down) next += RowH;
+            else if (key == Keys.Up) next -= RowH;
+            else if (key == Keys.PageDown) next += Math.Max(RowH, _viewportHeight - RowH);
+            else if (key == Keys.PageUp) next -= Math.Max(RowH, _viewportHeight - RowH);
+            else if (key == Keys.Home) next = 0;
+            else if (key == Keys.End) next = _bodyHeight;
+            else return false;
+            _scroll = Math.Max(0, Math.Min(next, Math.Max(0, _bodyHeight - _viewportHeight)));
+            ResizeForContent(false);
+            return true;
+        }
+
+        protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+        {
+            return HandleNavigationKey(keyData) || base.ProcessCmdKey(ref msg, keyData);
+        }
+
+        internal string AccountAccessibleText(AccountState a)
+        {
+            List<string> values = new List<string>();
+            values.Add(AccountStatus(a));
+            values.Add(AccountNotice(a));
+            if (a.IsBalance)
+            {
+                if (a.Balances.Count == 0) values.Add("余额未知，等待数据");
+                foreach (BalanceData b in a.Balances)
+                    values.Add(b.Currency + " " + Amount(b) + (b.Available ? " 可用余额" : " 余额不可用"));
+            }
+            else foreach (WindowKind kind in new[] { WindowKind.FiveHour, WindowKind.Week })
+            {
+                QuotaWindow q = FindWindow(a, kind);
+                values.Add((kind == WindowKind.FiveHour ? "5小时剩余 " : "周额度剩余 ") + QuotaValue(q) + "，" + QuotaDetail(q));
+            }
+            if (a.Stale && a.LastSuccess != DateTime.MinValue)
+                values.Add("最近成功 " + a.LastSuccess.ToString("MM-dd HH:mm:ss"));
+            values.RemoveAll(string.IsNullOrEmpty);
+            return string.Join("；", values.ToArray());
+        }
+
+        protected override AccessibleObject CreateAccessibilityInstance() { return new WidgetAccessible(this); }
+
+        private sealed class WidgetAccessible : ControlAccessibleObject
+        {
+            private readonly WidgetForm _owner;
+            internal WidgetAccessible(WidgetForm owner) : base(owner) { _owner = owner; }
+            public override int GetChildCount() { return _owner.VisibleAccounts().Count + 1 + base.GetChildCount(); }
+            public override AccessibleObject GetChild(int index)
+            {
+                List<AccountState> visible = _owner.VisibleAccounts();
+                if (index < 0) return null;
+                if (index < visible.Count) return new DataAccessible(_owner, visible[index]);
+                if (index == visible.Count) return new DataAccessible(_owner, null);
+                return base.GetChild(index - visible.Count - 1);
+            }
+        }
+
+        private sealed class DataAccessible : AccessibleObject
+        {
+            private readonly WidgetForm _owner;
+            private readonly AccountState _account;
+            internal DataAccessible(WidgetForm owner, AccountState account) { _owner = owner; _account = account; }
+            public override AccessibleObject Parent { get { return _owner.AccessibilityObject; } }
+            public override string Name { get { return _account == null ? "最近一次请求完成时间" : _account.Name; } set { } }
+            public override string Value
+            {
+                get
+                {
+                    return _account == null ? _owner.CheckStatusText
+                        : _owner.AccountAccessibleText(_account);
+                }
+                set { }
+            }
+            public override string Description { get { return _account == null ? "不代表所有账号均成功更新。" : "剩余额度、重置时间及数据有效性。"; } }
+            public override AccessibleRole Role { get { return AccessibleRole.StaticText; } }
+            public override Rectangle Bounds
+            {
+                get
+                {
+                    if (!_owner.IsHandleCreated || !_owner.Visible) return Rectangle.Empty;
+                    if (_account == null) return _owner.RectangleToScreen(new Rectangle(0, _owner.Height - _owner.FooterH, _owner.Width, _owner.FooterH));
+                    int y = _owner.S(8) + _owner.MessageH(_owner.Width) - _owner._scroll;
+                    foreach (AccountState a in _owner.VisibleAccounts())
+                    {
+                        int h = _owner.AccountH(a, _owner.Width);
+                        if (a == _account)
+                        {
+                            Rectangle r = Rectangle.Intersect(new Rectangle(0, y, _owner.Width, h), new Rectangle(0, 0, _owner.Width, _owner._viewportHeight));
+                            return r.IsEmpty ? Rectangle.Empty : _owner.RectangleToScreen(r);
+                        }
+                        y += h;
+                    }
+                    return Rectangle.Empty;
+                }
+            }
+            public override AccessibleStates State { get { return AccessibleStates.ReadOnly | (Bounds.IsEmpty ? AccessibleStates.Offscreen : AccessibleStates.None); } }
         }
 
         protected override void OnMouseDown(MouseEventArgs e)
         {
             base.OnMouseDown(e);
             if (e.Button != MouseButtons.Left) return;
-            _pressing = true;
-            _dragging = false;
-            _downScreen = Cursor.Position;
+            if (e.Y >= Height - FooterH) return;
+            _pressing = true; _dragging = false; _downScreen = Cursor.Position;
         }
 
         protected override void OnMouseMove(MouseEventArgs e)
         {
             base.OnMouseMove(e);
-            if (!_pressing || _dragging) return;
-            Size drag = SystemInformation.DragSize;
-            if (Math.Abs(Cursor.Position.X - _downScreen.X) > drag.Width ||
-                Math.Abs(Cursor.Position.Y - _downScreen.Y) > drag.Height)
+            bool footer = e.Y >= Height - FooterH;
+            if (footer != _overFooter)
             {
-                // 系统级拖动：手感与原生窗口一致，无跳变
-                _dragging = true;
-                ReleaseCapture();
-                SendMessage(Handle, WM_NCLBUTTONDOWN, HTCAPTION, IntPtr.Zero);
-                SaveUi();
+                _overFooter = footer;
+                _footerTip.SetToolTip(this, footer ? "最近一次请求完成时间；不代表所有账号均成功更新。" : null);
             }
+            if (!_pressing || _dragging) return;
+            Size d = SystemInformation.DragSize;
+            if (Math.Abs(Cursor.Position.X - _downScreen.X) < d.Width &&
+                Math.Abs(Cursor.Position.Y - _downScreen.Y) < d.Height) return;
+            _dragging = true;
+            ReleaseCapture();
+            SendMessage(Handle, 0xA1, (IntPtr)2, IntPtr.Zero);
+            ClampToScreen();
+            SaveUi();
         }
 
         protected override void OnMouseUp(MouseEventArgs e)
         {
             base.OnMouseUp(e);
-            if (e.Button != MouseButtons.Left || !_pressing) return;
-            bool wasDragging = _dragging;
-            _pressing = false;
-            _dragging = false;
-            if (wasDragging) return;
+            _pressing = false; _dragging = false;
         }
 
         protected override void OnMouseClick(MouseEventArgs e)
         {
             base.OnMouseClick(e);
-            if (e.Button == MouseButtons.Right)
+            if (e.Button == MouseButtons.Right) { BuildMenu(); _menu.Show(Cursor.Position); }
+        }
+
+        private void InitTray()
+        {
+            _tray = new NotifyIcon { Text = "AI 额度", Visible = true };
+            UpdateTrayIcon();
+            _tray.MouseClick += delegate(object sender, MouseEventArgs e)
             {
-                    BuildMenu();
-                _menu.Show(Cursor.Position);
+                if (e.Button != MouseButtons.Left) return;
+                if (Visible) Hide(); else ShowFromTray();
+            };
+            BuildMenu();
+        }
+
+        private Icon MakeTrayIcon(Color c)
+        {
+            using (Bitmap bitmap = new Bitmap(16, 16))
+            {
+                using (Graphics g = Graphics.FromImage(bitmap))
+                {
+                    g.Clear(Bg);
+                    using (SolidBrush b = new SolidBrush(c)) g.FillRectangle(b, 3, 3, 10, 10);
+                }
+                IntPtr handle = bitmap.GetHicon();
+                Icon copy = (Icon)Icon.FromHandle(handle).Clone();
+                DestroyIcon(handle);
+                return copy;
             }
         }
 
-        // 菜单自身仍打开时不可立即 Dispose 重建，延迟到消息循环下一轮
-        // 供截图工具使用：程序启动时主动弹出右键菜单（--menu-demo / --submenu-demo）
-        internal void OpenMenuForDemo(bool expandOpacity)
+        private void UpdateTrayIcon()
         {
-            BuildMenu();
-            Rectangle r = ClientRectangle;
-            _menu.Show(new Point(Location.X + S(30), Location.Y + S(8)));
-            if (expandOpacity)
+            if (_tray == null) return;
+            double worst = 100;
+            foreach (AccountState a in _accounts)
+                if (a.Visible)
+                    foreach (QuotaWindow q in a.Windows) worst = Math.Min(worst, 100 - q.UsedPercent);
+            Icon old = _trayIcon;
+            _trayIcon = MakeTrayIcon(RemainingColor(worst));
+            _tray.Icon = _trayIcon;
+            if (old != null) old.Dispose();
+        }
+
+        private void BuildMenu()
+        {
+            if (_menu != null) { _menu.Dispose(); _menu = null; }
+            _menu = new ContextMenuStrip { BackColor = Bg, ForeColor = TextColor,
+                ShowImageMargin = false, ShowCheckMargin = true, Font = _text, Renderer = new DispatchMenuRenderer() };
+            _menu.Items.Add(MenuItem("立即刷新", delegate { RefreshNow(); }));
+            _menu.Items.Add(MenuItem("设置…", delegate { ShowSettings(false); }));
+            ToolStripMenuItem accounts = new ToolStripMenuItem("显示账号") { ForeColor = TextColor };
+            foreach (AccountState acc in _accounts)
             {
-                System.Threading.Thread.Sleep(400); // 等主菜单完成显示
-                foreach (ToolStripItem item in _menu.Items)
+                AccountState a = acc;
+                ToolStripMenuItem item = MenuItem(a.Name, delegate
                 {
-                    ToolStripMenuItem mi = item as ToolStripMenuItem;
-                    if (mi != null && mi.Text == "透明度" && mi.HasDropDownItems)
+                    a.Visible = !a.Visible;
+                    if (a.Provider == "codex") _cfg.Codex.Visible = a.Visible;
+                    else if (a.Provider == "deepseek") _cfg.DeepSeek.Visible = a.Visible;
+                    else
                     {
-                        mi.ShowDropDown();
-                        break;
+                        foreach (ZhipuCfg z in _cfg.Zhipu)
+                            if ("zhipu:" + z.Id == a.Key) { z.Visible = a.Visible; break; }
                     }
-                }
+                    SaveUi(); ResizeForContent(true);
+                    _coordinator.Reconcile(_cfg);
+                    if (!_cfg.LoadError) _coordinator.RefreshDue();
+                    SafeRebuildMenu();
+                });
+                item.Checked = a.Visible;
+                accounts.DropDownItems.Add(item);
             }
+            _menu.Items.Add(accounts);
+            _menu.Items.Add(new ToolStripSeparator());
+            ToolStripMenuItem top = MenuItem("置顶显示", delegate
+            {
+                _cfg.Ui.TopMost = !_cfg.Ui.TopMost; TopMost = _cfg.Ui.TopMost; SaveUi(); SafeRebuildMenu();
+            });
+            top.Checked = _cfg.Ui.TopMost;
+            _menu.Items.Add(top);
+            ToolStripMenuItem auto = MenuItem("开机自启", delegate
+            {
+                if (_mock) return;
+                bool enable = !_getAutostart();
+                if (!_setAutostart(enable, Application.ExecutablePath) || _getAutostart() != enable)
+                {
+                    _uiMessage = AutostartError;
+                    ResizeForContent(false);
+                }
+                else if (_uiMessage == AutostartError)
+                {
+                    _uiMessage = null;
+                    ResizeForContent(false);
+                }
+                SafeRebuildMenu();
+            });
+            auto.Checked = !_mock && _getAutostart();
+            auto.Enabled = !_mock;
+            _menu.Items.Add(auto);
+            _menu.Items.Add(new ToolStripSeparator());
+            _menu.Items.Add(MenuItem("退出", delegate { ExitApp(); }));
+            if (_tray != null) _tray.ContextMenuStrip = _menu;
+        }
+
+        internal void OpenMenuForDemo(bool openSubmenu)
+        {
+            Shown += delegate
+            {
+                BeginInvoke((Action)delegate
+                {
+                    BuildMenu();
+                    _menu.Show(new Point(Left + S(35), Top + S(30)));
+                    if (openSubmenu)
+                        foreach (ToolStripItem item in _menu.Items)
+                        {
+                            ToolStripMenuItem menuItem = item as ToolStripMenuItem;
+                            if (menuItem != null && menuItem.Text == "显示账号")
+                            { menuItem.ShowDropDown(); break; }
+                        }
+                });
+            };
+        }
+
+        internal void OpenSettingsForDemo()
+        {
+            Shown += delegate { BeginInvoke((Action)delegate { ShowSettings(false); }); };
+        }
+
+        private ToolStripMenuItem MenuItem(string title, Action action)
+        {
+            ToolStripMenuItem item = new ToolStripMenuItem(title) { ForeColor = TextColor,
+                Padding = new Padding(8, 5, 8, 5) };
+            item.Click += delegate { action(); };
+            return item;
         }
 
         private void SafeRebuildMenu()
         {
-            if (IsDisposed || !IsHandleCreated) return;
-            try { BeginInvoke((Action)delegate { BuildMenu(); }); }
-            catch { }
+            if (!IsDisposed && IsHandleCreated) BeginInvoke((Action)BuildMenu);
+        }
+
+        private void ShowSettings(bool opacity)
+        {
+            _cfg.Ui.Left = Left; _cfg.Ui.Top = Top;
+            Point originalLocation = Location;
+            using (SettingsForm settings = new SettingsForm(_cfg, opacity, !_mock, _mock ? _scale : 0, AppConfig.Save))
+            {
+                // The settings HWND already exists after DPI measurement; assigning a
+                // modal owner alone does not move it into the owner's topmost band.
+                settings.TopMost = TopMost;
+                PlaceSettingsAbove(settings);
+                if (_mock) settings.Shown += delegate { settings.PreviewState(_mockScenario); };
+                settings.Shown += delegate { settings.BringToFront(); settings.Activate(); };
+                DialogResult result;
+                _activeSettings = settings;
+                try { result = settings.ShowDialog(this); }
+                finally
+                {
+                    _activeSettings = null;
+                    if (!IsDisposed)
+                    {
+                        ResizeForContent(false);
+                        Location = originalLocation;
+                        ClampToScreen();
+                    }
+                }
+                if (result != DialogResult.OK) return;
+                _cfg = settings.UpdatedConfig;
+                TopMost = _cfg.Ui.TopMost;
+                _coordinator.Reconcile(_cfg);
+                _accounts = _coordinator.Accounts;
+                _uiMessage = null;
+                ResizeForContent(false);
+                BuildMenu();
+                _coordinator.RefreshDue();
+            }
+        }
+
+        private void PlaceSettingsAbove(SettingsForm settings)
+        {
+            PlaceSettingsAbove(settings, Screen.FromRectangle(Bounds).WorkingArea);
+        }
+
+        internal void PlaceSettingsAbove(SettingsForm settings, Rectangle work)
+        {
+            int gap = S(8);
+            settings.StartPosition = FormStartPosition.Manual;
+            // Reserve enough room for the dialog's fixed footer and a scrollable body.
+            int minSettingsHeight = Math.Min(settings.Height, S(160));
+            int maxWidgetHeight = Math.Max(FooterH + 1, work.Height - minSettingsHeight - gap);
+            if (Height > maxWidgetHeight)
+            {
+                Height = maxWidgetHeight;
+                _viewportHeight = Math.Max(1, Height - FooterH);
+                _scroll = Math.Max(0, Math.Min(_scroll, Math.Max(0, _bodyHeight - _viewportHeight)));
+            }
+            settings.Height = Math.Min(settings.Height, Math.Max(1, work.Height - Height - gap));
+            Top = Math.Min(Math.Max(Top, work.Top + settings.Height + gap), work.Bottom - Height);
+            int x = Math.Max(work.Left, Math.Min(Right - settings.Width, work.Right - settings.Width));
+            settings.Location = new Point(x, Top - gap - settings.Height);
+            Invalidate();
         }
 
         public void ShowFromTray()
         {
-            Show();
-            WindowState = FormWindowState.Normal;
-            if (_cfg.Ui.TopMost) TopMost = true;
-            Activate();
-        }
-
-        private void HideToTray()
-        {
-            Hide();
-            if (!_balloonHideShown && _tray != null)
+            if (_activeSettings != null && !_activeSettings.IsDisposed && _activeSettings.Visible)
             {
-                _tray.ShowBalloonTip(4000, "AI 额度悬浮窗", "已隐藏到托盘，点击图标可恢复", ToolTipIcon.Info);
-                _balloonHideShown = true;
+                _activeSettings.BringToFront();
+                _activeSettings.Activate();
+                return;
             }
+            Show(); WindowState = FormWindowState.Normal; TopMost = _cfg.Ui.TopMost; Activate();
         }
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
             if (!_exiting && e.CloseReason == CloseReason.UserClosing)
             {
-                e.Cancel = true;
-                HideToTray();
-                return;
+                e.Cancel = true; Hide(); return;
             }
             base.OnFormClosing(e);
         }
@@ -808,376 +958,118 @@ namespace QuotaWidget
         private void ExitApp()
         {
             _exiting = true;
-            SaveUi();
-            if (_tray != null)
-            {
-                _tray.Visible = false;
-                _tray.Dispose();
-                _tray = null;
-            }
-            if (_trayIcon != null)
-            {
-                try { DestroyIcon(_trayIcon.Handle); }
-                catch { }
-                _trayIcon.Dispose();
-                _trayIcon = null;
-            }
-            if (_tick != null) { _tick.Stop(); _tick.Dispose(); _tick = null; }
-            if (_anim != null) { _anim.Stop(); _anim.Dispose(); _anim = null; }
+            if (_coordinator != null) _coordinator.Dispose();
+            Program.StopSignalWorker();
             Application.Exit();
         }
 
-        // ---------- 托盘与菜单 ----------
-
-        private void InitTray()
+        protected override void Dispose(bool disposing)
         {
-            _tray = new NotifyIcon();
-            _tray.Text = "AI 额度悬浮窗";
-            _trayIcon = MakeTrayIcon(ColGreen);
-            _tray.Icon = _trayIcon;
-            _tray.Visible = true;
-            _tray.MouseClick += delegate(object s, MouseEventArgs e)
+            if (disposing && !_resourcesDisposed)
             {
-                if (e.Button == MouseButtons.Left)
-                {
-                    if (Visible) HideToTray();
-                    else ShowFromTray();
-                }
-            };
-            BuildMenu();
-            _tray.ContextMenuStrip = _menu;
-        }
-
-        private void UpdateTrayIcon()
-        {
-            if (_tray == null) return;
-            double worstUsed = 0;
-            foreach (AccountState acc in _accounts)
-            {
-                if (!acc.Visible) continue;
-                foreach (QuotaWindow w in acc.Windows)
-                {
-                    double used = w.UsedPercent;
-                    if (used > worstUsed) worstUsed = used;
-                }
+                _resourcesDisposed = true;
+                _exiting = true;
+                if (_coordinator != null) _coordinator.Dispose();
+                if (_tick != null) { _tick.Stop(); _tick.Dispose(); }
+                if (_tray != null) { _tray.Visible = false; _tray.Dispose(); }
+                if (_trayIcon != null) _trayIcon.Dispose();
+                _footerTip.Dispose();
+                if (_menu != null) _menu.Dispose();
+                foreach (Font font in new[] { _text, _small, _heading, _number, _mono })
+                    if (font != null) font.Dispose();
             }
-            Color c = RemainingColor(100.0 - worstUsed);
-            Icon old = _trayIcon;
-            _trayIcon = MakeTrayIcon(c);
-            _tray.Icon = _trayIcon;
-            if (old != null)
-            {
-                try { DestroyIcon(old.Handle); }
-                catch { }
-                old.Dispose();
-            }
+            base.Dispose(disposing);
         }
 
-        private Icon MakeTrayIcon(Color c)
+        private void SaveUi()
         {
-            using (Bitmap bmp = new Bitmap(16, 16))
-            {
-                using (Graphics g = Graphics.FromImage(bmp))
-                {
-                    g.SmoothingMode = SmoothingMode.AntiAlias;
-                    using (SolidBrush b = new SolidBrush(Color.FromArgb(30, 31, 36))) g.FillEllipse(b, 0, 0, 15, 15);
-                    using (Pen p = new Pen(c, 2.4f)) g.DrawEllipse(p, 2.5f, 2.5f, 11, 11);
-                }
-                IntPtr h = bmp.GetHicon();
-                return Icon.FromHandle(h);
-            }
+            if (_mock || _cfg == null) return;
+            _cfg.Ui.Left = Left; _cfg.Ui.Top = Top;
+            _cfg.Ui.TopMost = TopMost;
+            _uiMessage = AppConfig.Save(_cfg) ? null :
+                "配置保存失败；本次设置仅在当前运行生效。请检查配置和写入权限。";
+            ResizeForContent(false);
         }
-
-        private void BuildMenu()
-        {
-            if (_menu != null)
-            {
-                _menu.Dispose();
-                _menu = null;
-            }
-            _menu = new ContextMenuStrip();
-            _menu.Renderer = new ToolStripProfessionalRenderer(new DarkMenuColors());
-            _menu.BackColor = ColBg;
-            _menu.ForeColor = ColText;
-            _menu.ShowImageMargin = true;
-            _menu.Font = _font;
-
-            _menu.Items.Add(PlainItem("立即刷新", delegate { RefreshNow(); }));
-            _menu.Items.Add(new ToolStripSeparator());
-
-            // 显示类（开关项同组）
-            _menu.Items.Add(CheckItem("置顶显示", _cfg.Ui.TopMost, delegate
-            {
-                _cfg.Ui.TopMost = !_cfg.Ui.TopMost;
-                TopMost = _cfg.Ui.TopMost;
-                SaveUi();
-            }));
-
-            _menu.Items.Add(CheckItem("开机自启", AppConfig.GetAutostart(), delegate
-            {
-                AppConfig.SetAutostart(!AppConfig.GetAutostart(), Application.ExecutablePath);
-            }));
-
-            ToolStripMenuItem miOpacity = new ToolStripMenuItem("透明度");
-            AddOpacityItem(miOpacity, "100%", 1.0);
-            AddOpacityItem(miOpacity, "90%", 0.9);
-            AddOpacityItem(miOpacity, "80%", 0.8);
-            AddOpacityItem(miOpacity, "65%", 0.65);
-            AddOpacityItem(miOpacity, "50%", 0.5);
-            _menu.Items.Add(miOpacity);
-
-            ToolStripMenuItem miAccounts = new ToolStripMenuItem("显示账号");
-            foreach (AccountState acc in _accounts)
-            {
-                AccountState a = acc;
-                ToolStripMenuItem mi = CheckItem(a.Name, a.Visible, delegate
-                {
-                    a.Visible = !a.Visible;
-                    SetConfigVisible(a, a.Visible);
-                    ApplySize(true);
-                    SaveUi();
-                    RefreshNow();
-                });
-                miAccounts.DropDownItems.Add(mi);
-            }
-            _menu.Items.Add(miAccounts);
-
-            _menu.Items.Add(new ToolStripSeparator());
-
-            // 配置类
-            _menu.Items.Add(PlainItem("打开配置", delegate
-            {
-                try { Process.Start("notepad.exe", "\"" + AppConfig.ConfigPath + "\""); }
-                catch { }
-            }));
-            _menu.Items.Add(PlainItem("重载配置", delegate { ReloadConfig(); }));
-
-            _menu.Items.Add(new ToolStripSeparator());
-            _menu.Items.Add(PlainItem("退出", delegate { ExitApp(); }));
-
-            // 深色子菜单同步
-            StyleDropDown(_menu);
-
-            if (_tray != null) _tray.ContextMenuStrip = _menu;
-        }
-
-        private ToolStripMenuItem PlainItem(string text, EventHandler onClick)
-        {
-            ToolStripMenuItem mi = new ToolStripMenuItem(text);
-            mi.ForeColor = ColText;
-            if (onClick != null) mi.Click += onClick;
-            return mi;
-        }
-
-        // 勾选项用 accent 绿自定义勾选标记（自绘 image），不用系统默认
-        private ToolStripMenuItem CheckItem(string text, bool on, EventHandler onClick)
-        {
-            ToolStripMenuItem mi = new ToolStripMenuItem(text);
-            mi.Image = MakeCheckIcon(on);
-            mi.ForeColor = on ? ColText : ColSub;
-            mi.Click += delegate { onClick(this, EventArgs.Empty); };
-            return mi;
-        }
-
-        private Bitmap MakeCheckIcon(bool on)
-        {
-            Bitmap bmp = new Bitmap(14, 14);
-            if (on)
-            {
-                using (Graphics g = Graphics.FromImage(bmp))
-                {
-                    g.SmoothingMode = SmoothingMode.AntiAlias;
-                    using (Pen p = new Pen(ColGreen, 2f))
-                    {
-                        g.DrawLines(p, new[] { new Point(3, 8), new Point(6, 11), new Point(11, 3) });
-                    }
-                }
-            }
-            return bmp;
-        }
-
-        private void StyleDropDown(ToolStrip drop)
-        {
-            drop.BackColor = ColBg;
-            drop.ForeColor = ColText;
-            drop.Font = _font;
-            foreach (ToolStripItem item in drop.Items)
-            {
-                item.ForeColor = ColText;
-                ToolStripMenuItem mi = item as ToolStripMenuItem;
-                if (mi != null && mi.HasDropDownItems) StyleDropDown(mi.DropDown);
-            }
-        }
-
-        private void AddOpacityItem(ToolStripMenuItem parent, string label, double value)
-        {
-            ToolStripMenuItem mi = CheckItem(label, Math.Abs(_cfg.Ui.Opacity - value) < 0.01, delegate
-            {
-                _cfg.Ui.Opacity = value;
-                Opacity = value;
-                SaveUi();
-            });
-            parent.DropDownItems.Add(mi);
-        }
-
-        // ---------- 刷新 ----------
 
         private void OnTick(object sender, EventArgs e)
         {
-            _tickCount++;
-            // 置顶低频重申：每 30s SetWindowPos 一次（高频会与 DWM 合成竞争）
-            if (_cfg.Ui.TopMost)
-            {
-                if (!TopMost) TopMost = true;
-                if (_tickCount % 30 == 0)
-                {
-                    SetWindowPos(Handle, HWND_TOPMOST, 0, 0, 0, 0, SWP_FLAGS);
-                }
-            }
-            if (!_refreshing && _nextRefresh != DateTime.MinValue && DateTime.Now >= _nextRefresh)
-            {
-                RefreshNow();
-            }
-            Invalidate(); // 呼吸相位 / 秒级时刻刷新
+            _ticks++;
+            if (_cfg.Ui.TopMost && _ticks % 30 == 0 && !TopMost) TopMost = true;
+            if (!_cfg.LoadError) _coordinator.RefreshDue();
+            ResizeForContent(false);
         }
 
         public void RefreshNow()
         {
-            if (_refreshing) return;
-            _refreshing = true;
-            Invalidate();
-
-            List<JobPair> jobs = new List<JobPair>();
-            foreach (AccountState acc in _accounts)
-            {
-                if (!acc.Visible) continue;
-                JobPair job = new JobPair();
-                job.Acc = acc;
-                if (acc.Provider == "codex")
-                {
-                    string path = acc.AuthJsonPath;
-                    job.Run = delegate { return Providers.FetchCodex(path); };
-                }
-                else if (acc.Provider == "zhipu")
-                {
-                    string key = acc.ApiKey;
-                    string scheme = _cfg.ZaiAuthorization;
-                    job.Run = delegate { return Providers.FetchZhipu(key, scheme); };
-                }
-                else
-                {
-                    string key = acc.ApiKey;
-                    job.Run = delegate { return Providers.FetchDeepSeek(key); };
-                }
-                jobs.Add(job);
-            }
-
-            ThreadPool.QueueUserWorkItem(delegate
-            {
-                bool first = true;
-                foreach (JobPair job in jobs)
-                {
-                    JobPair j = job; // 防御性拷贝：不依赖编译器的 foreach 捕获语义
-                    if (!first && j.Acc.Provider == "zhipu") Thread.Sleep(200);
-                    first = false;
-                    FetchResult r;
-                    try { r = j.Run(); }
-                    catch (Exception ex)
-                    {
-                        r = new FetchResult();
-                        r.Error = ex.Message;
-                    }
-                    try
-                    {
-                        BeginInvoke((Action)delegate { ApplyResult(j.Acc, r); });
-                    }
-                    catch { }
-                }
-                try
-                {
-                    BeginInvoke((Action)delegate
-                    {
-                        _refreshing = false;
-                        _lastRefresh = DateTime.Now;
-                        _nextRefresh = DateTime.Now.AddSeconds(Math.Max(5, _cfg.RefreshIntervalSeconds));
-                        if (_mock) ApplyMock();
-                        UpdateTrayIcon();
-                        Invalidate();
-                    });
-                }
-                catch { }
-            });
-        }
-
-        private void ApplyResult(AccountState acc, FetchResult r)
-        {
-            if (IsDisposed) return;
-            acc.LastSuccess = r != null && r.Ok ? DateTime.Now : acc.LastSuccess;
-            if (r != null && r.Ok)
-            {
-                acc.Windows = r.Windows != null ? r.Windows : new List<QuotaWindow>();
-                acc.Balance = r.Balance;
-                acc.Error = null;
-                acc.Warning = r.Warning;
-                acc.Stale = r.Stale;
-            }
-            else
-            {
-                acc.Stale = acc.Windows.Count > 0 || acc.Balance != null;
-                acc.Error = r == null ? "未知错误" : (string.IsNullOrEmpty(r.Error) ? "HTTP 错误" : r.Error);
-            }
+            if (!_cfg.LoadError) _coordinator.RefreshNow();
             Invalidate();
         }
 
-        private void ApplyMock()
+        private static FetchResult MockResult(string provider, string scenario)
         {
-            foreach (AccountState acc in _accounts)
-            {
-                if (acc.IsBalance || acc.Provider != "codex") continue;
-                long now = Providers.NowUnixSeconds();
-                acc.Windows = new List<QuotaWindow>
-                {
-                    new QuotaWindow { Kind = WindowKind.FiveHour, DurationSeconds = 18000, UsedPercent = 93, ResetAt = now + 2400 },
-                    new QuotaWindow { Kind = WindowKind.Week, DurationSeconds = 604800, UsedPercent = 75, ResetAt = now + 432000 }
-                };
-                acc.Error = null;
-                acc.Warning = null;
-                acc.Stale = false;
-            }
-            Invalidate();
+            if (scenario == "login" && provider == "codex") return new FetchResult { Error = "请在 Codex 客户端重新登录", RequiresLogin = true, StatusCode = 401 };
+            if (scenario == "limited") return new FetchResult { Error = "请求过于频繁", StatusCode = 429 };
+            if (scenario == "empty") return new FetchResult { Error = "未配置 API Key" };
+            if (scenario == "error" || scenario == "stale" || scenario == "refresh-error")
+                return new FetchResult { Error = "网络连接失败", StatusCode = 0 };
+            if (scenario == "unknown" && provider != "deepseek") return new FetchResult { Ok = true, Windows = new List<QuotaWindow>() };
+            if (scenario == "extreme" && provider == "deepseek") return new FetchResult { Ok = true,
+                Balances = new List<BalanceData> { new BalanceData { Currency = "CNY", Total = decimal.MaxValue, Available = true },
+                    new BalanceData { Currency = "USD", Total = .01m, Available = true } } };
+            if (provider == "deepseek") return new FetchResult { Ok = true,
+                Warning = scenario == "partial" ? "部分余额数据无法识别，已保留有效币种" : null,
+                Balances = new List<BalanceData> { new BalanceData { Currency = "CNY", Total = 42.50m },
+                    new BalanceData { Currency = "USD", Total = 7.25m } } };
+            long now = scenario == "reference" ? (long)(ReferenceTime.ToUniversalTime() - new DateTime(1970, 1, 1)).TotalSeconds : Providers.NowUnixSeconds();
+            return new FetchResult { Ok = true, Windows = new List<QuotaWindow> {
+                new QuotaWindow { Kind = WindowKind.FiveHour, UsedPercent = provider == "codex" ? 26 : 78, ResetAt = now + 8100 },
+                new QuotaWindow { Kind = WindowKind.Week, UsedPercent = provider == "codex" ? 64 : 91, ResetAt = now + 315000 }
+            } };
         }
 
-        // ---------- 配置持久化 ----------
 
-        private void SaveUi()
-        {
-            _cfg.Ui.Left = Location.X;
-            _cfg.Ui.Top = Location.Y;
-            _cfg.Ui.Opacity = Opacity;
-            _cfg.Ui.TopMost = TopMost;
-            AppConfig.Save(_cfg);
-        }
     }
 
-    // 深色菜单色表：与挂件同一套背景/边框/hover 语言
-    internal class DarkMenuColors : ProfessionalColorTable
+    internal sealed class DispatchMenuRenderer : ToolStripProfessionalRenderer
     {
-        private static Color Bg() { return Color.FromArgb(16, 17, 20); }
-        private static Color Hover() { return Color.FromArgb(38, 40, 46); }
-        private static Color Sep() { return Color.FromArgb(35, 37, 43); }
-
-        public override Color ToolStripDropDownBackground { get { return Bg(); } }
-        public override Color ImageMarginGradientBegin { get { return Bg(); } }
-        public override Color ImageMarginGradientMiddle { get { return Bg(); } }
-        public override Color ImageMarginGradientEnd { get { return Bg(); } }
-        public override Color MenuBorder { get { return Sep(); } }
-        public override Color MenuItemBorder { get { return Sep(); } }
-        public override Color MenuItemSelected { get { return Hover(); } }
-        public override Color MenuItemSelectedGradientBegin { get { return Hover(); } }
-        public override Color MenuItemSelectedGradientEnd { get { return Hover(); } }
-        public override Color MenuItemPressedGradientBegin { get { return Color.FromArgb(22, 24, 28); } }
-        public override Color MenuItemPressedGradientEnd { get { return Color.FromArgb(22, 24, 28); } }
-        public override Color SeparatorDark { get { return Sep(); } }
-        public override Color SeparatorLight { get { return Sep(); } }
+        private static Color Bg { get { return PixelTheme.Surface; } }
+        private static Color Hover { get { return PixelTheme.Selected; } }
+        private static Color Accent { get { return PixelTheme.Focus; } }
+        public DispatchMenuRenderer() : base(new Colors()) { }
+        protected override void OnRenderItemCheck(ToolStripItemImageRenderEventArgs e)
+        {
+            Rectangle r = e.ImageRectangle;
+            int unit = Math.Max(1, r.Width / 8);
+            using (SolidBrush brush = new SolidBrush(Accent))
+            {
+                e.Graphics.FillRectangle(brush, r.X + unit, r.Y + 3 * unit, 2 * unit, 3 * unit);
+                e.Graphics.FillRectangle(brush, r.X + 3 * unit, r.Y + 4 * unit, 2 * unit, 2 * unit);
+                e.Graphics.FillRectangle(brush, r.X + 5 * unit, r.Y + unit, 2 * unit, 4 * unit);
+            }
+        }
+        protected override void OnRenderItemText(ToolStripItemTextRenderEventArgs e)
+        {
+            e.TextColor = !e.Item.Enabled ? PixelTheme.Disabled : SystemInformation.HighContrast && e.Item.Selected
+                ? SystemColors.HighlightText : PixelTheme.Text;
+            base.OnRenderItemText(e);
+        }
+        protected override void OnRenderArrow(ToolStripArrowRenderEventArgs e)
+        {
+            e.ArrowColor = e.Item.Enabled ? PixelTheme.Text : PixelTheme.Disabled;
+            base.OnRenderArrow(e);
+        }
+        private sealed class Colors : ProfessionalColorTable
+        {
+            public override Color ToolStripDropDownBackground { get { return Bg; } }
+            public override Color ImageMarginGradientBegin { get { return Bg; } }
+            public override Color ImageMarginGradientMiddle { get { return Bg; } }
+            public override Color ImageMarginGradientEnd { get { return Bg; } }
+            public override Color MenuBorder { get { return Hover; } }
+            public override Color MenuItemSelected { get { return Hover; } }
+            public override Color MenuItemSelectedGradientBegin { get { return Hover; } }
+            public override Color MenuItemSelectedGradientEnd { get { return Hover; } }
+            public override Color SeparatorDark { get { return Hover; } }
+            public override Color SeparatorLight { get { return Hover; } }
+        }
     }
 }

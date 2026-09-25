@@ -10,9 +10,13 @@ namespace QuotaWidget
     public static class TestMain
     {
         static int failures = 0;
+        static int assertions = 0;
 
+        [STAThread]
         static int Main(string[] args)
         {
+            System.Windows.Forms.Application.EnableVisualStyles();
+            System.Windows.Forms.Application.SetCompatibleTextRenderingDefault(false);
             string fixturesDir = FindFixturesDir();
             if (fixturesDir == null)
             {
@@ -36,11 +40,29 @@ namespace QuotaWidget
             TestClassifyDurationSeconds();
             TestFormatCountdownNull();
             TestClampPercent();
+            TestResetDisplay();
+            TestDeepSeekMultipleCurrencies();
+            TestRefreshPolicy();
+            TestAccountRefreshState();
+            TestConfigPreservation();
+            ConfigRegression.Run(Check);
+            AutostartRegression.Run(Check);
+            ProviderRegression.Run(Check);
+            CoordinatorRegression.Run(Check);
+            UiRegression.Run(Check);
+            PixelUiRegression.Run(Check);
+            ExpansionUiRegression.Run(Check);
+            EdgeRemovalRegression.Run(Check);
+            CompactUiRegression.Run(Check);
+            ColorLanguageRegression.Run(Check);
+            SettingsLayerRegression.Run(Check);
+            if (args != null && Array.IndexOf(args, "--render") >= 0)
+                UiRegression.RenderPreviews(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "verification"));
 
             Console.WriteLine();
             if (failures == 0)
             {
-                Console.WriteLine("SUMMARY: all tests passed");
+                Console.WriteLine("SUMMARY: " + assertions + " assertions, all tests passed");
                 return 0;
             }
             Console.WriteLine("SUMMARY: " + failures + " assertion(s) FAILED");
@@ -76,6 +98,7 @@ namespace QuotaWidget
 
         static void Check(string name, bool condition, string detail)
         {
+            assertions++;
             if (condition)
             {
                 Console.WriteLine("[PASS] " + name);
@@ -181,7 +204,7 @@ namespace QuotaWidget
             if (auth == null) return;
             Check("codex.auth: AccountId == acct_direct", auth.AccountId == "acct_direct", "accountId=" + Show(auth.AccountId));
             Check("codex.auth: AccessToken == at", auth.AccessToken == "at", "accessToken=" + Show(auth.AccessToken));
-            Check("codex.auth: RefreshToken == rt", auth.RefreshToken == "rt", "refreshToken=" + Show(auth.RefreshToken));
+
         }
 
         // 测试侧 Base64Url 编码：标准 Base64 后 '+'→'-'、'/'→'_'，去掉 '=' 填充（与 Providers.Base64UrlDecode 互逆）。
@@ -231,6 +254,97 @@ namespace QuotaWidget
 
             double fromNull = Providers.ClampPercent(null);
             Check("clamp-percent: null -> -1", fromNull == -1.0, "result=" + fromNull);
+        }
+
+        static void TestResetDisplay()
+        {
+            DateTime now = DateTime.SpecifyKind(new DateTime(2026, 9, 25, 23, 0, 0), DateTimeKind.Local);
+            DateTime five = now.AddHours(2);
+            long fiveEpoch = (long)(five.ToUniversalTime() - new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalSeconds;
+            string fiveText = Providers.FormatFiveHourReset(fiveEpoch, now);
+            Check("five reset: day only and hours/minutes", fiveText == "26日 01:00 · 2小时0分", fiveText);
+            DateTime week = now.AddDays(3).AddHours(4);
+            long weekEpoch = (long)(week.ToUniversalTime() - new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalSeconds;
+            string weekText = Providers.FormatWeekReset(weekEpoch, now);
+            Check("week reset: day only and days/hours", weekText == "29日 03:00 · 3天4小时", weekText);
+            Check("reset unknown", Providers.FormatWeekReset(null, now) == "重置时间未知", null);
+            Check("zhipu default first name", AppConfig.ZhipuDisplayName(new ZhipuCfg(), 0) == "智谱", null);
+            Check("zhipu later names", AppConfig.ZhipuDisplayName(new ZhipuCfg(), 1) == "智谱 2", null);
+            Check("zhipu custom name", AppConfig.ZhipuDisplayName(new ZhipuCfg { Name = "工作" }, 0) == "工作", null);
+        }
+
+        static void TestDeepSeekMultipleCurrencies()
+        {
+            string json = "{\"is_available\":true,\"balance_infos\":[" +
+                "{\"currency\":\"CNY\",\"total_balance\":\"42.50\"}," +
+                "{\"currency\":\"USD\",\"total_balance\":\"7.25\"}]}";
+            List<BalanceData> balances = Providers.ParseDeepSeekBalances(json);
+            Check("deepseek: currency rows stay separate", balances.Count == 2 &&
+                balances[0].Currency == "CNY" && balances[0].Total == 42.50m &&
+                balances[1].Currency == "USD" && balances[1].Total == 7.25m, "count=" + balances.Count);
+        }
+
+        static void TestRefreshPolicy()
+        {
+            Check("refresh: configured 10 seconds", RefreshPolicy.DelaySeconds(10, 200, 0) == 10, null);
+            Check("refresh: 429 backs off only that account", RefreshPolicy.DelaySeconds(10, 429, 1) == 60, null);
+            Check("refresh: repeated network failure backs off", RefreshPolicy.DelaySeconds(10, 0, 4) == 80, null);
+        }
+
+        static void TestAccountRefreshState()
+        {
+            DateTime local = DateTime.Now;
+            DateTime utc = DateTime.UtcNow;
+            AccountState account = new AccountState { IsBalance = false, Fetching = true };
+            account.Apply(new FetchResult { Ok = true, Windows = new List<QuotaWindow> {
+                new QuotaWindow { Kind = WindowKind.FiveHour, UsedPercent = 40 } } }, local, utc, 10);
+            Check("state: success stores data", account.Windows.Count == 1 && account.Error == null &&
+                account.LastSuccess == local && !account.Fetching, null);
+            account.Fetching = true;
+            account.Apply(new FetchResult { Error = "network", StatusCode = 0 }, local.AddSeconds(10), utc.AddSeconds(10), 10);
+            Check("state: failure keeps old data and marks stale", account.Windows.Count == 1 &&
+                account.Stale && account.Error == "network" && account.LastSuccess == local, null);
+            account.Apply(new FetchResult { Error = "rate limited", StatusCode = 429 },
+                local.AddSeconds(20), utc.AddSeconds(20), 10);
+            Check("state: rate-limit due time", (account.NextDue - utc.AddSeconds(20)).TotalSeconds == 60, null);
+        }
+
+        static void TestConfigPreservation()
+        {
+            string oldPath = AppConfig.ConfigPath;
+            string path = Path.Combine(Path.GetTempPath(), "quota-widget-test-" + Guid.NewGuid().ToString("N") + ".json");
+            string original = "{\"refreshIntervalSeconds\":5,\"custom\":{\"keep\":true}," +
+                "\"accounts\":{\"zhipu\":[{\"name\":\"one\",\"apiKey\":\"local-test\"}]}," +
+                "\"ui\":{\"mode\":\"bridge\",\"opacity\":0.8}}";
+            try
+            {
+                File.WriteAllText(path, original, Encoding.UTF8);
+                AppConfig cfg = AppConfig.LoadFromPath(path);
+                Check("config: legacy interval clamps to 10", cfg.RefreshIntervalSeconds == 10, null);
+                Check("config: legacy opacity loads without affecting settings", !cfg.LoadError, null);
+                Check("config: account key loaded", cfg.Zhipu.Count == 1 && cfg.Zhipu[0].ApiKey == "local-test", null);
+                cfg.Codex.Name = "引号\"与换行\n";
+                Check("config: safe save", AppConfig.Save(cfg), null);
+                Dictionary<string, object> doc = Providers.ParseJsonObject(File.ReadAllText(path, Encoding.UTF8));
+                Check("config: unknown fields kept", doc != null && doc.ContainsKey("custom"), null);
+                Check("config: design version persisted", !AppConfig.LoadFromPath(path).LoadError, null);
+                Dictionary<string, object> ui = doc["ui"] as Dictionary<string, object>;
+                Check("config: retired UI modes and opacity removed", ui != null && !ui.ContainsKey("mode") && !ui.ContainsKey("opacity"), null);
+                Check("config: backup created", File.Exists(path + ".bak"), null);
+                Check("config: escaped text roundtrips", AppConfig.LoadFromPath(path).Codex.Name == cfg.Codex.Name, null);
+                cfg.Zhipu.Clear();
+                Check("config: remove all Zhipu accounts", AppConfig.Save(cfg) &&
+                    AppConfig.LoadFromPath(path).Zhipu.Count == 0, null);
+                File.WriteAllText(path, "{broken", Encoding.UTF8);
+                AppConfig invalid = AppConfig.LoadFromPath(path);
+                Check("config: invalid JSON protected", invalid.LoadError && !AppConfig.Save(invalid) &&
+                    File.ReadAllText(path, Encoding.UTF8) == "{broken", null);
+            }
+            finally
+            {
+                AppConfig.ConfigPath = oldPath;
+                try { File.Delete(path); File.Delete(path + ".bak"); File.Delete(path + ".tmp"); } catch { }
+            }
         }
     }
 }

@@ -18,9 +18,17 @@ namespace QuotaWidget
 
     public class ZhipuCfg
     {
+        public string Id = Guid.NewGuid().ToString("N");
         public bool Visible = true;
         public string Name = "";
         public string ApiKey = "";
+        internal Dictionary<string, object> SourceFields = new Dictionary<string, object>();
+
+        public ZhipuCfg Clone()
+        {
+            return new ZhipuCfg { Id = Id, Visible = Visible, Name = Name, ApiKey = ApiKey,
+                SourceFields = AppConfig.CopyFields(SourceFields) };
+        }
     }
 
     public class DeepSeekCfg
@@ -35,28 +43,51 @@ namespace QuotaWidget
     {
         public int Left = -1;
         public int Top = -1;
-        public bool Collapsed = false;
-        public double Opacity = 1.0;
         public bool TopMost = true;
-        public string Mode = "bridge";
-        public int AutoCollapseSeconds = 3;
     }
 
     public class AppConfig
     {
-        public int RefreshIntervalSeconds = 5;
+        public int RefreshIntervalSeconds = 10;
         public string ZaiAuthorization = "raw";
         public int WarnThreshold = 90;
         public CodexCfg Codex = new CodexCfg();
         public List<ZhipuCfg> Zhipu = new List<ZhipuCfg>();
         public DeepSeekCfg DeepSeek = new DeepSeekCfg();
         public UiCfg Ui = new UiCfg();
-        public bool CreatedTemplate;
         public bool LoadError;
 
         public static string ConfigPath;
 
         const string AutostartValueName = "AIQuotaWidget";
+
+        public AppConfig Clone()
+        {
+            AppConfig copy = new AppConfig {
+                RefreshIntervalSeconds = RefreshIntervalSeconds,
+                ZaiAuthorization = ZaiAuthorization, WarnThreshold = WarnThreshold, LoadError = LoadError,
+                Codex = new CodexCfg { Enabled = Codex.Enabled, Visible = Codex.Visible,
+                    Name = Codex.Name, AuthJsonPath = Codex.AuthJsonPath },
+                DeepSeek = new DeepSeekCfg { Enabled = DeepSeek.Enabled, Visible = DeepSeek.Visible,
+                    Name = DeepSeek.Name, ApiKey = DeepSeek.ApiKey },
+                Ui = new UiCfg { Left = Ui.Left, Top = Ui.Top, TopMost = Ui.TopMost }
+            };
+            foreach (ZhipuCfg account in Zhipu) copy.Zhipu.Add(account.Clone());
+            return copy;
+        }
+
+        internal static Dictionary<string, object> CopyFields(Dictionary<string, object> fields)
+        {
+            if (fields == null || fields.Count == 0) return new Dictionary<string, object>();
+            JavaScriptSerializer json = NewJson();
+            return (Dictionary<string, object>)json.DeserializeObject(json.Serialize(fields));
+        }
+
+        public static string ZhipuDisplayName(ZhipuCfg account, int index)
+        {
+            if (!string.IsNullOrWhiteSpace(account.Name)) return account.Name;
+            return index == 0 ? "智谱" : "智谱 " + (index + 1);
+        }
 
         static JavaScriptSerializer NewJson()
         {
@@ -75,37 +106,37 @@ namespace QuotaWidget
 
         public static AppConfig Load()
         {
-            ConfigPath = FindConfigPath();
+            return LoadFromPath(FindConfigPath());
+        }
+
+        public static AppConfig LoadFromPath(string path)
+        {
+            ConfigPath = path;
             AppConfig cfg = new AppConfig();
             if (!File.Exists(ConfigPath))
             {
-                try
-                {
-                    cfg.Zhipu.Add(new ZhipuCfg());
-                    Save(cfg);
-                    cfg.CreatedTemplate = true;
-                }
-                catch { }
+                cfg.Zhipu.Add(new ZhipuCfg());
                 return cfg;
             }
             try
             {
                 string json = File.ReadAllText(ConfigPath, Encoding.UTF8);
                 Dictionary<string, object> root = NewJson().DeserializeObject(json) as Dictionary<string, object>;
-                if (root != null) MapFromDict(cfg, root);
+                if (root == null) throw new InvalidDataException("配置根节点不是对象");
+                ValidateStructure(root);
+                MapFromDict(cfg, root);
             }
             catch
             {
                 // 解析失败：保持默认值但禁止写回，避免后续 Save 覆盖用户手填的 Key
                 cfg.LoadError = true;
             }
-            if (cfg.Zhipu.Count == 0) cfg.Zhipu.Add(new ZhipuCfg());
             return cfg;
         }
 
         static void MapFromDict(AppConfig cfg, Dictionary<string, object> root)
         {
-            cfg.RefreshIntervalSeconds = Clamp(Int(root, "refreshIntervalSeconds", 5), 5, 3600);
+            cfg.RefreshIntervalSeconds = Clamp(Int(root, "refreshIntervalSeconds", 10), 10, 3600);
             string scheme = Str(root, "zaiAuthorization", "raw");
             cfg.ZaiAuthorization = scheme == "bearer" ? "bearer" : "raw";
             cfg.WarnThreshold = Clamp(Int(root, "warnThreshold", 90), 5, 100);
@@ -126,14 +157,16 @@ namespace QuotaWidget
                 foreach (object item in zhipuArr)
                 {
                     Dictionary<string, object> z = item as Dictionary<string, object>;
-                    if (z == null) continue;
                     ZhipuCfg zc = new ZhipuCfg();
+                    zc.Id = Str(z, "id", "");
                     zc.Visible = Bool(z, "visible", true);
                     zc.Name = Str(z, "name", "");
                     zc.ApiKey = Str(z, "apiKey", "");
+                    zc.SourceFields = CopyFields(z);
                     cfg.Zhipu.Add(zc);
                 }
             }
+            EnsureAccountIds(cfg.Zhipu);
             Dictionary<string, object> ds = Dict(accounts, "deepseek");
             if (ds != null)
             {
@@ -147,91 +180,128 @@ namespace QuotaWidget
             {
                 cfg.Ui.Left = Int(ui, "left", -1);
                 cfg.Ui.Top = Int(ui, "top", -1);
-                cfg.Ui.Collapsed = Bool(ui, "collapsed", false);
-                cfg.Ui.Opacity = Dbl(ui, "opacity", 1.0);
                 cfg.Ui.TopMost = Bool(ui, "topMost", true);
-                string uiMode = Str(ui, "mode", "bridge");
-                cfg.Ui.Mode = uiMode == "line" ? "line" : "bridge";
-                cfg.Ui.AutoCollapseSeconds = Clamp(Int(ui, "autoCollapseSeconds", 3), 0, 60);
             }
         }
 
-        private static string Esc(string s)
+        public static bool Save(AppConfig cfg)
         {
-            if (s == null) return "";
-            return s.Replace("\\", "\\\\").Replace("\"", "\\\"");
-        }
-
-        private static string B(bool v) { return v ? "true" : "false"; }
-
-        private static string BuildPretty(AppConfig cfg)
-        {
-            StringBuilder sb = new StringBuilder();
-            sb.Append("{\n");
-            sb.Append("  \"refreshIntervalSeconds\": " + cfg.RefreshIntervalSeconds + ",\n");
-            sb.Append("  \"zaiAuthorization\": \"" + Esc(cfg.ZaiAuthorization) + "\",\n");
-            sb.Append("  \"warnThreshold\": " + cfg.WarnThreshold + ",\n");
-            sb.Append("\n");
-            sb.Append("  \"accounts\": {\n");
-            sb.Append("    \"codex\": {\n");
-            sb.Append("      \"enabled\": " + B(cfg.Codex.Enabled) + ",\n");
-            sb.Append("      \"visible\": " + B(cfg.Codex.Visible) + ",\n");
-            sb.Append("      \"name\": \"" + Esc(cfg.Codex.Name) + "\",\n");
-            sb.Append("      \"authJsonPath\": \"" + Esc(cfg.Codex.AuthJsonPath) + "\"\n");
-            sb.Append("    },\n");
-            sb.Append("    \"zhipu\": [\n");
-            for (int i = 0; i < cfg.Zhipu.Count; i++)
-            {
-                ZhipuCfg z = cfg.Zhipu[i];
-                sb.Append("      {\n");
-                sb.Append("      \"visible\": " + B(z.Visible) + ",\n");
-                sb.Append("      \"name\": \"" + Esc(z.Name) + "\",\n");
-                sb.Append("      \"apiKey\": \"" + Esc(z.ApiKey) + "\"\n");
-                sb.Append("      }" + (i < cfg.Zhipu.Count - 1 ? "," : "") + "\n");
-            }
-            sb.Append("    ],\n");
-            sb.Append("    \"deepseek\": {\n");
-            sb.Append("      \"enabled\": " + B(cfg.DeepSeek.Enabled) + ",\n");
-            sb.Append("      \"visible\": " + B(cfg.DeepSeek.Visible) + ",\n");
-            sb.Append("      \"name\": \"" + Esc(cfg.DeepSeek.Name) + "\",\n");
-            sb.Append("      \"apiKey\": \"" + Esc(cfg.DeepSeek.ApiKey) + "\"\n");
-            sb.Append("    }\n");
-            sb.Append("  },\n");
-            sb.Append("\n");
-            sb.Append("  \"ui\": {\n");
-            sb.Append("    \"left\": " + cfg.Ui.Left + ",\n");
-            sb.Append("    \"top\": " + cfg.Ui.Top + ",\n");
-            sb.Append("    \"opacity\": " + cfg.Ui.Opacity.ToString(System.Globalization.CultureInfo.InvariantCulture) + ",\n");
-            sb.Append("    \"topMost\": " + B(cfg.Ui.TopMost) + ",\n");
-            sb.Append("    \"mode\": \"" + Esc(cfg.Ui.Mode) + "\",\n");
-            sb.Append("    \"autoCollapseSeconds\": " + cfg.Ui.AutoCollapseSeconds + "\n");
-            sb.Append("  }\n");
-            sb.Append("}\n");
-            return sb.ToString();
-        }
-
-        public static void Save(AppConfig cfg)
-        {
+            string tmp = null;
+            bool tempOwned = false;
             try
             {
-                if (cfg.LoadError) return; // 配置解析失败时禁止覆盖写回
+                if (cfg == null || cfg.LoadError) return false;
                 if (string.IsNullOrEmpty(ConfigPath)) ConfigPath = FindConfigPath();
 
                 string dir = Path.GetDirectoryName(ConfigPath);
                 if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir)) Directory.CreateDirectory(dir);
-                // 手拼格式化 JSON：字段固定、逐行缩进，方便 notepad 里查找编辑；原子写 + 上一版备份
-                string tmp = ConfigPath + ".tmp";
+                // 在原对象上更新已知字段，保留其他 Agent 或以后版本加入的字段。
+                Dictionary<string, object> root = File.Exists(ConfigPath)
+                    ? NewJson().DeserializeObject(File.ReadAllText(ConfigPath, Encoding.UTF8)) as Dictionary<string, object>
+                    : new Dictionary<string, object>();
+                if (root == null) return false;
+                ValidateStructure(root);
+                EnsureAccountIds(cfg.Zhipu);
+                root["refreshIntervalSeconds"] = Clamp(cfg.RefreshIntervalSeconds, 10, 3600);
+                root["zaiAuthorization"] = cfg.ZaiAuthorization;
+                root["warnThreshold"] = cfg.WarnThreshold;
+                Dictionary<string, object> accounts = EnsureDict(root, "accounts");
+                Dictionary<string, object> codex = EnsureDict(accounts, "codex");
+                codex["enabled"] = cfg.Codex.Enabled;
+                codex["visible"] = cfg.Codex.Visible;
+                codex["name"] = cfg.Codex.Name;
+                codex["authJsonPath"] = cfg.Codex.AuthJsonPath;
+                List<object> zhipu = new List<object>();
+                for (int i = 0; i < cfg.Zhipu.Count; i++)
+                {
+                    ZhipuCfg z = cfg.Zhipu[i];
+                    // 扩展字段属于账号对象，不随删除或排序转移给同位置的其他账号。
+                    Dictionary<string, object> zd = CopyFields(z.SourceFields);
+                    zd["id"] = z.Id;
+                    zd["visible"] = z.Visible;
+                    zd["name"] = z.Name;
+                    zd["apiKey"] = z.ApiKey;
+                    zhipu.Add(zd);
+                }
+                accounts["zhipu"] = zhipu;
+                Dictionary<string, object> deepseek = EnsureDict(accounts, "deepseek");
+                deepseek["enabled"] = cfg.DeepSeek.Enabled;
+                deepseek["visible"] = cfg.DeepSeek.Visible;
+                deepseek["name"] = cfg.DeepSeek.Name;
+                deepseek["apiKey"] = cfg.DeepSeek.ApiKey;
+                Dictionary<string, object> ui = EnsureDict(root, "ui");
+                ui["left"] = cfg.Ui.Left;
+                ui["top"] = cfg.Ui.Top;
+                ui.Remove("opacity");
+                ui["topMost"] = cfg.Ui.TopMost;
+                ui["designVersion"] = 4;
+                ui.Remove("mode");
+                ui.Remove("collapsed");
+                ui.Remove("autoCollapseSeconds");
+                tmp = ConfigPath + ".tmp";
                 string bak = ConfigPath + ".bak";
-                File.WriteAllText(tmp, BuildPretty(cfg), Encoding.UTF8);
+                string serialized = NewJson().Serialize(root);
+                tempOwned = true;
+                File.WriteAllText(tmp, serialized, Encoding.UTF8);
                 if (File.Exists(ConfigPath))
                 {
-                    try { if (File.Exists(bak)) File.Delete(bak); }
-                    catch { }
                     File.Replace(tmp, ConfigPath, bak, false);
                 }
                 else File.Move(tmp, ConfigPath);
+                return true;
             }
-            catch { }
+            catch
+            {
+                // A failed replacement must not leave a second file containing keys.
+                if (tempOwned)
+                {
+                    try { File.Delete(tmp); }
+                    catch { }
+                }
+                return false;
+            }
+        }
+
+        private static void EnsureAccountIds(List<ZhipuCfg> accounts)
+        {
+            HashSet<string> seen = new HashSet<string>(StringComparer.Ordinal);
+            foreach (ZhipuCfg account in accounts)
+            {
+                if (!string.IsNullOrWhiteSpace(account.Id) && seen.Add(account.Id)) continue;
+                do { account.Id = Guid.NewGuid().ToString("N"); } while (!seen.Add(account.Id));
+            }
+        }
+
+        private static void ValidateStructure(Dictionary<string, object> root)
+        {
+            Dictionary<string, object> accounts = RequireObject(root, "accounts");
+            RequireObject(root, "ui");
+            if (accounts == null) return;
+            RequireObject(accounts, "codex");
+            RequireObject(accounts, "deepseek");
+            object value;
+            if (!accounts.TryGetValue("zhipu", out value)) return;
+            object[] rows = value as object[];
+            if (rows == null) throw new InvalidDataException("accounts.zhipu 不是数组");
+            foreach (object row in rows)
+                if (!(row is Dictionary<string, object>))
+                    throw new InvalidDataException("智谱账号不是对象");
+        }
+
+        private static Dictionary<string, object> RequireObject(Dictionary<string, object> parent, string key)
+        {
+            object value;
+            if (!parent.TryGetValue(key, out value)) return null;
+            Dictionary<string, object> result = value as Dictionary<string, object>;
+            if (result == null) throw new InvalidDataException(key + " 不是对象");
+            return result;
+        }
+
+        private static Dictionary<string, object> EnsureDict(Dictionary<string, object> parent, string key)
+        {
+            Dictionary<string, object> value = Dict(parent, key);
+            if (value == null) { value = new Dictionary<string, object>(); parent[key] = value; }
+            return value;
         }
 
         // ---- 注册表开机自启（HKCU，无需管理员） ----
@@ -249,22 +319,29 @@ namespace QuotaWidget
             catch { return false; }
         }
 
-        public static void SetAutostart(bool enable, string exePath)
+        public static bool SetAutostart(bool enable, string exePath)
+        {
+            return SetAutostart(enable, exePath, WriteAutostart);
+        }
+
+        internal static bool SetAutostart(bool enable, string exePath, Action<bool, string> write)
         {
             try
             {
-                using (RegistryKey k = Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run"))
-                {
-                    if (k == null) return;
-                    if (enable) k.SetValue(AutostartValueName, "\"" + exePath + "\"");
-                    else
-                    {
-                        try { k.DeleteValue(AutostartValueName, false); }
-                        catch { }
-                    }
-                }
+                write(enable, exePath);
+                return true;
             }
-            catch { }
+            catch { return false; }
+        }
+
+        private static void WriteAutostart(bool enable, string exePath)
+        {
+            using (RegistryKey k = Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run"))
+            {
+                if (k == null) throw new UnauthorizedAccessException();
+                if (enable) k.SetValue(AutostartValueName, "\"" + exePath + "\"");
+                else k.DeleteValue(AutostartValueName, false);
+            }
         }
 
         // ---- 弱类型取值工具 ----
@@ -309,18 +386,8 @@ namespace QuotaWidget
             object v;
             if (d != null && d.TryGetValue(key, out v))
             {
+                if (v == null) return def;
                 try { return Convert.ToInt32(v, CultureInfo.InvariantCulture); }
-                catch { }
-            }
-            return def;
-        }
-
-        static double Dbl(Dictionary<string, object> d, string key, double def)
-        {
-            object v;
-            if (d != null && d.TryGetValue(key, out v))
-            {
-                try { return Convert.ToDouble(v, CultureInfo.InvariantCulture); }
                 catch { }
             }
             return def;
