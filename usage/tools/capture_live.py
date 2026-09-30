@@ -34,7 +34,7 @@ if not user32.GetWindowRect(handle, ctypes.byref(rect)):
     raise SystemExit("Window rect not available")
 
 expanded = "--expanded" in sys.argv
-out = Path(EVIDENCE / "m1-rework/live-expanded-leaf.png" if expanded else "evidence/m1-rework/live-d38-ball-crop.png")
+out = EVIDENCE / "m1-rework" / ("live-expanded-leaf.png" if expanded else "live-d38-ball-crop.png")
 out.parent.mkdir(parents=True, exist_ok=True)
 ratio = user32.GetDpiForWindow(handle) / 96
 bbox = tuple(round(v * ratio) for v in (rect.left, rect.top, rect.right, rect.bottom))
