@@ -13,7 +13,7 @@ from .parsers import items, object_map
 from .storage import JsonStore, StorageError
 
 ICON_IDS = ("copy", "text", "code", "check", "note")
-FAVORITE_SLOTS = 4
+FAVORITE_SLOTS = 6
 MAX_TEXT_BYTES = 1024 * 1024
 
 

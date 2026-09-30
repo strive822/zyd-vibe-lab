@@ -6,7 +6,7 @@ Windows 三平台额度浮窗：Codex／GLM 双窗口额度、DeepSeek 余额，
 
 下载 [Windows x64 便携 ZIP](../../packages/usage-0.1.0-windows-x64.zip)，完整解压，再运行文件夹里的 **usage.exe**。无需安装 Python。包未做发行签名，属于个人使用候选；[校验值](../../packages/SHA256SUMS.txt)与[使用说明](../../packaging/README.md)随仓库提供。
 
-本机整理后的解压版位于 `E:\zyd-vibe-lab\usage\dist\usage-0.1.0-candidate-69886a2b60fd\usage.exe`。原 A 盘日常运行实例保留。
+本机整理后的解压版位于 `E:\zyd-vibe-lab\usage\dist\usage-0.1.0-candidate-9cc339767db7\usage.exe`。A 盘与此副本保持相同六位候选。
 
 ![四边形态](../validation/four-edges.png)
 
@@ -16,7 +16,7 @@ Windows 三平台额度浮窗：Codex／GLM 双窗口额度、DeepSeek 余额，
 
 - 悬浮收起球展开，悬浮平台看明细；移出自动收起。拖动小球或叶片空白可吸附四边，或自由放置。
 - C／G 对应平台，H／W 对应 5h／周；优先显示本家较低的已知额度。未知、旧值、故障明确区分。DeepSeek 仅显示余额，不构造余额百分比。
-- 四颗常用复制球；更多文本保留其余条目。记事本中按 Ctrl+S 保存后复制内容随之更新。
+- 六颗常用复制球；更多文本保留其余条目。记事本中按 Ctrl+S 保存后复制内容随之更新。
 - 每日提醒到点通知并保留未读铃铛，全部标为已读后清除。
 - 设置是普通窗口，其他应用可覆盖；托盘提供恢复、隐藏、刷新与退出。
 

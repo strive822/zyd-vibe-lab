@@ -83,17 +83,23 @@ def test_delete_one_item_preserves_other_body(tmp_path: Path):
     assert len(store.load()) == 1 and store.read_content(b.id).text == "second body"
 
 
-def test_four_favorites_preserve_existing_slots_and_independent_files(tmp_path: Path):
+def test_six_favorites_preserve_existing_slots_and_independent_files(tmp_path: Path):
     store = SnippetStore(tmp_path)
     originals = [store.add(f"常用 {index + 1}", favorite_slot=index) for index in range(4)]
     for index, item in enumerate(originals):
         store.path_for(item).write_text(f"正文 {index + 1}", encoding="utf-8")
-    replacement = store.add("替换第四位", favorite_slot=3)
+    fifth = store.add("第五位", favorite_slot=4)
+    sixth = store.add("第六位", favorite_slot=5)
+    store.path_for(fifth).write_text("第五份正文", encoding="utf-8")
+    store.path_for(sixth).write_text("第六份正文", encoding="utf-8")
+    replacement = store.add("替换第六位", favorite_slot=5)
     loaded = {item.id: item for item in store.load()}
-    assert [loaded[item.id].favorite_slot for item in originals] == [0, 1, 2, None]
-    assert loaded[replacement.id].favorite_slot == 3
+    assert [loaded[item.id].favorite_slot for item in originals] == [0, 1, 2, 3]
+    assert loaded[fifth.id].favorite_slot == 4 and loaded[sixth.id].favorite_slot is None
+    assert loaded[replacement.id].favorite_slot == 5
     assert [store.read_content(item.id).text for item in originals] == [f"正文 {index + 1}" for index in range(4)]
+    assert store.read_content(fifth.id).text == "第五份正文" and store.read_content(sixth.id).text == "第六份正文"
     with pytest.raises(ValueError):
-        store.add("第五位不存在", favorite_slot=4)
+        store.add("第七位不存在", favorite_slot=6)
     with pytest.raises(ValueError):
         store.add("无效类型", favorite_slot=2.0)

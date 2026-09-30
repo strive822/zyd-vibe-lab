@@ -305,6 +305,13 @@ class DesktopLeaf(LiveLeaf):
     def _action_count(self) -> int:
         return FAVORITE_SLOTS + 3
 
+    def set_dock_edge(self, edge: str | None) -> None:
+        super().set_dock_edge(edge)
+        # Nine full-size actions wrap around the same leaf inside a square
+        # stage. The leaf, data positions and collapsed sphere are unchanged.
+        self.setFixedSize(WIDTH, 300)
+        self._update_mask()
+
     def _reminder_ball_index(self) -> int:
         return FAVORITE_SLOTS + 1
 
@@ -323,15 +330,15 @@ class DesktopLeaf(LiveLeaf):
     def _ball_center(self, index: int) -> QPointF:
         amount = self._ball_progress(index)
         edge = self._visual_edge()
-        # Keep the leaf and its readable content unchanged. Seven full-size
-        # targets follow the same contour, with a gap after the four copies.
-        side_x = (69, 51, 46, 47, 45, 53, 82)[index]
-        side_y = (20, 56, 92, 128, 168, 204, 240)[index]
+        # Copies follow the side contour; the remaining actions continue
+        # around the lower edge, keeping 36 DIP hit targets separate.
+        side_x = (69, 51, 44, 45, 48, 51, 76, 107, 145)[index]
+        side_y = (20, 54, 92, 130, 168, 204, 236, 260, 280)[index]
         if edge == "left":
             return QPointF(WIDTH - side_x - 13 * (1 - amount), side_y)
         if edge in ("top", "bottom"):
-            x = (23, 65, 108, 150, 192, 235, 277)[index]
-            y = (251, 262, 270, 274, 270, 262, 251)[index]
+            x = (20, 45, 76, 112, 150, 188, 224, 255, 280)[index]
+            y = (213, 242, 262, 277, 280, 277, 262, 242, 213)[index]
             return QPointF(x, y - 13 * (1 - amount)) if edge == "top" else QPointF(x, 300 - y + 13 * (1 - amount))
         return QPointF(side_x + 13 * (1 - amount), side_y)
 
@@ -513,7 +520,7 @@ class DesktopLeaf(LiveLeaf):
 
     def hide_to_tray(self) -> None:
         if not QSystemTrayIcon.isSystemTrayAvailable():
-            self._show_ball_tip(4, "托盘不可用，浮窗保持可见")
+            self._show_ball_tip(FAVORITE_SLOTS + 2, "托盘不可用，浮窗保持可见")
             return
         self.save_placement()
         self.hide()

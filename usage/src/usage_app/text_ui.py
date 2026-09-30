@@ -156,7 +156,7 @@ class SnippetSettings(AuxiliaryDialog):
         for identity, label in zip(ICON_IDS, ("复制", "文字", "代码", "检查", "笔记")):
             self.icons.addItem(icon_for(identity), label, identity)
         self.favorite = QComboBox()
-        for label, value in (("不放在常用球", None), ("第一个复制球", 0), ("第二个复制球", 1), ("第三个复制球", 2), ("第四个复制球", 3)):
+        for label, value in (("不放在常用球", None), ("第一个复制球", 0), ("第二个复制球", 1), ("第三个复制球", 2), ("第四个复制球", 3), ("第五个复制球", 4), ("第六个复制球", 5)):
             self.favorite.addItem(label, value)
         form = QFormLayout()
         form.setVerticalSpacing(10)
