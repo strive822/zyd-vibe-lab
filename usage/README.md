@@ -18,7 +18,7 @@ Windows 三平台额度浮窗，支持六位常用复制、更多文本和每日
 | `dist/` | 当前可运行便携版 |
 | `.venv-win/` | 本机 Windows 开发环境（不上传） |
 
-用户数据仍在 `%LOCALAPPDATA%\Duizhaoye`；密钥仍使用 Windows 凭据管理器。
+用户数据统一在 `%USERPROFILE%\.usage`；密钥仍使用 Windows 凭据管理器。
 
 ## 开发与检查（Windows PowerShell）
 

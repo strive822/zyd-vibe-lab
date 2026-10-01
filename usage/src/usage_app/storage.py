@@ -23,10 +23,13 @@ class NewerSchemaError(StorageError):
 def default_data_dir() -> Path:
     if os.name != "nt":
         raise StorageError("Production data storage requires Windows")
-    base = os.environ.get("LOCALAPPDATA")
-    if not base:
+    profile = os.environ.get("USERPROFILE")
+    if not profile:
         raise StorageError("User data directory unavailable")
-    return Path(base) / "Duizhaoye"
+    from .data_location import prepare_data_directory
+
+    local = os.environ.get("LOCALAPPDATA")
+    return prepare_data_directory(Path(profile), Path(local) if local else None)
 
 
 class JsonStore:

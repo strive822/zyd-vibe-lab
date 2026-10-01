@@ -6,7 +6,7 @@ Windows 三平台额度浮窗：Codex／GLM 双窗口额度、DeepSeek 余额，
 
 下载 [Windows x64 便携 ZIP](../../packages/usage-0.1.0-windows-x64.zip)，完整解压，再运行文件夹里的 **usage.exe**。无需安装 Python。包未做发行签名，属于个人使用候选；[校验值](../../packages/SHA256SUMS.txt)与[使用说明](../../packaging/README.md)随仓库提供。
 
-本机整理后的解压版位于 `E:\zyd-vibe-lab\usage\dist\usage-0.1.0-candidate-9cc339767db7\usage.exe`。A 盘与此副本保持相同六位候选。
+本机整理后的解压版位于 `E:\zyd-vibe-lab\usage\dist\usage-0.1.0-candidate-a4e35fe02d6e\usage.exe`。A 盘与此副本保持相同六位候选。
 
 ![四边形态](../validation/four-edges.png)
 
@@ -20,7 +20,7 @@ Windows 三平台额度浮窗：Codex／GLM 双窗口额度、DeepSeek 余额，
 - 每日提醒到点通知并保留未读铃铛，全部标为已读后清除。
 - 设置是普通窗口，其他应用可覆盖；托盘提供恢复、隐藏、刷新与退出。
 
-数据仍保存在 `%LOCALAPPDATA%\Duizhaoye`，密钥使用 Windows 凭据管理器。包不含用户密钥、私人正文或账户数据。内部目录标识沿用旧代号，便于继续使用已保存内容。详情见 [SOP](SOP.md)。
+数据统一保存在 `%USERPROFILE%\.usage`，密钥使用 Windows 凭据管理器。包不含用户密钥、私人正文或账户数据。内部目录标识沿用旧代号，便于继续使用已保存内容。详情见 [SOP](SOP.md)。
 
 ## 开发（Windows PowerShell）
 
@@ -43,3 +43,9 @@ py -3.12 -m venv .venv-win
 [规格](../specs/SPEC.md) · [计划](../specs/PLAN.md) · [设计](../specs/DESIGN.md) · [决策](../specs/DECISIONS.md) · [数据模型](../specs/DATA_MODEL.md) · [接口契约](../specs/API_CONTRACT.md) · [测试计划](../specs/TEST_PLAN.md) · [清理记录](../history/CLEANUP.md) · [验证摘要](../validation/README.md)
 
 源码、测试、构建入口、冻结基线及合成示例公开。真实账户证据、桌面录屏和完整本机审计资料仅留本机 `evidence`，不提交到 GitHub。
+
+## 启动来源与已有数据
+
+2026-10-01修复AppData重定向造成的两份配置：默认统一到`%USERPROFILE%\.usage`，首次完整复制既有配置、正文和提醒账本并保留旧目录。Windows凭据引用、六个绑定和账号身份不变。重复双击launch／usage.exe通过文件锁和恢复协议只唤回当前实例；连接确认失败也不会另开未知数据窗口。
+
+已有记事本标签页仍指向旧目录的正文：升级后请从当前“快捷文本”窗口重新打开正文再编辑；旧文件保留为备份，不会自动覆盖新目录。

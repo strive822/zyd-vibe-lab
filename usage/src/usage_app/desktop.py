@@ -10,7 +10,7 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Callable, cast
 
-from PySide6.QtCore import QAbstractAnimation, QPoint, QPointF, QRectF, Qt, QTimer, Signal
+from PySide6.QtCore import QAbstractAnimation, QLockFile, QPoint, QPointF, QRectF, Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QCloseEvent, QContextMenuEvent, QCursor, QEnterEvent, QFontMetricsF, QIcon, QKeyEvent, QMouseEvent, QMoveEvent, QPainter, QPainterPath, QPen, QPixmap, QResizeEvent, QScreen
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon, QToolTip
@@ -79,13 +79,27 @@ class SingleInstance:
     def __init__(self, data_dir: Path):
         identity = str(data_dir.resolve()).casefold().encode("utf-8")
         self.name = "duizhaoye-" + hashlib.sha256(identity).hexdigest()[:24]
+        self.data_dir = data_dir
+        self.lock = QLockFile(str(data_dir / "instance.lock"))
+        self.lock.setStaleLockTime(0)  # A live daily instance must never expire after 30 seconds.
         self.server = QLocalServer()
         self.server.setSocketOptions(QLocalServer.SocketOption.UserAccessOption)
 
     def acquire(self) -> bool:
+        try:
+            self.data_dir.mkdir(parents=True, exist_ok=True)
+        except OSError as error:
+            raise StorageError("无法创建 usage 数据目录，原配置已保留。") from error
+        if self.lock.tryLock(0):
+            if self.server.listen(self.name):
+                return True
+            self.lock.unlock()
+            raise StorageError("Another instance is starting; please retry")
+        if self.lock.error() != QLockFile.LockError.LockFailedError:
+            raise StorageError("无法锁定 usage 数据目录，未启动第二个实例。")
         socket = QLocalSocket()
         socket.connectToServer(self.name)
-        if socket.waitForConnected(200):
+        if socket.waitForConnected(1000):
             socket.write(b"restore\n")
             socket.waitForBytesWritten(200)
             confirmed = socket.waitForReadyRead(1000) and socket.readLine().data() == b"ok\n"
@@ -93,9 +107,7 @@ class SingleInstance:
             if not confirmed:
                 raise StorageError("Existing instance did not confirm restore; no second instance was started")
             return False
-        if not self.server.listen(self.name):
-            raise StorageError("Another instance is starting; please retry")
-        return True
+        raise StorageError("Existing instance did not confirm restore; no second instance was started")
 
     def on_restore(self, callback: Callable[[], None]) -> None:
         # Bound QObject slots are retained by Qt until server teardown.

@@ -1,8 +1,8 @@
 @echo off
 setlocal
 cd /d "%~dp0"
-if exist "dist\usage-0.1.0-candidate-9cc339767db7\usage.exe" (
-  start "" "dist\usage-0.1.0-candidate-9cc339767db7\usage.exe" %*
+if exist "dist\usage-0.1.0-candidate-a4e35fe02d6e\usage.exe" (
+  start "" "dist\usage-0.1.0-candidate-a4e35fe02d6e\usage.exe" %*
   exit /b 0
 )
 if exist ".venv-win\Scripts\pythonw.exe" (

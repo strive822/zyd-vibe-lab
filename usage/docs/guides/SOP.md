@@ -20,7 +20,7 @@ Codex 读取官方本机登录上下文，需已安装并登录官方 Codex。�
 
 ## 数据位置与备份
 
-默认目录：`%LOCALAPPDATA%\Duizhaoye`。
+默认目录：`%USERPROFILE%\.usage`。从Codex和资源管理器启动均使用同一物理目录。首次升级自动完整复制现有usage数据（包括此前被重定向至Codex LocalCache的配置）；原目录保留为备份，凭据仍在Windows凭据管理器。已有目标配置、损坏／较新配置不会自动覆盖；发现多份已配置来源则停止导入，用`--data-dir`明确选定。
 
 - `config.json`：账户引用、快捷文本元数据、提醒定义、窗口行为。
 - `config.json.bak`：上一次成功写入前的配置备份。

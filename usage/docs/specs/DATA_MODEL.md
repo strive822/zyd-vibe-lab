@@ -102,7 +102,7 @@ fields 中每项包含 unit、整数 value、格式化数字与固定槽位。�
 
 ## 9. 已实现的物理存储
 
-当前目录为 `%LOCALAPPDATA%\Duizhaoye`。`config.json` 顶层 `accounts` 保存三平台本地 UUID、名称、连接模式、凭据引用与启停；`settings.lastPlacement` 保存设备键、边、相对位置、自由朝向与固定展开，`settings.motionMode` 保存 full／reduced。`snapshots.json` 以 accountId 索引最后成功快照，Decimal 写成字符串；实时的 lastAttemptAt／status／error 放在独立 ProviderState 中，启动时有缓存标旧并重新请求。
+当前目录为 `%USERPROFILE%\.usage`。`config.json` 顶层 `accounts` 保存三平台本地 UUID、名称、连接模式、凭据引用与启停；`settings.lastPlacement` 保存设备键、边、相对位置、自由朝向与固定展开，`settings.motionMode` 保存 full／reduced。`snapshots.json` 以 accountId 索引最后成功快照，Decimal 写成字符串；实时的 lastAttemptAt／status／error 放在独立 ProviderState 中，启动时有缓存标旧并重新请求。
 
 GLM／DeepSeek 换密钥时生成新的本地账户身份，避免旧账号缓存或晚到响应串入；配置原子提交失败会清理临时凭据并保留旧配置／旧密钥。Windows 凭据目标限定在 Duizhaoye 命名空间，没有文件明文回退。
 
@@ -115,3 +115,7 @@ M5：`config.json.reminders` 保存规范 UUID、title（最多80字）、HH:mm�
 账户切换原子提交后，旧身份凭据／缓存若暂时清理失败，记录 `accountCleanup` 的 accountId／credentialRef，稍后重试；清理仅允许本应用非当前账号的引用。已提交新账户不会因旧引用清理失败而误报保存失败。
 
 M6：`logs` 仅允许事件、平台、分类错误、时间、错误类型和末级文件名／行号，单文件256 KB并保留一次轮转；不记录异常正文、请求响应、密钥、文本或剪贴板。备份恢复必须显式执行，保存损坏的当前文件再替换，并拒绝覆盖更高 schemaVersion；不自动恢复或改动账本／凭据。
+
+## 10. 同一产品的数据目录归一
+
+2026-10-01，默认改为`%USERPROFILE%\.usage`，避免宿主MSIX AppData虚拟化改变物理存储。首次升级识别普通AppData和Packages/*/LocalCache内的同一usage schemaVersion1配置，通过读取句柄确认真实目录，去除别名；只有一个已有使用记录的来源时完整复制配置、备份、快照、独立正文与提醒账本，原目录保留。多份已配置来源不合并；已有目标配置不重导入；复制失败不发布部分目标。显式`--data-dir`仍由调用方指定。实例锁位于当前物理目录，不能按30秒超时抢占活实例；进程退出后可识别遗留锁。这不是旧项目数据格式迁移。
