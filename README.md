@@ -22,11 +22,11 @@
 | ----------------------------------- | -------------------------------------------------------------- | -------------------------------- |
 | [dca-calculator](./dca-calculator/) | 三资产（纳斯达克100 / 中证500 / 黄金）定投权重计算器，含 C哥模型与严谨模型双权重方案，支持单文件 exe 打包 | FastAPI + Next.js + Tailwind CSS |
 | [graduation-thesis-workflow](./graduation-thesis-workflow/) | 本科毕业论文工作流：需求访谈、真实文献与证据、写作审查；含三端下载和使用教程 | Codex / Claude Code / WorkBuddy · Python |
-| [usage](./usage/) | Windows 三平台额度浮窗、六位快捷复制与每日提醒；包含便携启动包 | Python + PySide6 / Qt |
+| [codex-usage](./codex-usage/) | Windows 三平台额度浮窗、六位快捷复制与每日提醒；包含便携启动包 | Python + PySide6 / Qt |
 
-## usage 下载
+## codex-usage 下载
 
-[Windows x64 便携包](usage/packages/usage-0.1.0-windows-x64.zip) · [使用与开发说明](usage/README.md)。完整解压后运行 `usage.exe`。
+[Windows x64 便携包](codex-usage/packages/usage-0.1.0-windows-x64.zip) · [使用与开发说明](codex-usage/README.md)。完整解压后运行 `usage.exe`。
 
 ## 许可证
 

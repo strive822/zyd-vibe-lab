@@ -1,4 +1,4 @@
-# usage
+# codex-usage
 
 Windows 三平台额度浮窗，支持六位常用复制、更多文本和每日提醒。
 

@@ -6,7 +6,7 @@ Windows 三平台额度浮窗：Codex／GLM 双窗口额度、DeepSeek 余额，
 
 下载 [Windows x64 便携 ZIP](../../packages/usage-0.1.0-windows-x64.zip)，完整解压，再运行文件夹里的 **usage.exe**。无需安装 Python。包未做发行签名，属于个人使用候选；[校验值](../../packages/SHA256SUMS.txt)与[使用说明](../../packaging/README.md)随仓库提供。
 
-本机整理后的解压版位于 `E:\zyd-vibe-lab\usage\dist\usage-0.1.0-candidate-f6f7af39bb95\usage.exe`。A 盘与此副本保持相同六位候选。
+本机整理后的解压版位于 `E:\zyd-vibe-lab\codex-usage\dist\usage-0.1.0-candidate-f6f7af39bb95\usage.exe`。A 盘与此副本保持相同六位候选。
 
 ![四边形态](../validation/four-edges.png)
 
@@ -25,7 +25,7 @@ Windows 三平台额度浮窗：Codex／GLM 双窗口额度、DeepSeek 余额，
 ## 开发（Windows PowerShell）
 
 ```powershell
-cd E:\zyd-vibe-lab\usage
+cd E:\zyd-vibe-lab\codex-usage
 py -3.12 -m venv .venv-win
 .\.venv-win\Scripts\python.exe -m pip install -r requirements-dev.txt
 .\.venv-win\Scripts\python.exe src/run_app.py
