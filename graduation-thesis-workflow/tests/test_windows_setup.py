@@ -9,10 +9,11 @@ import unittest
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
-POWERSHELL = shutil.which('powershell.exe')
+# WSL can find powershell.exe, but its POSIX paths and Python cannot run this installer.
+POWERSHELL = shutil.which('powershell.exe') if sys.platform == 'win32' else None
 
 
-@unittest.skipUnless(POWERSHELL, 'Windows PowerShell not available')
+@unittest.skipUnless(POWERSHELL, 'Windows Python and PowerShell required')
 class WindowsSetupTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()

@@ -4,7 +4,7 @@
 数据源（需求文档 §3 / §18.1，开发前已实际验证，验证脚本见 backend/tools/）：
   主源 = 东方财富（免费、无需 Key），按资产配置回退源：
     - 纳斯达克100 → 东财 secid 100.NDX100（注意：100.NDX 是纳斯达克综合指数，勿用）
-                    回退：腾讯 usNDX
+                    回退：新浪财经 .NDX（腾讯 usNDX 无足够历史深度）
     - 中证500     → 东财 secid 1.000905
                     回退：腾讯 sh000905
     - 黄金/美元现货 → 东财 secid 122.XAU（SecurityType=现货）
@@ -52,7 +52,7 @@ QUOTE_HOSTS = (
 class SourceSpec:
     """单个数据源定义。kind 决定解析器；symbol 为该源的代码。"""
 
-    kind: str    # "eastmoney" | "tencent" | "sina_gold"
+    kind: str    # "eastmoney" | "tencent" | "sina_gold" | "sina_us"
     symbol: str
 
 

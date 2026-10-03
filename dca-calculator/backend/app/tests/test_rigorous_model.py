@@ -12,6 +12,19 @@ from app.models.rigorous_model import GAMMA, calculate_rigorous_weights, rigorou
 KEYS = ("ndx", "csi500", "gold")
 
 
+@pytest.mark.parametrize("ratio", [math.nextafter(0.0, 1.0), 1e-300, 1e300])
+def test_equal_extreme_positive_ratios_are_normalized(ratio):
+    weights = calculate_rigorous_weights({key: ratio for key in KEYS})
+    assert all(math.isfinite(w) and w == pytest.approx(1 / 3) for w in weights.values())
+
+
+def test_extreme_mixed_ratios_do_not_overflow():
+    weights = calculate_rigorous_weights({"ndx": 1e-300, "csi500": 1.0, "gold": 1e300})
+    assert all(math.isfinite(w) and w >= 0 for w in weights.values())
+    assert sum(weights.values()) == pytest.approx(1.0)
+    assert weights["ndx"] > weights["csi500"] >= weights["gold"]
+
+
 # ---- 需求文档 §8 指定的 4 个测试用例 ----
 
 def test_case1_all_equal_ratios():

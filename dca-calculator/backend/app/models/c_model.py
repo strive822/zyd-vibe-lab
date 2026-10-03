@@ -37,7 +37,10 @@ def _validated_ratios(ratios: dict[str, float]) -> dict[str, float]:
 def calculate_c_weights(ratios: dict[str, float]) -> dict[str, float]:
     """C哥模型权重：Score = 1/R，归一化。相同输入恒产生相同输出。"""
     validated = _validated_ratios(ratios)
-    scores = {key: 1.0 / r for key, r in validated.items()}
+    # Multiplying every score by the same minimum R preserves the formula,
+    # while keeping each score in [0, 1] even for positive subnormal inputs.
+    scale = min(validated.values())
+    scores = {key: scale / r for key, r in validated.items()}
     total = sum(scores.values())
     weights = {key: s / total for key, s in scores.items()}
     # 数值守卫：消除浮点累计误差，保证权重之和精确为 1

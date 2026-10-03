@@ -9,32 +9,8 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { formatPercent, formatYuan, splitAmounts } from "@/lib/money";
-
-type Weights = Record<string, number>;
-
-type AssetInfo = {
-  key: string;
-  name: string;
-  data_time: string;
-  source: string;
-};
-
-type CalculationResponse = {
-  c_model: Weights;
-  rigorous_model: Weights;
-  assets: AssetInfo[];
-};
-
-const ASSET_ORDER = ["ndx", "csi500", "gold"] as const;
-
-function parseAmount(text: string): number | null {
-  const t = text.trim().replace(/,/g, "");
-  if (!t) return null;
-  const n = Number(t);
-  if (!Number.isFinite(n) || n <= 0) return null;
-  return n;
-}
+import { formatPercent, formatYuan, parseAmount, splitAmounts } from "@/lib/money";
+import { ASSET_ORDER, readCalculationResponse, type CalculationResponse } from "@/lib/calculation";
 
 export default function Home() {
   const [data, setData] = useState<CalculationResponse | null>(null);
@@ -47,19 +23,11 @@ export default function Home() {
     setError(null);
     try {
       const res = await fetch("/api/calculation", { cache: "no-store" });
-      const body = res.ok ? await res.json() : null;
-      if (!res.ok || !body) {
-        const detail =
-          body && typeof body.detail === "string"
-            ? body.detail
-            : `请求失败（HTTP ${res.status}）`;
-        setError(detail);
-        setData(null);
-      } else {
-        setData(body as CalculationResponse);
-      }
-    } catch {
-      setError("当前无法完成计算：无法连接本地服务，请确认后端已启动（见 README）。");
+      setData(await readCalculationResponse(res));
+    } catch (failure) {
+      setError(failure instanceof Error && failure.name !== "TypeError"
+        ? failure.message
+        : "当前无法完成计算：无法连接本地服务，请确认后端已启动（见 README）。");
       setData(null);
     } finally {
       setLoading(false);
@@ -108,7 +76,7 @@ export default function Home() {
             </div>
           </div>
           {amountInvalid && (
-            <p className="text-sm text-red-600">请输入大于 0 的有效金额</p>
+            <p className="text-sm text-red-600">请输入大于 0、最多两位小数且在精确计算范围内的金额</p>
           )}
           {!amountInvalid && amount === null && (
             <p className="text-sm text-slate-400">输入金额后自动计算各资产应投入金额</p>

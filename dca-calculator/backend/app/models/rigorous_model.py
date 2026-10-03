@@ -31,7 +31,14 @@ def rigorous_score(r: float) -> float:
 def calculate_rigorous_weights(ratios: dict[str, float]) -> dict[str, float]:
     """严谨模型权重。相同输入恒产生相同输出。"""
     validated = _validated_ratios(ratios)
-    scores = {key: rigorous_score(r) for key, r in validated.items()}
+    log_scores = {}
+    for key, r in validated.items():
+        v = -math.log(r)
+        log_scores[key] = math.copysign(abs(v) ** GAMMA, v)
+    # A common factor cancels on normalization. Subtracting the largest log
+    # score prevents overflow and guarantees at least one score is exactly 1.
+    peak = max(log_scores.values())
+    scores = {key: math.exp(value - peak) for key, value in log_scores.items()}
     total = sum(scores.values())
     weights = {key: s / total for key, s in scores.items()}
     # 数值守卫：消除浮点累计误差，保证权重之和精确为 1

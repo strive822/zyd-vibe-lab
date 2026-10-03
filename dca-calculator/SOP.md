@@ -20,12 +20,21 @@ backend\.venv\Scripts\python.exe backend\tools\verify_data_sources.py
 
 全部 PASS 说明数据源健康；FAIL 时对照 `docs/数据源验证报告.md` 排查。
 
-## 运行测试
+## 运行测试（Windows PowerShell）
 
-```
+```powershell
 cd backend
-.venv\Scripts\python.exe -m pytest
+.venv/Scripts/python.exe -m pip install -r requirements-dev.txt
+.venv/Scripts/python.exe -m pytest
+cd ../frontend
+npm ci
+npm run typecheck
+npm test
+npm run build
+npm audit --registry=https://registry.npmjs.org
 ```
+
+WSL / Linux 的 Python 路径为 backend/.venv/bin/python，完整环境说明见 INSTALL.md。
 
 ## 修改注意事项
 

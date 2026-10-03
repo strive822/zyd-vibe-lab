@@ -30,7 +30,7 @@ py -3.12 -m venv .venv-win
 .\.venv-win\Scripts\python.exe src/run_app.py
 .\.venv-win\Scripts\python.exe -m pytest
 .\.venv-win\Scripts\python.exe -m mypy
-.\.venv-win\Scripts\python.exe -m ruff check src tests
+.\.venv-win\Scripts\python.exe -m ruff check src tests tools
 ```
 
 `src/main.py` 同时提供冻结视觉复核入口，并被生产组件导入；不能删除。`tools/check_frozen_composition.py` 使用已保留的 `docs/evidence/m1-r4/frozen-source` 对照当前核心。

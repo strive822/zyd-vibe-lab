@@ -3,6 +3,8 @@
 > Windows 本地运行的纯计算工具：纳斯达克100 + 中证500 + 黄金，基于 SMA800 的双模型定投权重计算。
 > **不是交易系统**——无回测、无持仓、无账户、无自动交易、无定时任务。
 
+让 Agent 自动下载和启动，先读 [INSTALL.md](INSTALL.md)。源码运行需要 Python 3.11+ 和 Node.js 22.6+；日常运行不需要 API Key。
+
 ## 功能
 
 打开网站后自动完成：
@@ -26,19 +28,19 @@
 ```bat
 cd backend
 python -m venv .venv
-.venv\Scripts\python.exe -m pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+.venv\Scripts\python.exe -m pip install -r requirements.txt
 .venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
 ### 2. 启动前端（Next.js，端口 3000）
 
-方式 A —— 双击 `scripts\start_frontend.bat`（首次自动 npm install）。
+方式 A —— 双击 `scripts\start_frontend.bat`（按锁文件安装依赖，失败则停止）。
 
 方式 B —— 手动：
 
 ```bat
 cd frontend
-npm install --registry=https://registry.npmmirror.com/
+npm ci
 npm run dev
 ```
 
@@ -46,7 +48,7 @@ npm run dev
 
 访问 `http://localhost:3000`。刷新页面即重新获取行情并计算。
 
-运行要求：Windows + Python 3.11+（含 pip）+ Node.js 18+（含 npm）。
+运行要求：Python 3.11+（含 pip）+ Node.js 22.6+（含 npm）。Windows 可用 bat 入口；WSL / Linux / macOS 的源码命令见 INSTALL.md。
 
 ## 数据源（免费、无需任何 API Key）
 
@@ -59,7 +61,7 @@ npm run dev
 说明：
 
 - 所有源均免费、无需密钥，因此**没有 .env / .env.example**。
-- 开发前已实测验证（脚本 `backend/tools/verify_data_sources.py` 可随时复验）：历史深度分别为 1861 根（NDX，2019 起）、2000+ 根（000905）、8918 根（XAU，1992 起），均远超 800 根要求；最新价与新浪交叉校验一致。
+- 2026-09-02 开发时已实测验证（脚本 `backend/tools/verify_data_sources.py` 可复验）：当时历史深度分别为 1861 根（NDX，2019 起）、2000+ 根（000905）、8918 根（XAU，1992 起）；这些是历史结果，当前接口可用性需重新查询。
 - 选择单源东财 + 每资产一个回退源的原因：开发当天实测东财 WAF 存在秒级瞬断与指纹拦截，单源不可靠；回退链在实测中真实接管过全部三个资产。
 - 为防免费源频控，同一资产 60 秒内的重复请求复用上一次**真实抓取**的数据（不做任何修改），60 秒后自动重新抓取。
 
@@ -88,8 +90,11 @@ Weight_i = Score_i / Σ Score
 - 三个 R 相同 ⇒ 各 33.33%；
 - 权重之和恒为 1，全部 R > 1 时资金仍 100% 分配。
 
+上述是数学公式的性质；计算机使用有限精度浮点数。极端比率下很小的权重可能饱和为 0，此时不能保证显示值或机器数仍严格区分所有资产。
+
 **金额**：`Amount_i = 总金额 × Weight_i`，按“最大余额法”分摊到分，
 三项显示金额之和**严格等于**输入总金额。
+输入金额最多两位小数，并限制在整数分可精确表示的范围内；超出范围不计算。
 
 ## SMA800 数据口径
 
@@ -103,12 +108,25 @@ Weight_i = Score_i / Σ Score
 
 ```bat
 cd backend
+.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
 .venv\Scripts\python.exe -m pytest
 ```
 
-45 个单元测试全部通过，覆盖：需求文档 §8 的 4 个指定用例 + 2000 组随机 R 的严格单调性 +
+57 个后端单元测试通过（2026-10-03），覆盖：需求文档 §8 的 4 个指定用例 + 2000 组随机 R 的严格单调性 +
 SMA800 口径（恰好 800 根、盘中价排除）+ 金额分摊尾差 + API 错误语义（数据失败返回
 502 与中文报错，响应中不含任何权重字段）。
+新增畸形 JSON 的数据源回退与浮点极端输入回归。数学公式保持不变；计算时先缩放分数，避免溢出或除零。
+
+前端在 `frontend` 目录执行：
+
+```text
+npm ci
+npm run typecheck
+npm test
+npm run build
+```
+
+前端 8 项回归验证错误原因保留、响应结构校验、金额输入边界与分摊总额；没有单独配置 ESLint。依赖安全检查使用 `npm audit --registry=https://registry.npmjs.org`，部分镜像不提供安全审计接口。
 
 端到端实测（2026-09-02）：真实行情下权重和精确 = 1.0；输入 1000 元两模型金额合计均为
 1000.00；修改金额时后端访问日志零新增请求；截图见 `tests/screenshots/`。
@@ -125,11 +143,15 @@ backend/
     models/rigorous_model.py  # 严谨模型（纯函数，γ=1.5）
     services/calculator.py    # 编排：行情→SMA800→R→两模型→权重
     schemas/calculation.py    # Pydantic 响应模型
-    tests/                # 45 个单元测试
+    tests/                # 后端单元测试
+  requirements.txt        # 运行依赖
+  requirements-dev.txt    # 测试依赖
   tools/verify_data_sources.py  # 数据源验证脚本（可随时复验）
 frontend/
   app/page.tsx            # 桌面端页面（双模型并排大数字卡片）
   lib/money.ts            # 金额分摊（最大余额法）与格式化
+  lib/calculation.ts      # API 成功/失败响应与数据结构校验
+  tests/                  # 前端逻辑回归
 docs/数据源验证报告.md
 scripts/start_backend.bat / start_frontend.bat
 ```
@@ -143,8 +165,7 @@ scripts/start_backend.bat / start_frontend.bat
 
 ## 安全说明
 
-代码不含任何 API Key / Token / 密码，可安全上传 GitHub（`.gitignore` 已排除
-venv、node_modules、日志等）。数据源全部免密钥。
+数据源全部免个人密钥；东财的 UT_TOKEN 为网页端公共标识。`.gitignore` 排除虚拟环境、node_modules 与日志，提交前仍应检查凭据和私人文件；静态扫描不能保证不存在所有敏感内容。
 
 ## 打包为单文件 exe（可选）
 
@@ -157,7 +178,19 @@ cd backend
 .venv\Scripts\python.exe -m PyInstaller build_exe.spec --clean --noconfirm
 ```
 
-产物：`backend/dist/DCA-Calculator.exe`（约 16MB）。
+打包前必须先生成前端静态文件。Windows PowerShell，在项目根目录执行：
+
+```powershell
+Set-Location frontend
+npm ci
+$env:DCA_EXPORT = "1"
+try { npm run build } finally { Remove-Item Env:DCA_EXPORT -ErrorAction SilentlyContinue }
+Set-Location ../backend
+.venv/Scripts/python.exe -m pip install pyinstaller
+.venv/Scripts/python.exe -m PyInstaller build_exe.spec --clean --noconfirm
+```
+
+产物：`backend/dist/DCA-Calculator.exe`。仓库不包含预编译计算器 exe；本轮验证了静态导出与同源托管，Windows exe 重新构建仍需 Windows 环境验证。
 
 实现要点（方案 A · 单 exe）：
 

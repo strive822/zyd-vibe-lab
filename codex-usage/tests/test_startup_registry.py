@@ -8,6 +8,13 @@ from usage_app import startup_registry as registry
 from usage_app.storage import StorageError
 
 
+@pytest.fixture(autouse=True)
+def windows_process_context(monkeypatch):
+    # These tests replace subprocess.run; no Windows desktop or registry is used.
+    monkeypatch.setenv("SystemRoot", r"C:\Windows")
+    monkeypatch.setattr(registry.subprocess, "CREATE_NO_WINDOW", 0x08000000, raising=False)
+
+
 def test_bridge_rejects_failure_invalid_result_and_missing_response(tmp_path, monkeypatch):
     monkeypatch.setattr(registry.Path, "home", lambda: tmp_path)
     def complete_with(result=None, returncode=0):

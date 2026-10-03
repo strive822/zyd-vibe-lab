@@ -12,6 +12,7 @@ select = ["E4", "E7", "E9", "F"]
 
 [tool.mypy]
 python_version = "3.12"
+platform = "win32"
 files = ["src/usage_app", "src/main.py", "src/countdown.py", "src/quota_visual.py", "src/palette_visual.py", "src/run_app.py", "src/configure_accounts.py", "src/repair_config.py"]
 warn_unused_ignores = true
 

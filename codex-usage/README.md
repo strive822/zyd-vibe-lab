@@ -4,6 +4,8 @@ Windows 三平台额度浮窗，支持六位常用复制、更多文本和每日
 
 ## 启动
 
+给 Agent 使用时先读 [下载与安装入口](INSTALL.md)，新机器默认下载已有便携包。
+
 双击根目录 **launch.cmd**，启动当前便携版。E 盘副本和 GitHub 下载包见 [交付说明](docs/guides/USAGE.md)。源码运行使用 `src/run_app.py`。
 
 ## 目录
@@ -26,7 +28,7 @@ Windows 三平台额度浮窗，支持六位常用复制、更多文本和每日
 .\.venv-win\Scripts\python.exe src/run_app.py
 .\.venv-win\Scripts\python.exe -m pytest
 .\.venv-win\Scripts\python.exe -m mypy
-.\.venv-win\Scripts\python.exe -m ruff check src tests
+.\.venv-win\Scripts\python.exe -m ruff check src tests tools
 .\.venv-win\Scripts\python.exe tools/check_frozen_composition.py
 .\.venv-win\Scripts\python.exe tools/build_portable.py
 ```

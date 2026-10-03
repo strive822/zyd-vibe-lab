@@ -435,11 +435,13 @@ def _fetch_from_sources(cfg: AssetConfig) -> AssetData:
         fetcher = _FETCHERS.get(spec.kind)
         if fetcher is None:  # 配置错误
             raise DataSourceError(f"当前无法完成计算：{cfg.name}数据源类型未知（{spec.kind}）。")
+        tried.append({"eastmoney": SOURCE_EASTMONEY, "tencent": SOURCE_TENCENT,
+                      "sina_gold": SOURCE_SINA, "sina_us": SOURCE_SINA}[spec.kind])
         try:
             data = fetcher(cfg, spec)
-        except MarketDataError:
+        except (MarketDataError, ValueError, TypeError, KeyError, AttributeError, OverflowError):
+            # Malformed provider JSON/fields are also source failures; try the fallback.
             continue  # 该源不可用（网络/数据质量），尝试下一个源
-        tried.append(data.source)
         if len(data.bars) < HISTORY_DAYS:
             # 历史深度不足 800 根（如腾讯美股指数仅返回最新 1 根）→ 视为该源不可用
             continue

@@ -3,12 +3,25 @@
 from __future__ import annotations
 
 import random
+import math
 
 import pytest
 
 from app.models.c_model import calculate_c_weights
 
 KEYS = ("ndx", "csi500", "gold")
+
+
+@pytest.mark.parametrize("ratio", [math.nextafter(0.0, 1.0), 1e-300, 1e300])
+def test_equal_extreme_positive_ratios_are_normalized(ratio):
+    weights = calculate_c_weights({key: ratio for key in KEYS})
+    assert all(math.isfinite(w) and w == pytest.approx(1 / 3) for w in weights.values())
+
+
+def test_subnormal_ratio_does_not_produce_nan_weights():
+    weights = calculate_c_weights({"ndx": math.nextafter(0.0, 1.0), "csi500": 1.0, "gold": 1e300})
+    assert all(math.isfinite(w) and w >= 0 for w in weights.values())
+    assert sum(weights.values()) == pytest.approx(1.0)
 
 
 def test_equal_ratios_give_exact_thirds():

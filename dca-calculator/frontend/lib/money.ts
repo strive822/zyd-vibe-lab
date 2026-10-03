@@ -6,13 +6,32 @@
  * （需求文档 §9 / §16）。
  */
 
+// Keep a precision margin for cents -> floating yuan -> displayed cents round trips.
+const MAX_CENTS = Math.floor(Number.MAX_SAFE_INTEGER / 4);
+
+/** Accept positive decimal amounts with at most two places and safe integer cents. */
+export function parseAmount(text: string): number | null {
+  const value = text.trim().replace(/,/g, "");
+  if (!/^(?:\d+(?:\.\d{1,2})?|\.\d{1,2})$/.test(value)) return null;
+  const [whole, fraction = ""] = value.split(".");
+  const cents = Number(`${whole || "0"}${fraction.padEnd(2, "0")}`);
+  const amount = Number(value);
+  return Number.isFinite(amount) && amount > 0 && Number.isSafeInteger(cents) && cents <= MAX_CENTS
+    && Math.round(amount * 100) === cents
+    ? amount : null;
+}
+
 /** 按权重把总金额分摊为各资产金额（单位：元，保留 2 位小数语义）。 */
 export function splitAmounts(totalYuan: number, weights: number[]): number[] {
   if (!Number.isFinite(totalYuan) || totalYuan <= 0) {
     return weights.map(() => 0);
   }
   const totalCents = Math.round(totalYuan * 100);
-  const exact = weights.map((w) => totalCents * w);
+  if (!Number.isSafeInteger(totalCents) || totalCents > MAX_CENTS) throw new RangeError("金额超出可精确计算的范围");
+  const weightSum = weights.reduce((sum, w) => sum + w, 0);
+  if (weights.length === 0 || weights.some((w) => !Number.isFinite(w) || w < 0 || w > 1)
+    || Math.abs(weightSum - 1) >= 1e-9) throw new RangeError("权重无效");
+  const exact = weights.map((w) => totalCents * (w / weightSum));
   const floors = exact.map((x) => Math.floor(x));
   let leftover = totalCents - floors.reduce((a, b) => a + b, 0);
 

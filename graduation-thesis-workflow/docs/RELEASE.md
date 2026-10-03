@@ -1,6 +1,6 @@
 # GitHub 发布
 
-公开副本位于 zyd-vibe-lab/graduation-thesis-workflow。用户在 E:\zyd-vibe-lab 的 main 分支推送已经检查的本地提交；不要初始化新仓库或替换 remote。
+公开副本位于 zyd-vibe-lab/graduation-thesis-workflow。在现有仓库根目录的 main 分支推送已经检查的本地提交；不要初始化新仓库或替换 remote。
 
 1. 修改技能源后运行 `python -m unittest discover -s tests -v`。
 2. 运行 `python scripts/package.py --out packages`，把三个 ZIP 与 checksums.json 随本项目一起提交。规范源目录也可以用默认 dist 暂存构建结果。

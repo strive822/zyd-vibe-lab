@@ -1,34 +1,48 @@
 # zyd-vibe-lab
 
-> zhongyudi 的 vibe-coding 实验仓库。这里收纳我从零搭建、用于学习与展示的个人小项目。
+zhongyudi 的个人项目仓库：三个项目独立安装、运行和维护。
 
-## 一句话安装论文工作流
+## 直接让 Agent 帮你使用
 
-在 **Codex、Claude Code 或 WorkBuddy** 中发送：
+把下面任意一句发给具备联网、文件读写和运行能力的 Agent。它应先读本仓库 [INSTALL.md](INSTALL.md)，按项目名选择入口，再完成下载、核验与启动。系统权限、学校材料和账号登录仍需本人处理。
+
+**毕业论文工作流（Codex / Claude Code / WorkBuddy）：**
 
 ```text
-安装 https://github.com/strive822/zyd-vibe-lab 里的论文工作流。
+安装并使用 https://github.com/strive822/zyd-vibe-lab 里的 graduation-thesis-workflow。请先读取仓库 INSTALL.md，完整安装技能并检查环境，然后开始了解我的论文要求。
 ```
 
-不用先学 Git 或 Python。助手按 [安装入口](INSTALL.md) 获取技能、按需配置免费依赖，再了解学校要求；最后自动使用 Humanizer 改善表达并复核证据。系统权限提示仍需本人确认，不承诺毕业或检测分数。
+**三资产定投计算器：**
 
-**给 AI 助手：** 请执行 [INSTALL.md](INSTALL.md)，目标技能源是 `graduation-thesis-workflow/skills/graduation-thesis`。不要只向小白返回手动安装教程。
+```text
+下载并运行 https://github.com/strive822/zyd-vibe-lab 里的 dca-calculator。请先读取仓库 INSTALL.md，自动准备隔离环境与依赖，启动前后端并验证页面；不要覆盖已有项目。
+```
 
-完整说明：[论文工作流使用指南](graduation-thesis-workflow/README.md)。
+**Windows 额度浮窗：**
 
-## 项目列表
+```text
+下载并运行 https://github.com/strive822/zyd-vibe-lab 里的 codex-usage。请先读取仓库 INSTALL.md，优先使用 Windows x64 便携包，核对 SHA-256 后完整解压并启动；保留已有配置，不代填密钥或开启自启动。
+```
 
-| 项目                                  | 说明                                                             | 技术栈                              |
-| ----------------------------------- | -------------------------------------------------------------- | -------------------------------- |
-| [dca-calculator](./dca-calculator/) | 三资产（纳斯达克100 / 中证500 / 黄金）定投权重计算器，含 C哥模型与严谨模型双权重方案，支持单文件 exe 打包 | FastAPI + Next.js + Tailwind CSS |
-| [graduation-thesis-workflow](./graduation-thesis-workflow/) | 本科毕业论文工作流：需求访谈、真实文献与证据、写作审查；含三端下载和使用教程 | Codex / Claude Code / WorkBuddy · Python |
-| [codex-usage](./codex-usage/) | Windows 三平台额度浮窗、六位快捷复制与每日提醒；包含便携启动包 | Python + PySide6 / Qt |
+简短说“安装这个仓库里的论文工作流”也可使用论文入口。未指定项目时，Agent 应先确认项目。
 
-## codex-usage 下载
+## 项目与下载
 
-[Windows x64 便携包](codex-usage/packages/usage-0.1.0-windows-x64.zip) · [使用与开发说明](codex-usage/README.md)。完整解压后运行 `usage.exe`。
+| 项目 | 用途 | Agent 入口 | 下载方式 |
+| --- | --- | --- | --- |
+| [graduation-thesis-workflow](graduation-thesis-workflow/README.md) | 本科论文需求访谈、真实文献与证据、写作审查；包含 Humanizer | [安装技能](graduation-thesis-workflow/INSTALL.md) | [Codex](graduation-thesis-workflow/packages/graduation-thesis-codex.zip) · [Claude Code](graduation-thesis-workflow/packages/graduation-thesis-claude-code.zip) · [WorkBuddy](graduation-thesis-workflow/packages/graduation-thesis-workbuddy.zip) |
+| [dca-calculator](dca-calculator/README.md) | 三资产 SMA800 定投权重与金额计算，FastAPI + Next.js | [下载与启动](dca-calculator/INSTALL.md) | [完整仓库 ZIP](https://github.com/strive822/zyd-vibe-lab/archive/refs/heads/main.zip)，取其中 dca-calculator |
+| [codex-usage](codex-usage/README.md) | Windows 三平台额度、六位快捷复制和每日提醒，Python + PySide6 | [便携包与源码](codex-usage/INSTALL.md) | [Windows x64 ZIP](codex-usage/packages/usage-0.1.0-windows-x64.zip) · [校验值](codex-usage/packages/SHA256SUMS.txt) |
+
+论文工作流不保证毕业或检测分数；计算器只计算，不执行交易；浮窗为未签名的个人使用候选，设备验收边界见项目说明。
+
+## 维护
+
+从仓库根目录运行 `python scripts/check_repository.py`，检查受 Git 管理的文件、文档链接、Python 语法、下载包校验和及源码一致性。各项目的测试命令见对应 README；持续检查配置在 [.github/workflows/checks.yml](.github/workflows/checks.yml)。
+
+本轮检查范围、修复与尚未验证的项目见 [Repository Cleanup Report](docs/REPOSITORY_CLEANUP_REPORT.md)。
 
 ## 许可证
 
-各子项目许可证见对应目录（如 [dca-calculator/LICENSE](./dca-calculator/LICENSE)）。
+[计算器](dca-calculator/LICENSE)与[论文工作流](graduation-thesis-workflow/LICENSE)的原创内容使用各自目录的 MIT 许可证；论文工作流中的 Humanizer 保留上游许可。codex-usage 的第三方许可见 [THIRD_PARTY.md](codex-usage/docs/guides/THIRD_PARTY.md)，其原创源码尚未单独声明许可证。
 

@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import pytest
 
 from usage_app.autostart import Autostart, startup_command
@@ -32,9 +30,10 @@ def test_read_never_registers_and_explicit_opt_in_only_changes_owned_entry(tmp_p
     assert not startup.enabled() and registry.writes[-1] is None
 
 
-def test_command_quotes_paths_with_spaces_without_shell_execution():
-    command = startup_command(Path(r"C:\Users\Test User\My Data"))
-    assert '"C:\\Users\\Test User\\My Data"' in command
+def test_command_quotes_paths_with_spaces_without_shell_execution(tmp_path):
+    data_dir = tmp_path / "Test User" / "My Data"
+    command = startup_command(data_dir)
+    assert '"' + str(data_dir.resolve()) + '"' in command
     assert "run_app.py" in command and "--data-dir" in command
 
 

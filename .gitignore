@@ -9,3 +9,8 @@ Thumbs.db
 .env.*
 !.env.example
 *.log
+.venv/
+.venv-*/
+node_modules/
+coverage/
+core
