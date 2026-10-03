@@ -6,7 +6,7 @@ Windows 三平台额度浮窗：Codex／GLM 双窗口额度、DeepSeek 余额，
 
 下载 [Windows x64 便携 ZIP](../../packages/usage-0.1.0-windows-x64.zip)，完整解压，再运行文件夹里的 **usage.exe**。无需安装 Python。包未做发行签名，属于个人使用候选；[校验值](../../packages/SHA256SUMS.txt)与[使用说明](../../packaging/README.md)随仓库提供。
 
-本地解压版位于 `dist/usage-0.1.0-candidate-a67c2763ffd8/usage.exe`，根目录 `launch.cmd` 指向此候选。
+本地解压版位于 `dist/usage-0.1.0-candidate-a6befbb6bb11/usage.exe`，根目录 `launch.cmd` 指向此候选。
 
 ![四边形态](../validation/four-edges.png)
 

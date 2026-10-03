@@ -87,11 +87,19 @@ def registry_request(action: Literal["read", "write"], value: str | None = None)
             )
             if completed.returncode:
                 raise StorageError("无法访问 Windows 登录启动项，请在桌面会话中重新保存")
-            while not response.exists():
-                if time.monotonic() - started > 10:
-                    raise StorageError("Windows 登录启动项核验超时，请重新保存")
-                time.sleep(0.02)
-            result = json.loads(response.read_text(encoding="utf-8"))
+            while True:
+                try:
+                    result = json.loads(response.read_text(encoding="utf-8"))
+                    break
+                except (FileNotFoundError, PermissionError) as error:
+                    # Windows may briefly hold the atomically published file.
+                    # Retry only absent/share-denied responses, within the
+                    # original deadline; malformed data still fails visibly.
+                    if isinstance(error, PermissionError) and getattr(error, "winerror", None) not in (None, 5, 32, 33):
+                        raise
+                    if time.monotonic() - started > 10:
+                        raise StorageError("Windows 登录启动项核验超时，请重新保存") from error
+                    time.sleep(0.02)
             if not isinstance(result, dict) or result.get("ok") is not True:
                 raise StorageError("Windows 登录启动项未能核验，请检查本用户的权限")
             actual = result.get("value")

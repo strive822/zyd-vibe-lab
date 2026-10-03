@@ -6,6 +6,7 @@ from _paths import EVIDENCE
 import ctypes
 import json
 import tempfile
+import time
 from ctypes import wintypes
 from pathlib import Path
 
@@ -34,25 +35,48 @@ def pump(milliseconds=120):
     loop.exec()
 
 
+def ready(page, milliseconds=15000):
+    deadline = time.monotonic() + milliseconds / 1000
+    while page._startup_job is not None and time.monotonic() < deadline:
+        pump(20)
+    assert page._startup_job is None, "Startup worker did not complete"
+
+
 def main() -> int:
     app = QApplication([])
     app.setQuitOnLastWindowClosed(False)
     out = Path(EVIDENCE / "m5") / str(round(app.primaryScreen().devicePixelRatio() * 100))
     out.mkdir(parents=True, exist_ok=True)
     checks = []
+    latency = {}
     original_startup = UserRunRegistry().read()
     with tempfile.TemporaryDirectory(prefix="duizhaoye-window-check-") as directory:
         runtime = UsageRuntime(Path(directory))
         runtime.stop()
         leaf = DesktopLeaf(runtime, reduced_motion=True)
         leaf._pulse.stop()
-        registry = FakeRegistry()
-        leaf.startup = Autostart(Path(directory), registry)
         leaf.show()
+        beats = []
+        heartbeat = QTimer()
+        heartbeat.setInterval(20)
+        heartbeat.timeout.connect(lambda: beats.append(time.perf_counter()))
+        heartbeat.start()
+        pump(60)
+        started = time.perf_counter()
         leaf._open_settings("window")
+        latency["openSettingsMs"] = (time.perf_counter() - started) * 1000
         panel = leaf.text_settings
         page = panel.findChild(WindowPage)
         assert page is not None
+        assert page._startup_job is not None
+        ready(page)
+        assert page.launch.isEnabled(), page.status.text()
+        latency["nativeReadMaxHeartbeatGapMs"] = max(b - a for a, b in zip(beats, beats[1:])) * 1000
+        assert latency["openSettingsMs"] < 250
+        assert latency["nativeReadMaxHeartbeatGapMs"] < 250
+        checks.append("real desktop startup read completes off the UI thread; settings renders promptly and the GUI heartbeat continues")
+        registry = FakeRegistry()
+        leaf.startup = page.startup = Autostart(Path(directory), registry)
         pump()
         user = ctypes.WinDLL("user32", use_last_error=True)
         user.GetWindowLongPtrW.argtypes = [wintypes.HWND, ctypes.c_int]
@@ -100,6 +124,7 @@ def main() -> int:
         page.pinned.setChecked(True)
         page.launch.setChecked(True)
         QTest.keyClick(page.save_button, Qt.Key.Key_Return)
+        ready(page)
         assert leaf._explicit_pin and not leaf.reduced_motion
         assert leaf._settings.load().placement.pinned and not leaf._settings.load().reduced_motion
         assert registry.value == leaf.startup.command
@@ -117,6 +142,7 @@ def main() -> int:
         panel.grab().save(str(out / "window-save-error.png"))
         leaf._settings.save = saved
         page.save_button.click()
+        ready(page)
         assert leaf._settings.load().reduced_motion and not leaf._settings.load().placement.pinned
         checks.append("failure preserves saved state; retry succeeds without false success")
         panel.select_section("texts")
@@ -127,6 +153,63 @@ def main() -> int:
         pump()
         panel.grab().save(str(out / "window-small.png"))
         checks.append("current desktop shortcut state appears when section is reopened; minimum size scrolls")
+
+        class SlowRegistry(FakeRegistry):
+            def __init__(self):
+                self.value = None
+                self.reads = 0
+                self.writes = []
+            def read(self):
+                self.reads += 1
+                time.sleep(.4)
+                return self.value
+            def write(self, value):
+                time.sleep(.4)
+                self.writes.append(value)
+                self.value = value
+        ready(page)
+        slow = SlowRegistry()
+        page.startup = Autostart(Path(directory), slow)
+        beats.clear()
+        pump(60)
+        started = time.perf_counter()
+        for _ in range(4):
+            panel.select_section("texts")
+            panel.select_section("window")
+        latency["fourSectionSwitchesMs"] = (time.perf_counter() - started) * 1000
+        assert latency["fourSectionSwitchesMs"] < 250
+        assert page._startup_job is not None
+        # Changes to unrelated display choices during loading must survive.
+        choice = not page.reduced.isChecked()
+        page.reduced.setChecked(choice)
+        ready(page)
+        assert slow.reads == 1 and page.reduced.isChecked() == choice and page._dirty
+        page.launch.setChecked(True)
+        started = time.perf_counter()
+        page.save()
+        page.save()  # A repeated activation cannot start a second write.
+        latency["saveReturnsMs"] = (time.perf_counter() - started) * 1000
+        assert latency["saveReturnsMs"] < 250 and not page.save_button.isEnabled()
+        panel.select_section("texts")
+        panel.select_section("window")
+        ready(page)
+        assert slow.writes == [page.startup.command]
+        assert page.save_button.isEnabled() and page.status.text() == "窗口行为已保存。"
+        latency["slowIoMaxHeartbeatGapMs"] = max(b - a for a, b in zip(beats, beats[1:])) * 1000
+        assert latency["slowIoMaxHeartbeatGapMs"] < 250
+        checks.append("slow read/save keeps navigation and GUI timers responsive; one in-flight job, loading edits preserved and only one verified write")
+
+        class DeniedRegistry(FakeRegistry):
+            def write(self, value):
+                raise StorageError("开机启动设置未能核验")
+        page.startup = Autostart(Path(directory), DeniedRegistry())
+        page.launch.setChecked(True)
+        page.save()
+        ready(page)
+        assert page.save_button.isEnabled() and page.launch.isEnabled()
+        assert "未能核验" in page.status.text() and page.status.text() != "窗口行为已保存。"
+        checks.append("asynchronous save error restores controls and shows failure instead of claiming success")
+        heartbeat.stop()
         leaf.reminders.stop()
         leaf.snippets.stop()
         panel.hide()
@@ -135,7 +218,7 @@ def main() -> int:
         leaf.close()
     assert UserRunRegistry().read() == original_startup
     checks.append("real current-user startup entry unchanged throughout test")
-    report = {"passed": len(checks), "checks": checks, "nativeDpr": app.primaryScreen().devicePixelRatio(),
+    report = {"passed": len(checks), "checks": checks, "latency": latency, "nativeDpr": app.primaryScreen().devicePixelRatio(),
               "boundary": "Real Qt form, actual settings atomic persistence and native key events. Startup writes use a fake registry; real registry only compared before/after. Physical login startup remains unverified."}
     (out / "window-native-result.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
     print(json.dumps(report))
