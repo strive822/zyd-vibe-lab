@@ -34,13 +34,19 @@ w.close()
     frozen = EVIDENCE / "m1-r4" / "frozen-source"
     paths = [output / "frozen-core.png", output / "current-core.png"]
     for directory, image in zip((frozen, SOURCE), paths):
-        subprocess.run([sys.executable, "-c", code, str(directory), str(image)], check=True)
+        subprocess.run([sys.executable, "-B", "-c", code, str(directory), str(image)], check=True)
     with Image.open(paths[0]) as reference, Image.open(paths[1]) as current:
         identical = reference.size == current.size and ImageChops.difference(reference.convert("RGBA"), current.convert("RGBA")).getbbox() is None
         report = {"identical": identical, "size": list(current.size),
                   "frozenMainSha256": hashlib.sha256((frozen / "main.py").read_bytes()).hexdigest(),
                   "currentMainSha256": hashlib.sha256((SOURCE / "main.py").read_bytes()).hexdigest(),
+                  "frozenRenderSha256": hashlib.sha256(paths[0].read_bytes()).hexdigest(),
+                  "currentRenderSha256": hashlib.sha256(paths[1].read_bytes()).hexdigest(),
+                  "frozenImage": paths[1].name if identical else paths[0].name,
+                  "currentImage": paths[1].name,
                   "boundary": "Native Qt render, same fixed data/clock and 150% target device. Tests inherited core composition; production data/settings/interaction have separate checks."}
+    if identical:
+        paths[0].unlink()  # Equality and both hashes remain in the receipt; keep one image.
     (output / "frozen-regression.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
     print(json.dumps(report))
     return 0 if identical else 1
