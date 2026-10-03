@@ -4,7 +4,6 @@ from time import monotonic
 
 import pytest
 from PySide6.QtCore import QCoreApplication, QEventLoop, QProcess, QTimer
-from PySide6.QtTest import QTest
 
 from usage_app.clipboard import ClipboardError, windows_text
 from usage_app.snippet_service import SnippetService
@@ -40,7 +39,9 @@ def replace_saved_file(source: Path, destination: Path, timeout=2500):
         except PermissionError as error:
             if getattr(error, "winerror", None) not in (5, 32, 33) or monotonic() >= deadline:
                 raise
-            QTest.qWait(10)  # Keep native watcher events flowing during the wait.
+            loop = QEventLoop()
+            QTimer.singleShot(10, loop.quit)
+            loop.exec()  # Keep native watcher events flowing during the wait.
 
 
 @pytest.mark.parametrize("winerror", [5, 32, 33])
@@ -82,7 +83,7 @@ def test_atomic_save_does_not_retry_unrelated_permission_failures(tmp_path, monk
     assert caught.value is error and len(calls) == 1
 
 
-def test_atomic_save_reports_persistent_windows_access_conflict(tmp_path, monkeypatch):
+def test_atomic_save_reports_persistent_windows_access_conflict(qt_app, tmp_path, monkeypatch):
     source, destination = tmp_path / "body.new", tmp_path / "body.txt"
     source.write_bytes(b"saved")
     destination.write_bytes(b"previous")
@@ -97,7 +98,7 @@ def test_atomic_save_reports_persistent_windows_access_conflict(tmp_path, monkey
 
     monkeypatch.setattr(os, "replace", denied)
     monkeypatch.setattr(__name__ + ".monotonic", lambda: next(times))
-    monkeypatch.setattr(QTest, "qWait", lambda delay: None)
+    monkeypatch.setattr(QEventLoop, "exec", lambda self: None)
     with pytest.raises(PermissionError) as caught:
         replace_saved_file(source, destination)
     assert caught.value is error and len(calls) == 2
