@@ -6,7 +6,7 @@ Windows 三平台额度浮窗：Codex／GLM 双窗口额度、DeepSeek 余额，
 
 下载 [Windows x64 便携 ZIP](../../packages/usage-0.1.0-windows-x64.zip)，完整解压，再运行文件夹里的 **usage.exe**。无需安装 Python。包未做发行签名，属于个人使用候选；[校验值](../../packages/SHA256SUMS.txt)与[使用说明](../../packaging/README.md)随仓库提供。
 
-本地解压版位于 `dist/usage-0.1.0-candidate-799ba808dfca/usage.exe`，根目录 `launch.cmd` 指向此候选。
+本地解压版位于 `dist/usage-0.1.0-candidate-a67c2763ffd8/usage.exe`，根目录 `launch.cmd` 指向此候选。
 
 ![四边形态](../validation/four-edges.png)
 
@@ -21,6 +21,8 @@ Windows 三平台额度浮窗：Codex／GLM 双窗口额度、DeepSeek 余额，
 - 设置是普通窗口，其他应用可覆盖；托盘提供恢复、隐藏、刷新与退出。
 
 数据统一保存在 `%USERPROFILE%\.usage`，密钥使用 Windows 凭据管理器。包不含用户密钥、私人正文或账户数据。内部目录标识沿用旧代号，便于继续使用已保存内容。详情见 [SOP](SOP.md)。
+
+额度正常刷新间隔：收起／展开均为 5 秒，从上一次成功响应完成后计算。失败继续按 30／60／120／300 秒退避，并遵守平台 Retry-After；鉴权失败暂停，重新配置授权后恢复。界面倒计时本地计算。
 
 ## 开发（Windows PowerShell）
 
@@ -51,4 +53,4 @@ py -3.12 -m venv .venv-win
 
 ## 2026-10-03 登录启动修复
 
-当前候选 `799ba808dfca`。已修复MSIX私有注册表覆盖层导致设置读写与登录会话不一致的问题；便携版登记当前usage.exe与日常数据目录。保存时通过既有Explorer桌面写入并核验，仅操作本应用的当前用户启动项，构造和读取不会登记。真实桌面执行和第二次启动恢复已检查；真实重启登录仍待用户确认。移动或更新便携目录后，请重新保存开机启动设置。
+当时候选 `799ba808dfca`。已修复MSIX私有注册表覆盖层导致设置读写与登录会话不一致的问题；便携版登记当前usage.exe与日常数据目录。保存时通过既有Explorer桌面写入并核验，仅操作本应用的当前用户启动项，构造和读取不会登记。真实桌面执行和第二次启动恢复已检查；真实重启登录仍待用户确认。移动或更新便携目录后，请重新保存开机启动设置。

@@ -10,6 +10,9 @@ from typing import Callable
 from .models import Account, ErrorCode, ProviderError, ProviderState, Status, UsageSnapshot
 
 
+REFRESH_INTERVAL_SECONDS = 5
+
+
 @dataclass(frozen=True, slots=True)
 class RequestTicket:
     account_id: str
@@ -89,7 +92,7 @@ class RefreshCoordinator:
         self._failures[ticket.account_id] = 0
         self._cooling.discard(ticket.account_id)
         self._last_success_mono[ticket.account_id] = monotonic_now
-        self._due[ticket.account_id] = monotonic_now + (60 if expanded else 180)
+        self._due[ticket.account_id] = monotonic_now + REFRESH_INTERVAL_SECONDS
         return True
 
     def fail(self, ticket: RequestTicket, error: ProviderError, monotonic_now: float) -> bool:
@@ -124,4 +127,4 @@ class RefreshCoordinator:
     def set_expanded(self, expanded: bool) -> None:
         for account_id, when in self._last_success_mono.items():
             if account_id not in self._cooling and account_id not in self._paused:
-                self._due[account_id] = when + (60 if expanded else 180)
+                self._due[account_id] = when + REFRESH_INTERVAL_SECONDS

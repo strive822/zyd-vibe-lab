@@ -1,1 +1,1 @@
-90afa5ccc1613d70a1fd834dffb33c74005700c2401ed8cdd3c5fb6f8b3500b7  usage-0.1.0-windows-x64.zip
+2a8f32a52749aa12aa66d462f7a12a2fdb13681ec91f6d6469c5d2b16a88cc30  usage-0.1.0-windows-x64.zip

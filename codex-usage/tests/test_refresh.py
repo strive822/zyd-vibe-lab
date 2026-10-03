@@ -28,7 +28,7 @@ def test_single_flight_failure_retains_data_and_other_provider(accounts: dict[Pr
     assert retry
     fresh = parse_codex({"rateLimits": None}, codex, later)
     assert coordinator.succeed(retry, fresh, 130, expanded=True)
-    assert state.status == Status.FRESH and coordinator.due_in(codex.id, 130) == 60
+    assert state.status == Status.FRESH and coordinator.due_in(codex.id, 130) == 5
 
 
 def test_late_response_cannot_cross_changed_credentials(accounts: dict[Provider, Account], now: datetime) -> None:
@@ -85,7 +85,7 @@ def test_all_providers_keep_cached_data_and_back_off_through_repeated_failure(ac
         assert ticket and coordinator.succeed(ticket, cached[provider], 0, expanded=False)
 
     errors = {Provider.CODEX: ErrorCode.NETWORK, Provider.GLM: ErrorCode.TIMEOUT, Provider.DEEPSEEK: ErrorCode.SERVICE}
-    elapsed = 180
+    elapsed = 5
     # Repeated retries reach the cap; neither wall-clock jumps nor repeatedly
     # opening the leaf or pressing Refresh is allowed to shorten this cooldown.
     for delay in (30, 60, 120, 300, 300):
@@ -105,7 +105,32 @@ def test_all_providers_keep_cached_data_and_back_off_through_repeated_failure(ac
     recovery = coordinator.begin(codex.id, now + timedelta(seconds=elapsed), elapsed)
     fresh = replace(cached[Provider.CODEX], last_success_at=now + timedelta(seconds=elapsed))
     assert recovery and coordinator.succeed(recovery, fresh, elapsed, expanded=True)
-    assert coordinator.due_in(codex.id, elapsed) == 60
+    assert coordinator.due_in(codex.id, elapsed) == 5
     for provider in (Provider.GLM, Provider.DEEPSEEK):
         state = coordinator.states[accounts[provider].id]
         assert state.status == Status.STALE and state.snapshot is cached[provider]
+
+
+@pytest.mark.parametrize("provider", list(Provider))
+@pytest.mark.parametrize("expanded", [False, True])
+def test_five_second_cadence_survives_hover_and_merges_inflight_requests(
+    accounts: dict[Provider, Account], now: datetime, provider: Provider, expanded: bool,
+) -> None:
+    coordinator = RefreshCoordinator(jitter=lambda: 0)
+    account = accounts[provider]
+    coordinator.register(account)
+    snapshot = UsageSnapshot(account.id, provider, "synthetic", (), (), now)
+    ticket = coordinator.begin(account.id, now, 0)
+    assert ticket and coordinator.succeed(ticket, snapshot, 0, expanded=expanded)
+    for second in range(1, 5):
+        coordinator.set_expanded(not expanded if second % 2 else expanded)
+        assert coordinator.begin(account.id, now + timedelta(seconds=second), second) is None
+        assert coordinator.due_in(account.id, second) == 5 - second
+    next_ticket = coordinator.begin(account.id, now + timedelta(seconds=5), 5)
+    assert next_ticket
+    assert coordinator.begin(account.id, now + timedelta(seconds=6), 6, manual=True) is None
+    assert coordinator.begin(account.id, now + timedelta(seconds=10), 10) is None
+    # The next interval starts after a slow response completes, with no backlog.
+    fresh = replace(snapshot, last_success_at=now + timedelta(seconds=10))
+    assert coordinator.succeed(next_ticket, fresh, 10, expanded=not expanded)
+    assert coordinator.due_in(account.id, 10) == 5
