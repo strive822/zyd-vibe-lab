@@ -6,7 +6,7 @@ Windows 三平台额度浮窗：Codex／GLM 双窗口额度、DeepSeek 余额，
 
 下载 [Windows x64 便携 ZIP](../../packages/usage-0.1.0-windows-x64.zip)，完整解压，再运行文件夹里的 **usage.exe**。无需安装 Python。包未做发行签名，属于个人使用候选；[校验值](../../packages/SHA256SUMS.txt)与[使用说明](../../packaging/README.md)随仓库提供。
 
-本机整理后的解压版位于 `E:\zyd-vibe-lab\codex-usage\dist\usage-0.1.0-candidate-f6f7af39bb95\usage.exe`。A 盘与此副本保持相同六位候选。
+本地解压版位于 `dist/usage-0.1.0-candidate-799ba808dfca/usage.exe`，根目录 `launch.cmd` 指向此候选。
 
 ![四边形态](../validation/four-edges.png)
 
@@ -25,7 +25,6 @@ Windows 三平台额度浮窗：Codex／GLM 双窗口额度、DeepSeek 余额，
 ## 开发（Windows PowerShell）
 
 ```powershell
-cd E:\zyd-vibe-lab\codex-usage
 py -3.12 -m venv .venv-win
 .\.venv-win\Scripts\python.exe -m pip install -r requirements-dev.txt
 .\.venv-win\Scripts\python.exe src/run_app.py
@@ -49,3 +48,7 @@ py -3.12 -m venv .venv-win
 2026-10-01修复AppData重定向造成的两份配置：默认统一到`%USERPROFILE%\.usage`，首次完整复制既有配置、正文和提醒账本并保留旧目录。Windows凭据引用、六个绑定和账号身份不变。重复双击launch／usage.exe通过文件锁和恢复协议只唤回当前实例；连接确认失败也不会另开未知数据窗口。
 
 已有记事本标签页仍指向旧目录的正文：升级后请从当前“快捷文本”窗口重新打开正文再编辑；旧文件保留为备份，不会自动覆盖新目录。
+
+## 2026-10-03 登录启动修复
+
+当前候选 `799ba808dfca`。已修复MSIX私有注册表覆盖层导致设置读写与登录会话不一致的问题；便携版登记当前usage.exe与日常数据目录。保存时通过既有Explorer桌面写入并核验，仅操作本应用的当前用户启动项，构造和读取不会登记。真实桌面执行和第二次启动恢复已检查；真实重启登录仍待用户确认。移动或更新便携目录后，请重新保存开机启动设置。

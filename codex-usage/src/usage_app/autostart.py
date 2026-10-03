@@ -3,11 +3,11 @@ from __future__ import annotations
 
 import subprocess
 import sys
-import winreg
 from pathlib import Path
 from typing import Protocol
 
 from .storage import StorageError
+from .startup_registry import registry_request
 
 RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
 RUN_NAME = "Duizhaoye"
@@ -20,37 +20,23 @@ class StartupRegistry(Protocol):
 
 class UserRunRegistry:
     def read(self) -> str | None:
-        try:
-            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY) as key:
-                value, kind = winreg.QueryValueEx(key, RUN_NAME)
-            if kind != winreg.REG_SZ or not isinstance(value, str):
-                raise StorageError("开机启动项格式不兼容，原项已保留")
-            return value
-        except FileNotFoundError:
-            return None
-        except OSError as error:
-            raise StorageError("无法读取本用户的开机启动项") from error
+        return registry_request("read")
 
     def write(self, value: str | None) -> None:
-        try:
-            with winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER, RUN_KEY, access=winreg.KEY_SET_VALUE) as key:
-                if value is None:
-                    try:
-                        winreg.DeleteValue(key, RUN_NAME)
-                    except FileNotFoundError:
-                        pass
-                else:
-                    winreg.SetValueEx(key, RUN_NAME, 0, winreg.REG_SZ, value)
-        except OSError as error:
-            raise StorageError("开机启动项未能修改，请检查本用户的权限") from error
+        if registry_request("write", value) != value:
+            raise StorageError("开机启动项未能核验，请重新打开设置检查")
 
 
 def startup_command(data_dir: Path) -> str:
     executable = Path(sys.executable).resolve()
+    root = executable.parent.parent
+    script = Path(__file__).resolve().parent.parent / "run_app.py"
+    launcher = root / "usage.exe"
+    if executable.parent.name == "runtime" and script.parent == root / "app" and launcher.is_file():
+        return subprocess.list2cmdline([str(launcher), "--data-dir", str(data_dir.resolve())])
     windowed = executable.with_name("pythonw.exe")
     if windowed.exists():
         executable = windowed
-    script = Path(__file__).resolve().parent.parent / "run_app.py"
     return subprocess.list2cmdline([str(executable), str(script), "--data-dir", str(data_dir.resolve())])
 
 

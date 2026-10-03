@@ -7,14 +7,12 @@
 在 Windows PowerShell 运行：
 
 ```powershell
-cd A:\codex\codex-usage
 .\.venv-win\Scripts\python.exe src/main.py --scenario low --reminder-demo
 ```
 
 在 WSL bash 运行同一个 Windows 原生程序：
 
 ```bash
-cd /mnt/a/codex/codex-usage
 ./.venv-win/Scripts/python.exe src/main.py --scenario low --reminder-demo
 ```
 

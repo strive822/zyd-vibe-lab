@@ -23,7 +23,7 @@ def main() -> int:
     parser.add_argument("--peer", choices=("restore", "blocked", "crash"))
     parser.add_argument("--data", type=Path)
     args = parser.parse_args()
-    app = QCoreApplication([])
+    _app = QCoreApplication([])  # Keep the application alive for the process.
     if args.peer:
         assert args.data is not None
         instance = SingleInstance(args.data)

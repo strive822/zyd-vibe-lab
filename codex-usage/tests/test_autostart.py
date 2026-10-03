@@ -4,6 +4,7 @@ import pytest
 
 from usage_app.autostart import Autostart, startup_command
 from usage_app.storage import StorageError
+import usage_app.autostart as autostart
 
 
 class MemoryRegistry:
@@ -62,3 +63,28 @@ def test_windows_run_command_limit_rejects_without_registering_and_allows_remova
     registry.value = startup.command
     startup.set_enabled(False)
     assert registry.value is None and registry.writes == [None]
+
+
+def test_portable_startup_uses_the_windowed_launcher_and_survives_spaces(tmp_path, monkeypatch):
+    root = tmp_path / "中文 portable package"
+    (root / "runtime").mkdir(parents=True)
+    (root / "app/usage_app").mkdir(parents=True)
+    (root / "usage.exe").touch()
+    monkeypatch.setattr(autostart.sys, "executable", str(root / "runtime/pythonw.exe"))
+    monkeypatch.setattr(autostart, "__file__", str(root / "app/usage_app/autostart.py"))
+    command = startup_command(tmp_path / "user data")
+    assert command.startswith('"' + str(root / "usage.exe") + '" --data-dir ')
+    assert "pythonw.exe" not in command and "run_app.py" not in command
+
+
+def test_registry_adapter_reads_login_view_and_requires_exact_write_readback(monkeypatch):
+    calls = []
+    def worker(action, value=None):
+        calls.append((action, value))
+        return "login-visible value" if action == "read" else "wrong"
+    monkeypatch.setattr(autostart, "registry_request", worker)
+    registry = autostart.UserRunRegistry()
+    assert registry.read() == "login-visible value"
+    assert calls == [("read", None)]
+    with pytest.raises(StorageError, match="核验"):
+        registry.write("expected")

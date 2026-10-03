@@ -8,7 +8,6 @@ import ctypes
 import sys
 import time
 from ctypes.wintypes import POINT, RECT
-from pathlib import Path
 
 from PIL import Image, ImageGrab
 from PySide6.QtCore import QPointF

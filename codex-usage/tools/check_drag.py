@@ -14,7 +14,7 @@ from PySide6.QtGui import QMouseEvent
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
 
-from main import BALL_XS, BALL_YS, SAMPLE_TEXT, WIDTH, HEIGHT, VERTICAL_HEIGHT, LeafPrototype
+from main import SAMPLE_TEXT, WIDTH, HEIGHT, VERTICAL_HEIGHT, LeafPrototype
 
 
 app = QApplication(sys.argv)

@@ -25,8 +25,8 @@ user32.SetProcessDpiAwarenessContext.restype = wintypes.BOOL
 if not user32.SetProcessDpiAwarenessContext(ctypes.c_void_p(-4)):
     raise RuntimeError("Per-monitor DPI awareness could not be enabled for capture")
 
-from PIL import Image, ImageDraw, ImageFilter, ImageGrab
-from main import DOCK_EXPOSURE
+from PIL import Image, ImageDraw, ImageFilter, ImageGrab  # noqa: E402 - scale/DPI must be configured before graphics imports
+from main import DOCK_EXPOSURE  # noqa: E402 - scale/DPI must be configured before graphics imports
 
 
 TITLE = "usage · Visual Prototype"

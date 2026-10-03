@@ -17,11 +17,11 @@ parser.add_argument("--expected-dpr", type=float)
 args = parser.parse_args()
 os.environ["QT_SCALE_FACTOR"] = str(args.scale)
 
-from PIL import Image, ImageDraw, ImageFont
-from PySide6.QtCore import QBuffer, QIODevice
-from PySide6.QtWidgets import QApplication
+from PIL import Image, ImageDraw, ImageFont  # noqa: E402 - scale/DPI must be configured before graphics imports
+from PySide6.QtCore import QBuffer, QIODevice  # noqa: E402 - scale/DPI must be configured before graphics imports
+from PySide6.QtWidgets import QApplication  # noqa: E402 - scale/DPI must be configured before graphics imports
 
-from main import LeafPrototype
+from main import LeafPrototype  # noqa: E402 - scale/DPI must be configured before graphics imports
 
 
 app = QApplication(sys.argv)

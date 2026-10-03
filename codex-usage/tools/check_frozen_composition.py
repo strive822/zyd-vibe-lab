@@ -7,7 +7,6 @@ import hashlib
 import json
 import subprocess
 import sys
-from pathlib import Path
 
 from PIL import Image, ImageChops
 
@@ -18,7 +17,6 @@ def main() -> int:
     output = EVIDENCE / "m6"
     output.mkdir(parents=True, exist_ok=True)
     code = """import sys
-from pathlib import Path
 from datetime import datetime
 sys.path.insert(0,sys.argv[1])
 import main

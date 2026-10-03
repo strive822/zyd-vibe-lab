@@ -41,7 +41,7 @@
 
 ## 当前风险与 Freeze 边界
 
-1. 本机 Windows Computer Use 辅助工具在初始化时返回 `sandboxCwd is not a local file URI: file:///mnt/a/codex/usage`。用户已亲自操作 Codex/GLM 悬浮与复制，但尚未系统验收完整跨空隙指针路径、透明空白点穿透桌面、悬浮时不抢焦点、真实提示层与多屏混合 DPI；不能凭 Qt mask 的程序化断言宣称它们已通过。
+1. 本机 Windows Computer Use 辅助工具在初始化时返回 `sandboxCwd is not a local file URI: file:///<workspace>`。用户已亲自操作 Codex/GLM 悬浮与复制，但尚未系统验收完整跨空隙指针路径、透明空白点穿透桌面、悬浮时不抢焦点、真实提示层与多屏混合 DPI；不能凭 Qt mask 的程序化断言宣称它们已通过。
 2. 原版收起球仅有 24 DIP 可见宽度，用户实测难辨。当前 A44 候选外露 44 DIP、采用 C/G 双表盘、G/¥ 旁独立“半”字和 `¥` 余额标记；提醒铃为独立状态。用户已确认“半”字原尺寸可读，整体额度盲测、提醒语义和浅/深桌面识别度仍需独立审查。
 3. 100% 渲染的时间文字与表格密度接近下限；尤其双窗口详情和 DeepSeek 基线需要在真实桌面背景与正常观看距离判断。辅助技术目前只有窗口级名称/说明，逐动作的可访问名称与原生焦点行为尚未设备验证。
 4. Qt 窗口遮罩在 Windows 11 当前设备可创建，窗口像素渲染可抓取；`QScreen.grabWindow(winId)` 对透明窗口返回黑图，故证据使用 `QWidget.grab()`。这不证明桌面合成截图、阴影和透明点击的实际效果。

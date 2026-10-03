@@ -5,7 +5,6 @@ from __future__ import annotations
 from _paths import EVIDENCE
 
 import json
-import math
 import platform
 import sys
 import ctypes
@@ -21,7 +20,7 @@ from PySide6.QtWidgets import QApplication
 
 from countdown import present_countdown
 from clipboard_win import clipboard_matches
-from main import BALL_NAMES, BALL_XS, BALL_YS, DETAIL_COUNTDOWN_X, DETAIL_META_X, DOCK_BENEFIT_X, DOCK_EXPOSURE, DOCK_RADIUS, DOCK_X, SAMPLE_TEXT, LeafPrototype, leaf_path
+from main import BALL_XS, BALL_YS, DETAIL_COUNTDOWN_X, DETAIL_META_X, DOCK_BENEFIT_X, DOCK_EXPOSURE, DOCK_RADIUS, DOCK_X, SAMPLE_TEXT, LeafPrototype, leaf_path
 from quota_visual import LOW_REMAINING, SCENARIOS, QuotaSample, lowest_remaining, sample_for, tightest_provider_window
 
 
