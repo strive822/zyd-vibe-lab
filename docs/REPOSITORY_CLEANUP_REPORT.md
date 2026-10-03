@@ -69,7 +69,7 @@ README 首页提供三段可直接复制给 Agent 的提示词、项目入口和
 | Environment / Install | 额度 requirements-dev.txt、计算器运行/测试依赖均可安装，pip check 通过；前端 npm ci 通过 |
 | Type Check | 额度 mypy 41 个源码文件通过（Windows 目标）；前端 tsc --noEmit 通过 |
 | Lint | 额度 src/tests/tools Ruff 通过；新仓库检查器与计算器后端基础 Ruff 检查通过；前端未单独配置 ESLint |
-| Tests | 额度 122 通过；计算器后端 57 通过；前端 8 通过；论文 27 通过、6 项 Windows 安装测试在 WSL 跳过；Windows 云端结果见下文 |
+| Tests | 额度 122 通过；计算器后端 57 通过；前端 8 通过；论文 27 通过、6 项 Windows 安装测试在 WSL 跳过；Windows 云端 33 项全部通过（0 跳过），结果见下文 |
 | Build | Next.js 普通生产构建和 DCA_EXPORT=1 静态导出通过；本轮没有重新构建 Windows exe |
 | Runtime | 真实 Uvicorn 进程健康检查、FastAPI 同源托管静态页面通过；Qt 离屏应用创建和渲染通过 |
 | Critical Path | Chromium 页面加载；1000/1234.56 元各模型分摊总额正确；改金额无额外行情请求；分以下输入拒绝；中文 502 保留且无权重；重试恢复，均通过 |
@@ -96,3 +96,7 @@ README 首页提供三段可直接复制给 Agent 的提示词、项目入口和
 用户已要求提交。本轮仅提交本仓库实际改动；提交前查看暂存差异与工作区状态，不修改远程地址、不重写已有 Git 历史、不创建 GitHub Release。新增 GitHub Actions 会在推送后检查三个项目，云端实际执行状态以 Actions 页面为准。
 
 首次云端运行六个检查通过，论文 Windows 检查发现两处真实问题，已修复后再提交；不能用首次本地成功代替跨平台验证。
+
+修复提交 `11ba28f` 的 [GitHub Actions 完整运行](https://github.com/strive822/zyd-vibe-lab/actions/runs/37111645430) 七个检查全部成功：仓库、计算器前后端、论文 Ubuntu/Windows、额度 Ubuntu/Windows。Windows 论文 33 项测试全部通过，0 跳过；其安装、重复安装、已有文件保护、环境复用及中文路径检查属于临时目录验证，不等同于三个宿主的原生技能发现。
+
+推送后另从公开 GitHub 重新克隆，并以 core.autocrlf=true 模拟 Windows 换行策略，255 个文件与包检查通过；使用相同 Git 配置读取状态为空。Agent 入口和校验文件的公开下载与本地内容一致。
