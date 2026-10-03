@@ -1,5 +1,6 @@
 """Offline regression tests. Fixtures are synthetic, never research evidence."""
 import importlib.util
+import os
 import json
 from pathlib import Path
 import tempfile
@@ -9,6 +10,8 @@ from contextlib import redirect_stdout, redirect_stderr
 import io
 import re
 import zipfile
+import subprocess
+import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 SKILL = ROOT / 'skills' / 'graduation-thesis'
@@ -38,6 +41,16 @@ class WorkflowTests(unittest.TestCase):
 
     def write(self, name, data):
         project.write_json(self.root / name, data)
+
+    def test_cli_handles_chinese_paths_with_legacy_stdout_encoding(self):
+        target = Path(self.temp.name) / '中文 空格论文'
+        result = subprocess.run(
+            [sys.executable, str(SKILL / 'scripts/project.py'), 'init', str(target)],
+            env={**os.environ, 'PYTHONIOENCODING': 'cp1252'}, capture_output=True, timeout=15,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr.decode('utf-8'))
+        self.assertIn('中文 空格论文', result.stdout.decode('utf-8'))
+        self.assertTrue((target / 'requirements.json').is_file())
 
     def fixture(self):
         # A structurally complete synthetic fixture, not a real thesis or real approval.

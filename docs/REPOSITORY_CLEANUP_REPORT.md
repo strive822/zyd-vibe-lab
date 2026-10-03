@@ -26,7 +26,7 @@ dca-calculator/README_Project.md 中重复的项目状态、目录和技术栈�
 
 ## Git Ignore
 
-根目录增加通用 `.venv/`、`.venv-*/`、`node_modules/`、`coverage/` 和 `core` 忽略项。原有 .env、日志和各项目私有资料规则继续生效。
+根目录 .gitattributes 固定额度源码的 LF，并禁止技能原稿/上游文件的换行转换，以保留 ZIP 与源码的字节一致性。根目录增加通用 `.venv/`、`.venv-*/`、`node_modules/`、`coverage/` 和 `core` 忽略项。原有 .env、日志和各项目私有资料规则继续生效。
 
 ## Structure Changes
 
@@ -55,6 +55,7 @@ README 首页提供三段可直接复制给 Agent 的提示词、项目入口和
 | bat 只判断目录存在，失败后仍运行 | 检查真实 Python 入口，按声明/锁文件准备依赖，失败停止 |
 | WSL 测试误把 powershell.exe 当原生 Windows 环境 | 论文原生安装测试只在 Windows Python 中运行；Linux 正确标记跳过 |
 | 额度 Windows 模拟测试隐式依赖本机路径/环境 | 路径用临时目录；明确注入被模拟的 Windows 进程上下文；mypy 指定 win32 目标 |
+| Windows 真实 CI 暴露中文 stdout 编码与上游文件换行哈希问题 | CLI 明确 UTF-8 输出并增加 cp1252 回归；Git 保留技能源原始字节，重建论文分发包 |
 | npm 安全审计发现 3 个受影响依赖节点 | 更新 PostCSS / sharp overrides 与锁文件，保留 Next.js 15；官方 npm 审计重测为 0 |
 
 依赖依据：[PostCSS 上游公告](https://github.com/postcss/postcss/security/advisories/GHSA-fxqj-rqcc-2cmp)、[sharp 上游公告](https://github.com/lovell/sharp/security/advisories/GHSA-rgj7-g3m4-5g8c)。本轮安装结果为 PostCSS 8.5.28、sharp 0.35.5；构建与原生图片缩放检查通过。镜像的安全审计接口曾返回 404，改用官方接口，不把失败当作零漏洞。
@@ -68,7 +69,7 @@ README 首页提供三段可直接复制给 Agent 的提示词、项目入口和
 | Environment / Install | 额度 requirements-dev.txt、计算器运行/测试依赖均可安装，pip check 通过；前端 npm ci 通过 |
 | Type Check | 额度 mypy 41 个源码文件通过（Windows 目标）；前端 tsc --noEmit 通过 |
 | Lint | 额度 src/tests/tools Ruff 通过；新仓库检查器与计算器后端基础 Ruff 检查通过；前端未单独配置 ESLint |
-| Tests | 额度 122 通过；计算器后端 57 通过；前端 8 通过；论文 26 通过、6 项 Windows 安装测试在 WSL 跳过 |
+| Tests | 额度 122 通过；计算器后端 57 通过；前端 8 通过；论文 27 通过、6 项 Windows 安装测试在 WSL 跳过；Windows 云端结果见下文 |
 | Build | Next.js 普通生产构建和 DCA_EXPORT=1 静态导出通过；本轮没有重新构建 Windows exe |
 | Runtime | 真实 Uvicorn 进程健康检查、FastAPI 同源托管静态页面通过；Qt 离屏应用创建和渲染通过 |
 | Critical Path | Chromium 页面加载；1000/1234.56 元各模型分摊总额正确；改金额无额外行情请求；分以下输入拒绝；中文 502 保留且无权重；重试恢复，均通过 |
@@ -93,3 +94,5 @@ README 首页提供三段可直接复制给 Agent 的提示词、项目入口和
 ## Submission
 
 用户已要求提交。本轮仅提交本仓库实际改动；提交前查看暂存差异与工作区状态，不修改远程地址、不重写已有 Git 历史、不创建 GitHub Release。新增 GitHub Actions 会在推送后检查三个项目，云端实际执行状态以 Actions 页面为准。
+
+首次云端运行六个检查通过，论文 Windows 检查发现两处真实问题，已修复后再提交；不能用首次本地成功代替跨平台验证。

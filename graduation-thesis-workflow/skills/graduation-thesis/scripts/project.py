@@ -239,6 +239,11 @@ def audit(root):
 
 
 def main():
+    # Captured Windows output may default to a code page without Chinese.
+    # Use the same explicit UTF-8 contract as the project's files.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, 'reconfigure'):
+            stream.reconfigure(encoding='utf-8')
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('command', choices=['init', 'audit', 'hash', 'review-snapshot'])
     parser.add_argument('path')

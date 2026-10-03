@@ -5,6 +5,7 @@
 
 | 文件（相对仓库根目录） | 已执行静态检查 |
 | --- | --- |
+| `.gitattributes` | secret patterns, UTF-8 |
 | `.github/workflows/checks.yml` | secret patterns, UTF-8 |
 | `.gitignore` | secret patterns, UTF-8 |
 | `AGENTS.md` | secret patterns, UTF-8, local Markdown links |

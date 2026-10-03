@@ -1,0 +1,10 @@
+# Keep build-manifest source hashes stable across Windows and Linux checkouts.
+codex-usage/src/** text eol=lf
+codex-usage/docs/evidence/m1-r4/frozen-source/** text eol=lf
+
+# Skill ZIPs and the upstream manifest verify exact bytes, including original EOLs.
+graduation-thesis-workflow/skills/graduation-thesis/** -text
+graduation-thesis-workflow/LICENSE -text
+*.zip -text
+*.png -text
+*.gif -text
