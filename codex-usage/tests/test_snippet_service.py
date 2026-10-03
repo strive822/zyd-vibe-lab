@@ -1,8 +1,10 @@
 import os
 from pathlib import Path
+from time import monotonic
 
 import pytest
 from PySide6.QtCore import QCoreApplication, QEventLoop, QProcess, QTimer
+from PySide6.QtTest import QTest
 
 from usage_app.clipboard import ClipboardError, windows_text
 from usage_app.snippet_service import SnippetService
@@ -25,6 +27,81 @@ def until(predicate, timeout=2500):
         loop.exec()
     poll.stop()
     assert predicate(), "Saved file notification did not arrive"
+
+
+def replace_saved_file(source: Path, destination: Path, timeout=2500):
+    # An external editor may need to wait for a short-lived Windows file handle.
+    # Retry only those access/share conflicts; keep persistent failures visible.
+    deadline = monotonic() + timeout / 1000
+    while True:
+        try:
+            os.replace(source, destination)
+            return
+        except PermissionError as error:
+            if getattr(error, "winerror", None) not in (5, 32, 33) or monotonic() >= deadline:
+                raise
+            QTest.qWait(10)  # Keep native watcher events flowing during the wait.
+
+
+@pytest.mark.parametrize("winerror", [5, 32, 33])
+def test_atomic_save_waits_for_transient_windows_access_conflicts(qt_app, tmp_path, monkeypatch, winerror):
+    source, destination = tmp_path / "body.new", tmp_path / "body.txt"
+    source.write_bytes(b"saved")
+    destination.write_bytes(b"previous")
+    replace = os.replace
+    calls = []
+
+    def briefly_occupied(old, new):
+        calls.append((old, new))
+        if len(calls) == 1:
+            error = PermissionError("temporary Windows file handle")
+            error.winerror = winerror
+            raise error
+        replace(old, new)
+
+    monkeypatch.setattr(os, "replace", briefly_occupied)
+    replace_saved_file(source, destination)
+    assert len(calls) == 2 and not source.exists()
+    assert destination.read_bytes() == b"saved"
+
+
+@pytest.mark.parametrize("winerror", [None, 112])
+def test_atomic_save_does_not_retry_unrelated_permission_failures(tmp_path, monkeypatch, winerror):
+    calls = []
+    error = PermissionError("permanent file failure")
+    if winerror is not None:
+        error.winerror = winerror
+
+    def denied(old, new):
+        calls.append((old, new))
+        raise error
+
+    monkeypatch.setattr(os, "replace", denied)
+    with pytest.raises(PermissionError) as caught:
+        replace_saved_file(tmp_path / "body.new", tmp_path / "body.txt")
+    assert caught.value is error and len(calls) == 1
+
+
+def test_atomic_save_reports_persistent_windows_access_conflict(tmp_path, monkeypatch):
+    source, destination = tmp_path / "body.new", tmp_path / "body.txt"
+    source.write_bytes(b"saved")
+    destination.write_bytes(b"previous")
+    error = PermissionError("persistent Windows file handle")
+    error.winerror = 5
+    calls = []
+    times = iter([0.0, 0.01, 3.0])
+
+    def denied(old, new):
+        calls.append((old, new))
+        raise error
+
+    monkeypatch.setattr(os, "replace", denied)
+    monkeypatch.setattr(__name__ + ".monotonic", lambda: next(times))
+    monkeypatch.setattr(QTest, "qWait", lambda delay: None)
+    with pytest.raises(PermissionError) as caught:
+        replace_saved_file(source, destination)
+    assert caught.value is error and len(calls) == 2
+    assert source.read_bytes() == b"saved" and destination.read_bytes() == b"previous"
 
 
 class Writer:
@@ -82,7 +159,8 @@ def test_watcher_rearms_after_atomic_save_delete_and_recreation(service):
         observed.clear()
         temporary = path.with_suffix(".new")
         temporary.write_bytes(text.encode())
-        os.replace(temporary, path)
+        replace_saved_file(temporary, path)
+        observed.clear()  # Ignore directory events from creating the temporary file.
         until(lambda: a.id in observed)
         assert value.read(a.id).text == text
     observed.clear()

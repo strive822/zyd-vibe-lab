@@ -100,3 +100,11 @@ README 首页提供三段可直接复制给 Agent 的提示词、项目入口和
 修复提交 `11ba28f` 的 [GitHub Actions 完整运行](https://github.com/strive822/zyd-vibe-lab/actions/runs/37111645430) 七个检查全部成功：仓库、计算器前后端、论文 Ubuntu/Windows、额度 Ubuntu/Windows。Windows 论文 33 项测试全部通过，0 跳过；其安装、重复安装、已有文件保护、环境复用及中文路径检查属于临时目录验证，不等同于三个宿主的原生技能发现。
 
 推送后另从公开 GitHub 重新克隆，并以 core.autocrlf=true 模拟 Windows 换行策略，255 个文件与包检查通过；使用相同 Git 配置读取状态为空。Agent 入口和校验文件的公开下载与本地内容一致。
+
+## Follow-up: Windows watcher test
+
+用户收到失败邮件后复核发现：文档提交 `df5a960` 的 [GitHub Actions 运行](https://github.com/strive822/zyd-vibe-lab/actions/runs/37111845021) 为六项成功、一项失败。额度 Windows 测试在模拟编辑器原子保存时发生 `WinError 5`，121 项通过、1 项失败；上一提交的成功记录不能代替这个后续结果。
+
+修复范围为 `codex-usage/tests/test_snippet_service.py` 及问题记录。模拟文件替换只对 Windows 访问／共享冲突作有截止时间的短时重试，保留其他错误与持续失败，替换成功后继续验证保存事件和正文。日志无法确定具体占用进程，因此未将原因归于某个后台程序。
+
+新增六项回归检查后，Windows 与 Linux 各 128 项测试通过，mypy 各检查 41 个源码文件通过，Ruff 通过。原生 Windows 的文件监听用例连续运行 10 次通过；真实临时文件句柄复现错误 5，定时释放后保存重试成功。两种环境使用隔离环境、各自的类型检查缓存，并避免跨平台共享 Python 字节码；便携包、应用源码和用户数据保持原样。最终云端结果以修复提交对应的 Actions 运行记录为准。
