@@ -117,10 +117,6 @@ def main() -> int:
         assert more is not None and leaf._auxiliary_open
         pump()
         more.grab().save(str(out / "more-selected.png"))
-        more.list.setCurrentRow(1)
-        QTest.keyClick(more.list, Qt.Key.Key_Return)
-        assert owned_clipboard_text() == "第二条 另一个正文"
-        assert more.isVisible() and not panel.isVisible()
         api = ctypes.WinDLL("user32.dll")
         api.SendMessageW.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM]
         api.SendMessageW.restype = wintypes.LPARAM
@@ -132,13 +128,16 @@ def main() -> int:
         pump()
         assert more.list.verticalScrollBar().value() > before
         more.grab().save(str(out / "more-scrolled.png"))
-        more.hide()
+        more.list.setCurrentRow(1)
+        QTest.keyClick(more.list, Qt.Key.Key_Return)
+        assert owned_clipboard_text() == "第二条 另一个正文"
+        assert not more.isVisible() and not panel.isVisible()
         assert not leaf._auxiliary_open, (leaf._visible_panels, panel.isVisible(), more.isVisible())
         leaf.clearFocus()
         leaf.collapse()
         assert leaf._progress == 0
         leaf.set_expansion_progress(1)
-        checks.append("named list Enter copy + native WM_MOUSEWHEEL + leave lock release")
+        checks.append("native WM_MOUSEWHEEL + named list Enter copy closes panel and releases leave lock")
         leaf.open_text_settings()
         panel.list.setCurrentRow(0)
         path = service.store.path_for(a)

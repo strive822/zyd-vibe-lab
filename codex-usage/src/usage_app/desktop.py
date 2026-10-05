@@ -294,6 +294,7 @@ class DesktopLeaf(LiveLeaf):
         if self.more_texts is None:
             self.more_texts = MoreTexts(self.snippets, self.open_text_settings, self)
             self.more_texts.visibility_changed.connect(lambda visible: self._auxiliary_visibility("texts", visible))
+            self.more_texts.copy_succeeded.connect(self._finish_text_copy)
         panel = self.more_texts
         centre = self.mapToGlobal(self._ball_center(FAVORITE_SLOTS).toPoint())
         work = self.screen().availableGeometry()
@@ -305,6 +306,14 @@ class DesktopLeaf(LiveLeaf):
         panel.raise_()
         panel.activateWindow()
         panel.list.setFocus()
+
+    def _finish_text_copy(self) -> None:
+        self._reset_keyboard_focus()
+        self.pinned = self._explicit_pin
+        self.clearFocus()
+        self._open_timer.stop()
+        self._close_timer.stop()
+        self.collapse()
 
     def _action_name(self, index: int) -> str:
         if index < FAVORITE_SLOTS:

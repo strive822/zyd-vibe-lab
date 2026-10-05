@@ -371,6 +371,8 @@ class SnippetSettings(AuxiliaryDialog):
 
 
 class MoreTexts(AuxiliaryDialog):
+    copy_succeeded = Signal()
+
     def __init__(self, service: SnippetService, manage: Callable[[], None], parent: QWidget) -> None:
         super().__init__(parent, Qt.WindowType.Tool | Qt.WindowType.WindowStaysOnTopHint)
         self.service = service
@@ -392,7 +394,7 @@ class MoreTexts(AuxiliaryDialog):
         self.list.itemClicked.connect(self.copy_item)
         self.list.itemActivated.connect(self.copy_item)
         root.addWidget(self.list, 1)
-        self.status = QLabel("点击或按 Enter 复制，不会自动粘贴。")
+        self.status = QLabel("点击或按 Enter 复制，成功后自动关闭。")
         self.status.setTextFormat(Qt.TextFormat.PlainText)
         self.status.setObjectName("status")
         self.status.setWordWrap(True)
@@ -424,6 +426,11 @@ class MoreTexts(AuxiliaryDialog):
     def copy_item(self, item: QListWidgetItem) -> None:
         result: CopyResult = self.service.copy(str(item.data(Qt.ItemDataRole.UserRole)), int(self.winId()))
         self.status.setText(f"已复制 · {result.name}" if result.succeeded else result.message)
+        if result.succeeded:
+            # Release the visible-panel lock before ending the leaf operation.
+            # Failures stay open so the user can read the error and retry.
+            self.hide()
+            self.copy_succeeded.emit()
 
     def open_manage(self) -> None:
         self.hide()
