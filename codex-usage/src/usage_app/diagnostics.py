@@ -9,7 +9,7 @@ from types import TracebackType
 
 from .models import ErrorCode, Provider
 
-EVENTS = frozenset(("start", "quit", "refresh_ok", "refresh_failed", "storage_failed", "unexpected_error"))
+EVENTS = frozenset(("start", "quit", "refresh_ok", "refresh_failed", "storage_failed", "unexpected_error", "window_layer_restored"))
 
 
 class DiagnosticLog:

@@ -31,6 +31,7 @@ from .storage import StorageError
 from .text_ui import MoreTexts, SnippetSettings
 from .widget import LiveLeaf
 from .windows_monitors import physical_monitor_rects
+from .windows_visibility import WindowVisibility
 from .window_ui import WindowPage
 
 MENU_STYLE = """
@@ -185,6 +186,19 @@ class DesktopLeaf(LiveLeaf):
         self.reminders.error.connect(self._storage_problem)
         self.resumed.connect(self.reminders.poll)
         self._reminder_changed()
+        self._window_visibility = WindowVisibility() if os.name == "nt" else None
+        self._visibility_timer = QTimer(self)
+        self._visibility_timer.setInterval(2000)
+        self._visibility_timer.timeout.connect(self._reconcile_visibility)
+        self._visibility_timer.start()
+        self.resumed.connect(self._reconcile_visibility)
+
+    def _reconcile_visibility(self) -> None:
+        if (self._window_visibility is None or not self.isVisible() or self.isMinimized()
+                or self._quitting or self._menu_open or self._auxiliary_open or self._drag_pending):
+            return
+        if self._window_visibility.repair(int(self.winId())):
+            self.runtime.diagnostics.write("window_layer_restored")
 
     def _reminder_changed(self) -> None:
         self.unread_reminder = bool(self.reminders.unread)
@@ -680,6 +694,7 @@ class DesktopLeaf(LiveLeaf):
 
     def quit_app(self) -> None:
         self._quitting = True
+        self._visibility_timer.stop()
         self._save_timer.stop()
         self._screen_timer.stop()
         self.save_placement()
