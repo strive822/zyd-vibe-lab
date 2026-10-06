@@ -7,7 +7,7 @@ from datetime import datetime
 from random import random
 from typing import Callable
 
-from .models import Account, ErrorCode, ProviderError, ProviderState, Status, UsageSnapshot
+from .models import Account, ErrorCode, Provider, ProviderError, ProviderState, Status, UsageSnapshot
 
 
 REFRESH_INTERVAL_SECONDS = 5
@@ -101,7 +101,8 @@ class RefreshCoordinator:
             return False
         self._pending.pop(ticket.account_id)
         state.error = error.code
-        if error.code in (ErrorCode.AUTH_REQUIRED, ErrorCode.FORBIDDEN, ErrorCode.UNCONFIGURED):
+        if (error.code in (ErrorCode.AUTH_REQUIRED, ErrorCode.FORBIDDEN)
+                or error.code == ErrorCode.UNCONFIGURED and state.account.provider != Provider.CODEX):
             state.status = Status.AUTH_REQUIRED if error.code != ErrorCode.UNCONFIGURED else Status.DISCONNECTED
             self._paused.add(ticket.account_id)
         else:

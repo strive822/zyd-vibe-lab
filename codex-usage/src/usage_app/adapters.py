@@ -193,6 +193,7 @@ class CodexAdapter(ProviderAdapter):
     def __init__(self, parent: QObject | None = None, *, executable: str | None = None,
                  process_factory: Callable[[], QProcess] | None = None) -> None:
         super().__init__(parent)
+        self._auto_executable = executable is None
         self.executable = executable or find_codex_executable()
         self._factory = process_factory or (lambda: QProcess(self))
         self._process: QProcess | None = None
@@ -208,6 +209,11 @@ class CodexAdapter(ProviderAdapter):
             raise ValueError("Adapter/account mismatch")
         if self._active:
             raise ValueError("Request already in flight")
+        if self._auto_executable and (not self.executable or not Path(self.executable).is_file()):
+            # Desktop updates replace versioned binaries while usage stays open.
+            # Re-discover only when the cached program disappears; an explicit
+            # override remains authoritative and is never silently substituted.
+            self.executable = find_codex_executable()
         if not self.executable:
             self.failed.emit(ticket, ProviderError(ErrorCode.UNCONFIGURED))
             return
@@ -220,12 +226,17 @@ class CodexAdapter(ProviderAdapter):
         process.started.connect(lambda: self._initialize() if self._process is process else None)
         process.readyReadStandardOutput.connect(lambda: self._consume() if self._process is process else None)
         process.readyReadStandardError.connect(lambda: process.readAllStandardError())
-        process.errorOccurred.connect(lambda error: self._fail(ProviderError(ErrorCode.UNCONFIGURED))
+        process.errorOccurred.connect(lambda error: self._process_error(error)
                                      if self._process is process else None)
         process.finished.connect(lambda code, status: self._fail(ProviderError(ErrorCode.SERVICE))
                                  if self._process is process else None)
         self._timer.start(10_000)
         process.start(self.executable, ["app-server", "--listen", "stdio://"])
+
+    def _process_error(self, error: QProcess.ProcessError) -> None:
+        code = (ErrorCode.UNCONFIGURED if error == QProcess.ProcessError.FailedToStart else
+                ErrorCode.TIMEOUT if error == QProcess.ProcessError.Timedout else ErrorCode.SERVICE)
+        self._fail(ProviderError(code))
 
     def _send(self, value: dict[str, object]) -> None:
         # Deliberately no generic RPC entrypoint on the public adapter.

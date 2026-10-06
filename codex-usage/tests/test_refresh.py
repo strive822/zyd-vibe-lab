@@ -60,6 +60,29 @@ def test_retry_after_and_auth_pause_cannot_be_bypassed(accounts: dict[Provider, 
     assert coordinator.begin(account.id, now, 100001)
 
 
+@pytest.mark.parametrize("provider", list(Provider))
+def test_missing_codex_installation_retries_but_missing_api_keys_stay_paused(accounts, now, provider):
+    coordinator = RefreshCoordinator(jitter=lambda: 0)
+    account = accounts[provider]
+    cached = UsageSnapshot(account.id, provider, "synthetic", (), (), now)
+    coordinator.register(account, cached)
+    ticket = coordinator.begin(account.id, now, 0)
+    assert ticket and coordinator.fail(ticket, ProviderError(ErrorCode.UNCONFIGURED), 0)
+    assert coordinator.states[account.id].snapshot is cached
+    assert coordinator.begin(account.id, now, 29, manual=True) is None
+    if provider != Provider.CODEX:
+        assert coordinator.begin(account.id, now, 100000) is None
+        return
+    retry = coordinator.begin(account.id, now, 30)
+    assert retry and coordinator.fail(retry, ProviderError(ErrorCode.UNCONFIGURED), 30)
+    assert coordinator.begin(account.id, now, 89, manual=True) is None
+    retry = coordinator.begin(account.id, now, 90)
+    fresh = replace(cached, last_success_at=now + timedelta(seconds=90))
+    assert retry and coordinator.succeed(retry, fresh, 90, expanded=False)
+    assert coordinator.states[account.id].status == Status.FRESH
+    assert coordinator.due_in(account.id, 90) == 5
+
+
 def test_wrong_account_and_duplicate_provider_rejected(accounts: dict[Provider, Account], now: datetime) -> None:
     coordinator = RefreshCoordinator(jitter=lambda: 0)
     account = accounts[Provider.CODEX]

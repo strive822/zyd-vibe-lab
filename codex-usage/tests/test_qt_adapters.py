@@ -206,3 +206,69 @@ for line in sys.stdin:
     assert failures == []
     assert successes[0].window(300).remaining_percent == 25
     assert [json.loads(line) for line in log.read_text().splitlines()] == ["initialize", "initialized", "account/rateLimits/read"] * 2
+
+
+def test_codex_replaces_removed_version_and_keeps_valid_path_cached(qt_app, tmp_path, monkeypatch):
+    import usage_app.adapters as adapters
+    script = tmp_path / "server.py"
+    script.write_text('''import json,sys
+for line in sys.stdin:
+ m=json.loads(line)
+ if m.get("method")=="initialize": print(json.dumps({"id":1,"result":{}}),flush=True)
+ if m.get("method")=="account/rateLimits/read": print(json.dumps({"id":2,"result":{"rateLimits":{"primary":{"usedPercent":25,"windowDurationMins":300}}}}),flush=True)
+''')
+    old, new = tmp_path / "old-codex.exe", tmp_path / "new-codex.exe"
+    old.write_bytes(b"installation-fixture")
+    new.write_bytes(b"installation-fixture")
+    selection = {"path": str(old)}
+    discoveries, launches, results = [], [], []
+    def discover():
+        discoveries.append(selection["path"])
+        return selection["path"]
+    monkeypatch.setattr(adapters, "find_codex_executable", discover)
+    class RecordedProcess(ScriptProcess):
+        def start(self, program, arguments):
+            launches.append((program, arguments))
+            return super().start(program, arguments)
+    adapter = CodexAdapter(process_factory=lambda: RecordedProcess(script))
+    account = Account("00000000-0000-4000-8000-000000000013", Provider.CODEX, "Codex")
+    adapter.succeeded.connect(lambda ticket, snapshot: results.append(snapshot))
+    failures = []
+    adapter.failed.connect(lambda ticket, error: failures.append(error.code))
+    adapter.read(account, RequestTicket(account.id, 1, 1))
+    until(lambda: len(results) == 1)
+    old.unlink()  # The official updater replaces its versioned directory.
+    selection["path"] = None  # Installation can briefly have no available binary.
+    adapter.read(account, RequestTicket(account.id, 1, 2))
+    assert failures == [ErrorCode.UNCONFIGURED]
+    selection["path"] = str(new)
+    adapter.read(account, RequestTicket(account.id, 1, 3))
+    until(lambda: len(results) == 2)
+    adapter.read(account, RequestTicket(account.id, 1, 4))
+    until(lambda: len(results) == 3)
+    assert failures == [ErrorCode.UNCONFIGURED]
+    assert discoveries == [str(old), None, str(new)]
+    assert [p for p, _ in launches] == [str(old), str(new), str(new)]
+    assert all(args == ["app-server", "--listen", "stdio://"] for _, args in launches)
+
+
+@pytest.mark.parametrize("process_error,expected", [
+    (QProcess.ProcessError.FailedToStart, ErrorCode.UNCONFIGURED),
+    (QProcess.ProcessError.Crashed, ErrorCode.SERVICE),
+])
+def test_codex_process_failure_does_not_misclassify_a_crash_as_missing_installation(qt_app, monkeypatch, process_error, expected):
+    import usage_app.adapters as adapters
+    def unexpected_discovery():
+        raise AssertionError("An explicit executable must remain authoritative")
+    monkeypatch.setattr(adapters, "find_codex_executable", unexpected_discovery)
+    class FailingProcess(QProcess):
+        def start(self, program, arguments):
+            QTimer.singleShot(0, lambda: self.errorOccurred.emit(process_error))
+    adapter = CodexAdapter(executable="explicit-not-replaced", process_factory=FailingProcess)
+    account = Account("00000000-0000-4000-8000-000000000013", Provider.CODEX, "Codex")
+    failures = []
+    adapter.failed.connect(lambda ticket, error: failures.append(error.code))
+    adapter.read(account, RequestTicket(account.id, 1, 1))
+    until(lambda: bool(failures))
+    assert failures == [expected] and adapter.executable == "explicit-not-replaced"
+    assert adapter._active is None and not adapter._timer.isActive()
