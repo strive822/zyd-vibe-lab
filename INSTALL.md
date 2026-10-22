@@ -1,6 +1,6 @@
 # 给 Agent 的下载与使用入口
 
-这是包含三个独立项目的仓库。用户要你下载、安装或运行时，请完成实际操作，并报告文件、环境和运行的真实结果。
+这是包含多个独立项目和个人工具箱的仓库。用户要你下载、安装或运行时，请完成实际操作，并报告文件、环境和运行的真实结果。
 
 ## 按用户点名的项目选择
 
@@ -9,8 +9,9 @@
 | 毕业论文、论文工作流、graduation-thesis-workflow | 安装论文技能，再进入需求访谈 | [论文安装入口](graduation-thesis-workflow/INSTALL.md) |
 | 定投、三资产、计算器、dca-calculator | 下载源码、准备依赖、启动本地网页 | [计算器安装入口](dca-calculator/INSTALL.md) |
 | 额度、浮窗、usage、codex-usage | Windows x64 优先使用便携包 | [浮窗安装入口](codex-usage/INSTALL.md) |
+| GitHub 工具箱、GitHub 灵感、LibreTV、yt-dlp、Windows-MCP、REA、Winhance | 恢复固定版本与个人使用配置到新目录 | [工具箱安装入口](github-toolbox/INSTALL.md) |
 
-仅说“安装这个仓库”且无法从上下文确定项目时，只询问选择哪个项目；不要默认安装三个。说“安装工作流”沿用论文入口。
+仅说“安装这个仓库”且无法从上下文确定项目时，只询问选择哪个项目；不要默认安装全部。说“安装工作流”沿用论文入口。
 
 ## 获取完整文件
 

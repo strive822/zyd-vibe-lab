@@ -1,6 +1,6 @@
 # zyd-vibe-lab
 
-zhongyudi 的个人项目仓库：三个项目独立安装、运行和维护。
+zhongyudi 的个人项目仓库：各项目及个人工具箱独立安装、运行和维护。
 
 ## 直接让 Agent 帮你使用
 
@@ -33,6 +33,7 @@ zhongyudi 的个人项目仓库：三个项目独立安装、运行和维护。
 | [graduation-thesis-workflow](graduation-thesis-workflow/README.md) | 本科论文需求访谈、真实文献与证据、写作审查；包含 Humanizer | [安装技能](graduation-thesis-workflow/INSTALL.md) | [Codex](graduation-thesis-workflow/packages/graduation-thesis-codex.zip) · [Claude Code](graduation-thesis-workflow/packages/graduation-thesis-claude-code.zip) · [WorkBuddy](graduation-thesis-workflow/packages/graduation-thesis-workbuddy.zip) |
 | [dca-calculator](dca-calculator/README.md) | 三资产 SMA800 定投权重与金额计算，FastAPI + Next.js | [下载与启动](dca-calculator/INSTALL.md) | [完整仓库 ZIP](https://github.com/strive822/zyd-vibe-lab/archive/refs/heads/main.zip)，取其中 dca-calculator |
 | [codex-usage](codex-usage/README.md) | Windows 三平台额度、六位快捷复制和每日提醒，Python + PySide6 | [便携包与源码](codex-usage/INSTALL.md) | [Windows x64 ZIP](codex-usage/packages/usage-0.1.0-windows-x64.zip) · [校验值](codex-usage/packages/SHA256SUMS.txt) |
+| [github-toolbox](github-toolbox/README.md) | 我实际使用的 LibreTV、yt-dlp、Windows-MCP、REA、Winhance 版本与个人配置 | [恢复与使用](github-toolbox/INSTALL.md) | 完整仓库 ZIP 中取 github-toolbox；附当前 LibreTV 完整源码和固定下载校验值 |
 
 论文工作流不保证毕业或检测分数；计算器只计算，不执行交易；浮窗为未签名的个人使用候选，设备验收边界见项目说明。
 
