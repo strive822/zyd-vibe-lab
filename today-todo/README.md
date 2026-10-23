@@ -11,7 +11,8 @@
 ```
 
 本地交付包：`delivery/today-todo.zip`，校验文件：`delivery/SHA256SUMS.txt`，逐文件清单：`delivery/FILES.json`。
-这些文件由 `scripts/package_projects.py` 生成；首次推送后才能通过 raw 链接下载，未推送前请直接使用仓库目录。
+直接下载：[独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/today-todo/delivery/today-todo.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/today-todo/delivery/SHA256SUMS.txt) · [逐文件清单](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/today-todo/delivery/FILES.json)。
+Agent 可下载独立 ZIP，或克隆整个仓库后只使用 `today-todo/` 目录。
 
 > 一台电脑跑服务，手机连同一个 WiFi 打开同一份清单。零依赖、零构建，双击即用。
 
