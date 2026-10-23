@@ -122,6 +122,12 @@ def check_file(path: Path, known: set[Path], errors: list[str]) -> list[str]:
         if not data.startswith(signatures[path.suffix]):
             errors.append(f"{label}: invalid image signature")
         return checks + ["image signature"]
+    if path.suffix in {".ttf", ".wav"}:
+        valid = (data.startswith((b"\x00\x01\x00\x00", b"true", b"OTTO")) if path.suffix == ".ttf"
+                 else len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WAVE")
+        if not valid:
+            errors.append(f"{label}: invalid font/audio signature")
+        return checks + ["font/audio signature"]
     text = data.decode("utf-8-sig")
     checks.append("UTF-8")
     if path.suffix in {".py", ".spec"}:

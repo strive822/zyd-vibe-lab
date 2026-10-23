@@ -9,6 +9,7 @@
 | 毕业论文、论文工作流、graduation-thesis-workflow | 安装论文技能，再进入需求访谈 | [论文安装入口](graduation-thesis-workflow/INSTALL.md) |
 | 定投、三资产、计算器、dca-calculator | 下载源码、准备依赖、启动本地网页 | [计算器安装入口](dca-calculator/INSTALL.md) |
 | 额度、浮窗、usage、codex-usage | Windows x64 优先使用便携包 | [浮窗安装入口](codex-usage/INSTALL.md) |
+| 白龙、桌宠、多平台 Token、codex-bailong-desktop-pet | 项目内 Python 环境、官方播放素材与源码启动 | [白龙安装入口](codex-bailong-desktop-pet/INSTALL.md) |
 | LibreTV | 单独下载、核验与按需恢复 | [LibreTV 安装入口](LibreTV/INSTALL.md) |
 | yt-dlp | 单独下载、核验与按需恢复 | [yt-dlp 安装入口](yt-dlp/INSTALL.md) |
 | Windows-MCP | 单独下载、核验与按需恢复 | [Windows-MCP 安装入口](Windows-MCP/INSTALL.md) |

@@ -1,0 +1,106 @@
+import os
+os.environ.setdefault('QT_QPA_PLATFORM','offscreen')
+import json
+import tempfile
+import time
+import unittest
+from pathlib import Path
+from unittest.mock import patch
+from PySide6.QtCore import QCoreApplication,QEvent,Qt
+from PySide6.QtWidgets import QApplication,QToolButton,QLabel,QLineEdit
+from compact_bubble import CompactBubble
+from quota_summary import QuotaSummary
+from provider_accounts import parse_deepseek,parse_antigravity
+from provider_monitor import ProviderMonitor
+from provider_widgets import AccountSettings,WorkBuddyLogin
+
+app=QApplication.instance() or QApplication([])
+
+def settle():
+    app.processEvents()
+    for window in app.topLevelWidgets():
+        transition=getattr(window,'size_transition',None)
+        if transition:transition.complete()
+    app.processEvents()
+
+
+class ProviderUiTests(unittest.TestCase):
+    def setUp(self):
+        self.b=CompactBubble()
+        self.b.windows=[dict(name='5小时',remaining=75)]
+        self.b.redraw();self.b.show();settle()
+
+    def tearDown(self):
+        self.b.close();self.b.deleteLater();settle()
+
+    def test_platform_menu_switches_without_changing_original_card_size(self):
+        before=self.b.size()
+        button=self.b.findChild(QToolButton,'account_platform')
+        self.assertEqual([a.text() for a in button.menu().actions()],['Codex','GLM','DeepSeek','WorkBuddy','Antigravity'])
+        self.b.provider_snapshots['deepseek']=dict(parse_deepseek({'balance_infos':[{'currency':'CNY','total_balance':'123.45'}]}),observed=time.time())
+        button.menu().actions()[2].trigger();settle()
+        self.assertEqual(self.b.account_platform,'deepseek')
+        self.assertEqual(self.b.size(),before)
+        card=next(c for c in self.b.findChildren(QuotaSummary) if c.isVisible())
+        self.assertEqual(card.items[0]['display'],'123.45 元')
+        self.assertEqual(self.b.windows[0]['remaining'],75)  # Codex data stays independent.
+        self.b.select_account_platform('codex');settle()
+        card=next(c for c in self.b.findChildren(QuotaSummary) if c.isVisible())
+        self.assertEqual(card.items[0]['display'],'75%')
+
+    def test_antigravity_details_include_every_model_not_only_first_two(self):
+        self.b.provider_snapshots['antigravity']=parse_antigravity({'clientModelConfigs':[
+            dict(label='Model '+str(i),quotaInfo=dict(remainingFraction=.5)) for i in range(6)]})
+        self.b.select_account_platform('antigravity');settle()
+        self.b.show_quota_details();settle()
+        text='\n'.join(w.text() for w in self.b.details_tabs.findChildren(QLabel))
+        for i in range(6):self.assertIn('Model '+str(i),text)
+
+    def test_chat_removed_from_navigation_shortcuts_and_runtime(self):
+        from quick_actions import ACTIONS,action_info
+        from desktop import DesktopPet
+        from PySide6.QtWidgets import QMenu
+        self.assertNotIn('chat',[a[0] for a in ACTIONS])
+        self.assertEqual(action_info('chat')[0],'refresh')
+        self.assertFalse(hasattr(DesktopPet,'open_chat'))
+        self.assertFalse(hasattr(DesktopPet,'open_chat_service'))
+        self.b.show_quota_details();settle()
+        self.assertIsNone(self.b.findChild(QToolButton,'bubble_chat'))
+        self.assertIsNotNone(self.b.findChild(QToolButton,'bubble_settings'))
+
+    def test_account_keys_are_masked_and_encrypted_on_save(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            monitor=ProviderMonitor(Path(tmp),query=lambda *args:dict(windows=[]),start=False)
+            settings=AccountSettings(monitor,Path(tmp))
+            field=next(w for w in settings.findChildren(QLineEdit) if 'DeepSeek' in w.accessibleName())
+            self.assertEqual(field.echoMode(),QLineEdit.EchoMode.Password)
+            field.setText('test-only-secret')
+            settings.save_key('deepseek',field)
+            self.assertEqual(field.text(),'')
+            self.assertEqual(monitor.secrets.get('deepseek'),'test-only-secret')
+            self.assertNotIn('test-only-secret',(Path(tmp)/'provider-secrets.json').read_text())
+            self.assertNotIn('test-only-secret',(Path(tmp)/'provider-accounts.json').read_text())
+            settings.disconnect('deepseek')
+            self.assertEqual(monitor.secrets.get('deepseek'),'')
+            monitor.shutdown();settings.deleteLater();settle()
+
+    def test_workbuddy_browser_starts_at_account_login_and_releases_profile(self):
+        from PySide6.QtWebEngineWidgets import QWebEngineView
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(QWebEngineView,'setUrl') as navigate:
+                login=WorkBuddyLogin(Path(tmp))
+                self.assertEqual(navigate.call_args.args[0].toString(),'https://www.workbuddy.cn/console/account')
+                captured=[];login.credentials.connect(captured.append)
+                login.cookie_values={b'session':b'test-only-cookie'}
+                login.connect_cookies()
+                self.assertEqual(captured[0]['headers']['cookie'],'session=test-only-cookie')
+                login.shutdown()
+                QCoreApplication.sendPostedEvents(None,QEvent.Type.DeferredDelete)
+                app.processEvents()
+                login.deleteLater()
+                QCoreApplication.sendPostedEvents(None,QEvent.Type.DeferredDelete)
+                from PySide6.QtTest import QTest
+                QTest.qWait(500)  # Chromium flushes the persistent cookie DB asynchronously.
+
+
+if __name__=='__main__':unittest.main()

@@ -62,6 +62,12 @@ zhongyudi 的个人项目仓库：各项目独立下载、安装、运行和维�
 下载并运行 https://github.com/strive822/zyd-vibe-lab 里的 today-todo。请先读取该项目 INSTALL.md，把文件放进新目录并核验，再用 Node.js 启动本地服务、打开 http://localhost:3000 验证页面；不要覆盖已有的数据文件。
 ```
 
+**白龙桌宠（多平台额度与 Token）：**
+
+```text
+下载并运行 https://github.com/strive822/zyd-vibe-lab 里的 codex-bailong-desktop-pet。请先读取该项目 INSTALL.md，下载完整文件并核验，在新目录准备项目内 Python 环境和已验证的官方播放素材，然后启动并检查；保留已有文件与账号，不全局安装、不代填密钥、不自动开启自启动。
+```
+
 简短说“安装这个仓库里的论文工作流”也可使用论文入口。未指定项目时，Agent 应先确认项目。
 
 ## 项目与下载
@@ -77,6 +83,7 @@ zhongyudi 的个人项目仓库：各项目独立下载、安装、运行和维�
 | [rea](rea/README.md) | 独立的个人使用配置与固定下载版本 | [Agent 入口](rea/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/rea/delivery/rea.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/rea/delivery/SHA256SUMS.txt) |
 | [Winhance](Winhance/README.md) | 独立的个人使用配置与固定下载版本 | [Agent 入口](Winhance/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/Winhance/delivery/Winhance.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/Winhance/delivery/SHA256SUMS.txt) |
 | [today-todo](today-todo/README.md) | 电脑与手机局域网共用的今日清单，零依赖 Node 服务 + 原生前端 | [下载与启动](today-todo/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/today-todo/delivery/today-todo.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/today-todo/delivery/SHA256SUMS.txt) |
+| [codex-bailong-desktop-pet](codex-bailong-desktop-pet/README.md) | 白龙桌宠，多平台额度、Token 与悬浮胶囊 | [安装与使用](codex-bailong-desktop-pet/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/codex-bailong-desktop-pet/delivery/codex-bailong-desktop-pet.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/codex-bailong-desktop-pet/delivery/SHA256SUMS.txt) |
 
 论文工作流不保证毕业或检测分数；计算器只计算，不执行交易；浮窗为未签名的个人使用候选，设备验收边界见项目说明。
 
