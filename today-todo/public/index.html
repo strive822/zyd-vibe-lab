@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#F2EFE6">
+<meta name="description" content="今日待办：电脑与手机共用的极简清单。">
+<title>今日待办</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<div class="offline" id="offline" role="alert" hidden>
+  <span class="offline-text">连不上服务。确认电脑上的服务窗口还在运行，再重试。</span>
+  <button type="button" class="btn-inline" id="retry">重试</button>
+</div>
+
+<main class="sheet">
+
+  <div class="rail">
+    <header class="masthead">
+      <h1 class="title"><span>今日</span><span>待办</span></h1>
+      <div class="meta">
+        <p class="date-stamp"><time id="today">—</time></p>
+        <p class="counter" aria-live="polite" aria-atomic="true">
+          <span class="counter-num" id="count">0</span>
+          <span class="counter-unit">件未完成</span>
+        </p>
+      </div>
+    </header>
+
+    <div class="composer" id="composer">
+      <button type="button" class="composer-fab" id="composer-fab"
+              aria-label="添加任务" aria-expanded="false" aria-controls="composer-panel">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M12 4v16M4 12h16"/>
+        </svg>
+      </button>
+
+      <div class="composer-panel" id="composer-panel" hidden>
+        <p class="composer-label" id="composer-label">添加任务</p>
+        <textarea id="new-task" rows="4" maxlength="200" aria-labelledby="composer-label"
+                  aria-describedby="form-msg"
+                  placeholder="例如：3 点前把周报发出去"
+                  autocomplete="off" spellcheck="false"></textarea>
+        <p class="form-msg" id="form-msg" role="status" hidden></p>
+        <div class="composer-foot">
+          <span class="composer-count" id="char-count">0 / 200</span>
+          <button type="button" class="composer-cancel" id="composer-cancel">取消</button>
+          <button type="button" class="composer-submit" id="composer-submit">添加</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section class="list-area" aria-label="任务清单">
+    <p class="loading" id="loading">正在读取清单…</p>
+    <div class="empty" id="empty" hidden>
+      <p class="empty-title">今天还没有任务</p>
+      <p class="empty-hint">点「+」写下第一件要做的事，手机和电脑会同步</p>
+    </div>
+    <ul class="tasks" id="tasks"></ul>
+    <p class="list-note" id="list-note" hidden></p>
+    <footer class="foot">
+      <span class="foot-state" id="sync-state">—</span>
+      <span class="foot-sep" aria-hidden="true">·</span>
+      <span>数据存在这台电脑上</span>
+    </footer>
+  </section>
+
+</main>
+
+<div class="undo" id="undo" hidden>
+  <span class="undo-text">已删除 1 件</span>
+  <button type="button" class="undo-btn" id="undo-btn">撤销</button>
+  <button type="button" class="undo-close" id="undo-close" aria-label="关闭删除提示">
+    <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      <path d="M2.5 2.5 13.5 13.5M13.5 2.5 2.5 13.5"/>
+    </svg>
+  </button>
+</div>
+
+<!-- 常驻的空播报区：先存在、后更新文本，屏幕阅读器才会稳定播出 -->
+<p class="sr-only" role="status" aria-live="polite" id="announcer"></p>
+
+<script src="/app.js"></script>
+</body>
+</html>

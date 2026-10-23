@@ -1,0 +1,18 @@
+# 运行时数据（个人清单，不入库；首次运行自动创建）
+data/
+
+# 测试临时目录与临时数据文件
+test/.tmp/
+test/*.json
+
+# 开发时生成的截图与浏览器调试配置
+shots/
+
+# 依赖与系统文件
+node_modules/
+.DS_Store
+Thumbs.db
+*.log
+
+# 图标由 tools/make-icon.js 生成，不入库（Windows 快捷方式用）
+assets/

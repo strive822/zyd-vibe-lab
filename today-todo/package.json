@@ -1,0 +1,15 @@
+{
+  "name": "today-todo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "今日待办：电脑与手机在同一 WiFi 下共用的极简清单",
+  "type": "commonjs",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test test/api.test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

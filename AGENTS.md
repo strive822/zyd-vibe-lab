@@ -4,6 +4,7 @@ This is a collection of independent projects and independent personal tools, not
 
 - For user installation requests, read INSTALL.md and then the named project's INSTALL.md. Download the full project or its documented portable bundle.
 - dca-calculator: FastAPI backend and Next.js frontend. Follow README.md; backend tests use requirements-dev.txt, frontend dependencies use npm ci.
+- today-todo: zero-dependency Node HTTP service plus static frontend. `node --test test/api.test.js` and `node tools/contrast.js` are the checks; runtime data lives in the git-ignored `data/todos.json`, never commit it.
 - graduation-thesis-workflow: read its AGENTS.md before maintenance. Keep skills/graduation-thesis canonical and rebuild platform ZIPs after bundle changes.
 - codex-usage: Windows desktop application. Preserve docs/evidence/m1-r4/frozen-source as the visual regression fixture. Keep private evidence, user data and credentials outside Git.
 - LibreTV, yt-dlp, Windows-MCP, rea, Winhance: each has independent INSTALL.md, AGENTS.md, assets.json, profile/ and restore.py. No shared toolbox is required. Preserve usage profiles, licenses and locked assets. Restore only into new directories. Run python -m unittest discover -s scripts/tests -v after restore changes.

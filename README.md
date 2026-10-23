@@ -56,6 +56,12 @@ zhongyudi 的个人项目仓库：各项目独立下载、安装、运行和维�
 下载 https://github.com/strive822/zyd-vibe-lab 里的 Winhance。请先读取该项目 INSTALL.md，取得完整独立目录，下载官方固定版本安装包并核对 SHA-256，保留使用说明和许可；只下载，不运行安装器或修改系统设置。
 ```
 
+**今日待办（电脑与手机局域网共用清单）：**
+
+```text
+下载并运行 https://github.com/strive822/zyd-vibe-lab 里的 today-todo。请先读取该项目 INSTALL.md，把文件放进新目录并核验，再用 Node.js 启动本地服务、打开 http://localhost:3000 验证页面；不要覆盖已有的数据文件。
+```
+
 简短说“安装这个仓库里的论文工作流”也可使用论文入口。未指定项目时，Agent 应先确认项目。
 
 ## 项目与下载
@@ -70,6 +76,9 @@ zhongyudi 的个人项目仓库：各项目独立下载、安装、运行和维�
 | [Windows-MCP](Windows-MCP/README.md) | 独立的个人使用配置与固定下载版本 | [Agent 入口](Windows-MCP/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/Windows-MCP/delivery/Windows-MCP.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/Windows-MCP/delivery/SHA256SUMS.txt) |
 | [rea](rea/README.md) | 独立的个人使用配置与固定下载版本 | [Agent 入口](rea/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/rea/delivery/rea.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/rea/delivery/SHA256SUMS.txt) |
 | [Winhance](Winhance/README.md) | 独立的个人使用配置与固定下载版本 | [Agent 入口](Winhance/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/Winhance/delivery/Winhance.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/Winhance/delivery/SHA256SUMS.txt) |
+| [today-todo](today-todo/README.md) | 电脑与手机局域网共用的今日清单，零依赖 Node 服务 + 原生前端 | [下载与启动](today-todo/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/today-todo/delivery/today-todo.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/today-todo/delivery/SHA256SUMS.txt) |
+
+> today-todo 的 `delivery/` 包已本地生成并校验，首次推送后 raw 下载链接才会生效。
 
 论文工作流不保证毕业或检测分数；计算器只计算，不执行交易；浮窗为未签名的个人使用候选，设备验收边界见项目说明。
 
