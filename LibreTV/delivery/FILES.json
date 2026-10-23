@@ -1,0 +1,20 @@
+{
+  ".gitignore": "b7b2e7e2ea8e7e79be390e5bc5c547b0c588975a950102d5448b200cbbb92041",
+  "AGENTS.md": "7062cc97a9ef832734d90b4a2fafbd0a32bdcd55938448493d9c0f033b33f655",
+  "assets.json": "313cef4bde7ed69b6c6f40a9e6271bc8dcf4d0a8c66bf43fd799cdf926558991",
+  "INSTALL.md": "cd99c271f9ee907ddcf6eb5ad809471359e1ea4e736c45919c130b2193d1553d",
+  "packages/libretv-files.json": "4488a71a524832692b32f8a622915fbd13bad75584f32ccce397d1233708447b",
+  "packages/libretv-source.zip": "a1a8636be43704f14df701b730de7d3f74dc44086541ce1c839a106f2f54c744",
+  "profile/defaults.json": "0a6f762c916f50a7bb3af229ef6e541838aa617f3660415446e875668bf0b818",
+  "profile/launcher.mjs": "e59ff4605d9fcfd5b62ad223bf8369cd9196ccd401c75cdeab81d99bba87e79d",
+  "profile/LICENSE": "0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0",
+  "profile/notify.vbs": "d7a5493cdafedd2ad3208a636a4de5a8a0c3b8078fcb79e21c1ca4ed66d6282b",
+  "profile/open-browser.ps1": "abb81dd0de5556105a2d564866706b06d4e56eff5eb66b37cb57ca13d1544c82",
+  "profile/rebuild.cmd": "321fe0484c566ab5d73ce9a1849386cf39766a996c3e09fd03017ef7ed3a88c2",
+  "profile/start.vbs": "f18939464b75f832eb9093b16d9428d4b655af3f10256ba2297391cf5d4750cc",
+  "profile/stop.mjs": "90292ff4c2d3a15eca634bf780f7c5c136b382768e00ef8c248c7ca8835e6a61",
+  "profile/stop.vbs": "42965d0519aa012e17e80336c5c99a25d0aa3909d26a2dcef2c50b0b5b534e7c",
+  "README.md": "9552ac05d2b32361a35d8912dde2d2bbd70e2ac6541c3617f5a6cca863a5b8b1",
+  "restore.py": "7f41210c925c2b0f1e6e086a71e73c00f1968487b8ea15145e054ecd57ab407a",
+  "THIRD_PARTY.md": "9c4308aa473890b2a4efe6c9d0e73d2a0c54b53aae358d3987fc0a71231214d9"
+}

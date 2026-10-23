@@ -1,5 +1,19 @@
 # 毕业论文工作流 · Graduation Thesis Workflow
 
+## 直接让 Agent 帮你使用
+
+把下面这段话复制给具备联网、文件读写和运行能力的 Agent。
+它应先读本项目 [INSTALL.md](INSTALL.md)，完成提示词授权的下载、核验与使用步骤。
+只想保存文件时，把“安装/运行”改成“只下载，不安装、不启动”。
+
+```text
+安装并使用 https://github.com/strive822/zyd-vibe-lab 里的 graduation-thesis-workflow。请先读取该项目 INSTALL.md，完整安装技能并检查隔离环境，然后了解我的论文要求；保留已有技能和材料。
+```
+
+本地独立交付包：`delivery/graduation-thesis-workflow.zip`，校验文件：`delivery/SHA256SUMS.txt`。
+直接下载：[独立项目 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/graduation-thesis-workflow/delivery/graduation-thesis-workflow.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/graduation-thesis-workflow/delivery/SHA256SUMS.txt) · [逐文件清单](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/graduation-thesis-workflow/delivery/FILES.json)。
+Agent 可下载独立 ZIP，或取得完整仓库后只使用本项目目录。
+
 面向各专业本科论文的可移植 Agent Skill。通过 grilling 式访谈确认学校要求和必要条件，再自动推进文献、研究、写作、审查与交付。目标是满足毕业论文要求，不承诺毕业、录用或检测分数。
 
 **不编造文献、数据、实验、引文、审批或导师反馈。材料不足时完成能做的部分并列出缺口，补齐后续做。** 规则和脚本降低出错风险，不能数学保证模型永不犯错，也不能代替作者、导师对学术内容负责。

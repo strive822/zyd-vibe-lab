@@ -9,13 +9,42 @@ import zipfile
 from pathlib import Path
 from unittest.mock import patch
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2] / "LibreTV"
 SPEC = importlib.util.spec_from_file_location("toolbox_restore", ROOT / "restore.py")
 restore = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(restore)
 
 
 class RestoreBoundaryTests(unittest.TestCase):
+    def test_each_tool_restores_without_sibling_projects(self):
+        for tool in ("yt-dlp", "Windows-MCP", "rea", "Winhance"):
+            with self.subTest(tool=tool), tempfile.TemporaryDirectory() as temporary:
+                directory = Path(temporary)
+                project = ROOT.parent / tool
+                spec = importlib.util.spec_from_file_location("restore_" + tool, project / "restore.py")
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+                independent = directory / "independent"
+                independent.mkdir()
+                import shutil
+                shutil.copytree(project / "profile", independent / "profile")
+                binary = directory / "binary"
+                binary.write_bytes(b"fixture")
+                packages = {}
+                for asset, name in (("deno", "deno.exe"), ("ffmpeg", "root/bin/ffprobe.exe"),
+                                    ("windows-mcp-source", "root/README.md")):
+                    archive = directory / (asset + ".zip")
+                    with zipfile.ZipFile(archive, "w") as bundle:
+                        bundle.writestr(name, b"fixture")
+                    packages[asset] = archive
+                records = {entry["id"]: entry for entry in json.loads((project / "assets.json").read_text())}
+                target = directory / "restored"
+                target.mkdir()
+                with patch.object(module, "ROOT", independent), patch.object(module, "run"), \
+                        patch.object(module, "download", side_effect=lambda record, cache: packages.get(record["id"], binary)):
+                    module.install(tool, target, records, directory / "cache")
+                self.assertTrue(any(target.iterdir()))
+
     def test_source_snapshot_is_complete_and_excludes_local_state(self):
         assets = json.loads((ROOT / "assets.json").read_text(encoding="utf-8"))
         record = next(entry for entry in assets if entry["id"] == "libretv-source")
@@ -40,6 +69,11 @@ class RestoreBoundaryTests(unittest.TestCase):
                 with zipfile.ZipFile(archive, "w") as bundle:
                     bundle.writestr("valid.txt", "valid")
                     bundle.writestr(name, "escape")
+                if "\\" in name:
+                    # Windows ZipInfo normalizes separators when writing; patch
+                    # both ZIP headers to represent an actual hostile download.
+                    archive.write_bytes(archive.read_bytes().replace(
+                        name.replace("\\", "/").encode(), name.encode()))
                 with self.assertRaises(ValueError):
                     restore.extract_zip(archive, directory / "output")
                 self.assertFalse((directory / "output/valid.txt").exists())
@@ -109,7 +143,7 @@ class RestoreBoundaryTests(unittest.TestCase):
             self.assertNotEqual(*passwords)
 
     def test_export_does_not_copy_password_or_modify_origin(self):
-        export_spec = importlib.util.spec_from_file_location("profile_export", ROOT / "scripts/export_profile.py")
+        export_spec = importlib.util.spec_from_file_location("profile_export", ROOT.parent / "scripts/export_profile.py")
         exporter = importlib.util.module_from_spec(export_spec)
         export_spec.loader.exec_module(exporter)
         with tempfile.TemporaryDirectory() as temporary:
@@ -131,7 +165,7 @@ class RestoreBoundaryTests(unittest.TestCase):
             with patch.object(exporter, "ROOT", output), patch.object(sys, "argv", ["export", "--source", str(origin)]):
                 exporter.main()
             self.assertIn("private-sentinel-value", (source / ".env.local").read_text())
-            with zipfile.ZipFile(output / "packages/libretv-source.zip") as bundle:
+            with zipfile.ZipFile(output / "LibreTV/packages/libretv-source.zip") as bundle:
                 self.assertNotIn(".env.local", bundle.namelist())
                 self.assertFalse(any(b"private-sentinel-value" in bundle.read(name) for name in bundle.namelist()))
 

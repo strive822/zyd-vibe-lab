@@ -1,5 +1,19 @@
 # 三资产定投权重计算器
 
+## 直接让 Agent 帮你使用
+
+把下面这段话复制给具备联网、文件读写和运行能力的 Agent。
+它应先读本项目 [INSTALL.md](INSTALL.md)，完成提示词授权的下载、核验与使用步骤。
+只想保存文件时，把“安装/运行”改成“只下载，不安装、不启动”。
+
+```text
+下载并运行 https://github.com/strive822/zyd-vibe-lab 里的 dca-calculator。请先读取该项目 INSTALL.md，准备项目内隔离环境与依赖，启动前后端并验证页面；不要覆盖已有项目。
+```
+
+本地独立交付包：`delivery/dca-calculator.zip`，校验文件：`delivery/SHA256SUMS.txt`。
+直接下载：[独立项目 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/dca-calculator/delivery/dca-calculator.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/dca-calculator/delivery/SHA256SUMS.txt) · [逐文件清单](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/dca-calculator/delivery/FILES.json)。
+Agent 可下载独立 ZIP，或取得完整仓库后只使用本项目目录。
+
 > Windows 本地运行的纯计算工具：纳斯达克100 + 中证500 + 黄金，基于 SMA800 的双模型定投权重计算。
 > **不是交易系统**——无回测、无持仓、无账户、无自动交易、无定时任务。
 

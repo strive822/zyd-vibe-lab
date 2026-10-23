@@ -39,7 +39,7 @@ def visible_files() -> list[Path]:
         ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z"],
         cwd=ROOT, check=True, capture_output=True,
     )
-    return [ROOT / name for name in sorted(set(result.stdout.decode("utf-8").split("\0"))) if name]
+    return [ROOT / name for name in sorted(set(result.stdout.decode("utf-8").split("\0"))) if name and (ROOT / name).exists()]
 
 
 def secret_check(data: bytes, label: str, errors: list[str]) -> None:
@@ -68,6 +68,9 @@ def zip_check(path: Path, errors: list[str]) -> None:
 
 
 def check_packages(errors: list[str]) -> None:
+    from package_projects import PROJECTS, verify
+    for name in PROJECTS:
+        verify(ROOT / name)
     usage = ROOT / "codex-usage"
     name = "usage-0.1.0-windows-x64.zip"
     expected, filename = (usage / "packages/SHA256SUMS.txt").read_text().strip().split()

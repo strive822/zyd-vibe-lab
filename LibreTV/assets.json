@@ -1,0 +1,15 @@
+[
+  {
+    "id": "libretv-source",
+    "file": "packages/libretv-source.zip",
+    "upstream": "https://github.com/LibreSpark/LibreTV/tree/9d86ec2568895b2a8b52da47fc9bfea6c74f8378",
+    "bytes": 625831,
+    "sha256": "a1a8636be43704f14df701b730de7d3f74dc44086541ce1c839a106f2f54c744"
+  },
+  {
+    "id": "node",
+    "url": "https://nodejs.org/dist/v22.23.2/node-v22.23.2-win-x64.zip",
+    "bytes": 35683585,
+    "sha256": "1177b4137ba5adaa56354ae40f1080c7450e8ae09cecb47da459d1c52ac99f97"
+  }
+]

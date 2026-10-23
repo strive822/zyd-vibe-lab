@@ -29,8 +29,8 @@ def main() -> None:
     parser.add_argument("--source", required=True, type=Path)
     args = parser.parse_args()
     local = args.source.resolve()
-    profiles = ROOT / "profiles"
-    libretv = profiles / "LibreTV"
+    profiles = ROOT
+    libretv = profiles / "LibreTV" / "profile"
     libretv.mkdir(parents=True, exist_ok=True)
     for name in ("launcher.mjs", "open-browser.ps1", "notify.vbs", "start.vbs", "stop.vbs", "stop.mjs", "rebuild.cmd"):
         shutil.copy2(local / "LibreTV" / name, libretv / name)
@@ -41,7 +41,7 @@ def main() -> None:
             values = json.loads(value.strip().strip("'"))
     (libretv / "defaults.json").write_text(json.dumps(values, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     source = local / "LibreTV" / "source"
-    packages = ROOT / "packages"
+    packages = ROOT / "LibreTV" / "packages"
     packages.mkdir(exist_ok=True)
     snapshot = packages / "libretv-source.zip"
     inventory = {}
@@ -56,7 +56,7 @@ def main() -> None:
     (packages / "libretv-files.json").write_text(json.dumps(inventory, indent=2) + "\n", encoding="utf-8")
     for tool, filename in (("LibreTV", "LICENSE"), ("rea", "LICENSE"), ("Windows-MCP", "LICENSE.md")):
         origin = local / tool / ("source" if tool != "Windows-MCP" else "") / filename
-        target = profiles / tool / filename
+        target = profiles / tool / "profile" / filename
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(origin, target)
     print("Exported", len(inventory), "LibreTV source files and personal launchers; no password exported.")

@@ -1,5 +1,8 @@
 # 给 AI 助手的安装入口
 
+本地独立交付包为 `delivery/graduation-thesis-workflow.zip`，配套 `SHA256SUMS.txt` 和 `FILES.json`。
+实际核验后完整解压到新目录，再遵循以下安装说明。下载链接见本项目 README。
+
 用户说“安装 https://github.com/strive822/zyd-vibe-lab 里的论文工作流”时，请执行安装，不只复述教程。本仓库含多个项目，目标只限 `graduation-thesis-workflow`，不要安装其他项目。
 
 ## 1. 获取文件，不要求用户安装 Git

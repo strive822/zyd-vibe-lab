@@ -10,5 +10,5 @@ graduation-thesis-workflow/LICENSE -text
 *.gif -text
 
 # Preserve the personal Windows launchers and exported metadata byte for byte.
-github-toolbox/profiles/** -text whitespace=cr-at-eol
-github-toolbox/packages/*.json -text whitespace=cr-at-eol
+*/profile/** -text whitespace=cr-at-eol
+LibreTV/packages/*.json -text whitespace=cr-at-eol

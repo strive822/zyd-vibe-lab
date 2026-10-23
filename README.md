@@ -1,6 +1,8 @@
 # zyd-vibe-lab
 
-zhongyudi 的个人项目仓库：各项目及个人工具箱独立安装、运行和维护。
+zhongyudi 的个人项目仓库：各项目独立下载、安装、运行和维护；原工具箱已拆为五个独立目录。
+
+> 原 github-toolbox 已拆为五个独立项目；全部 8 个项目都有自己的 Agent 入口、独立下载包和 SHA-256。
 
 ## 直接让 Agent 帮你使用
 
@@ -24,16 +26,50 @@ zhongyudi 的个人项目仓库：各项目及个人工具箱独立安装、运�
 下载并运行 https://github.com/strive822/zyd-vibe-lab 里的 codex-usage。请先读取仓库 INSTALL.md，优先使用 Windows x64 便携包，核对 SHA-256 后完整解压并启动；保留已有配置，不代填密钥或开启自启动。
 ```
 
+**LibreTV：**
+
+```text
+下载并运行 https://github.com/strive822/zyd-vibe-lab 里的 LibreTV。请先读取该项目 INSTALL.md，取得完整独立目录，核对校验值，在新目录恢复固定版本、个人启动入口与预置源，准备项目内运行时和依赖，启动并验证页面；不要覆盖现有服务。
+```
+
+**yt-dlp：**
+
+```text
+下载并准备使用 https://github.com/strive822/zyd-vibe-lab 里的 yt-dlp。请先读取该项目 INSTALL.md，取得完整独立目录并核验，在新目录准备 yt-dlp、FFmpeg、Deno 和下载入口，验证版本；不要全局安装，不自动下载视频。
+```
+
+**Windows-MCP：**
+
+```text
+下载并准备使用 https://github.com/strive822/zyd-vibe-lab 里的 Windows-MCP。请先读取该项目 INSTALL.md，在新目录恢复固定源码与入口，使用项目内环境安装必要依赖并验证；保留已有配置，注册 MCP 接入前先说明具体改动。
+```
+
+**rea：**
+
+```text
+下载 https://github.com/strive822/zyd-vibe-lab 里的 rea。请先读取该项目 INSTALL.md，取得完整独立目录，下载并核验固定的 rea-agents 包，保留许可和使用说明；不全局安装、不自动运行 setup 或安装分析引擎。
+```
+
+**Winhance：**
+
+```text
+下载 https://github.com/strive822/zyd-vibe-lab 里的 Winhance。请先读取该项目 INSTALL.md，取得完整独立目录，下载官方固定版本安装包并核对 SHA-256，保留使用说明和许可；只下载，不运行安装器或修改系统设置。
+```
+
 简短说“安装这个仓库里的论文工作流”也可使用论文入口。未指定项目时，Agent 应先确认项目。
 
 ## 项目与下载
 
 | 项目 | 用途 | Agent 入口 | 下载方式 |
 | --- | --- | --- | --- |
-| [graduation-thesis-workflow](graduation-thesis-workflow/README.md) | 本科论文需求访谈、真实文献与证据、写作审查；包含 Humanizer | [安装技能](graduation-thesis-workflow/INSTALL.md) | [Codex](graduation-thesis-workflow/packages/graduation-thesis-codex.zip) · [Claude Code](graduation-thesis-workflow/packages/graduation-thesis-claude-code.zip) · [WorkBuddy](graduation-thesis-workflow/packages/graduation-thesis-workbuddy.zip) |
-| [dca-calculator](dca-calculator/README.md) | 三资产 SMA800 定投权重与金额计算，FastAPI + Next.js | [下载与启动](dca-calculator/INSTALL.md) | [完整仓库 ZIP](https://github.com/strive822/zyd-vibe-lab/archive/refs/heads/main.zip)，取其中 dca-calculator |
-| [codex-usage](codex-usage/README.md) | Windows 三平台额度、六位快捷复制和每日提醒，Python + PySide6 | [便携包与源码](codex-usage/INSTALL.md) | [Windows x64 ZIP](codex-usage/packages/usage-0.1.0-windows-x64.zip) · [校验值](codex-usage/packages/SHA256SUMS.txt) |
-| [github-toolbox](github-toolbox/README.md) | 我实际使用的 LibreTV、yt-dlp、Windows-MCP、REA、Winhance 版本与个人配置 | [恢复与使用](github-toolbox/INSTALL.md) | 完整仓库 ZIP 中取 github-toolbox；附当前 LibreTV 完整源码和固定下载校验值 |
+| [graduation-thesis-workflow](graduation-thesis-workflow/README.md) | 本科论文需求访谈、真实文献与证据、写作审查；包含 Humanizer | [安装技能](graduation-thesis-workflow/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/graduation-thesis-workflow/delivery/graduation-thesis-workflow.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/graduation-thesis-workflow/delivery/SHA256SUMS.txt) |
+| [dca-calculator](dca-calculator/README.md) | 三资产 SMA800 定投权重与金额计算，FastAPI + Next.js | [下载与启动](dca-calculator/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/dca-calculator/delivery/dca-calculator.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/dca-calculator/delivery/SHA256SUMS.txt) |
+| [codex-usage](codex-usage/README.md) | Windows 三平台额度、六位快捷复制和每日提醒，Python + PySide6 | [便携包与源码](codex-usage/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/codex-usage/delivery/codex-usage.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/codex-usage/delivery/SHA256SUMS.txt) |
+| [LibreTV](LibreTV/README.md) | 独立的个人使用配置与固定下载版本 | [Agent 入口](LibreTV/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/LibreTV/delivery/LibreTV.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/LibreTV/delivery/SHA256SUMS.txt) |
+| [yt-dlp](yt-dlp/README.md) | 独立的个人使用配置与固定下载版本 | [Agent 入口](yt-dlp/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/yt-dlp/delivery/yt-dlp.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/yt-dlp/delivery/SHA256SUMS.txt) |
+| [Windows-MCP](Windows-MCP/README.md) | 独立的个人使用配置与固定下载版本 | [Agent 入口](Windows-MCP/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/Windows-MCP/delivery/Windows-MCP.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/Windows-MCP/delivery/SHA256SUMS.txt) |
+| [rea](rea/README.md) | 独立的个人使用配置与固定下载版本 | [Agent 入口](rea/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/rea/delivery/rea.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/rea/delivery/SHA256SUMS.txt) |
+| [Winhance](Winhance/README.md) | 独立的个人使用配置与固定下载版本 | [Agent 入口](Winhance/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/Winhance/delivery/Winhance.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/Winhance/delivery/SHA256SUMS.txt) |
 
 论文工作流不保证毕业或检测分数；计算器只计算，不执行交易；浮窗为未签名的个人使用候选，设备验收边界见项目说明。
 
@@ -47,3 +83,10 @@ zhongyudi 的个人项目仓库：各项目及个人工具箱独立安装、运�
 
 [计算器](dca-calculator/LICENSE)与[论文工作流](graduation-thesis-workflow/LICENSE)的原创内容使用各自目录的 MIT 许可证；论文工作流中的 Humanizer 保留上游许可。codex-usage 的第三方许可见 [THIRD_PARTY.md](codex-usage/docs/guides/THIRD_PARTY.md)，其原创源码尚未单独声明许可证。
 
+
+## 新增项目交付规范
+
+以后每个新增、上传的项目都必须在自己的 README.md 中提供“直接让 Agent 帮你使用”、
+包含仓库地址与项目名的可复制提示词，以及真实可执行的 INSTALL.md。
+根 README 同步增加提示词和项目入口，校验和与交付包保持一致。
+规范和模板见 [Agent 交付规范](docs/AGENT_DELIVERY_STANDARD.md)。

@@ -1,5 +1,8 @@
 # 给 Agent：下载并运行 Windows 额度浮窗
 
+本地独立交付包为 `delivery/codex-usage.zip`，配套 `SHA256SUMS.txt` 和 `FILES.json`。
+实际核验后完整解压到新目录，再遵循以下安装说明。下载链接见本项目 README。
+
 用户提示词：
 
 ```text

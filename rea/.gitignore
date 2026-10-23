@@ -1,0 +1,8 @@
+.downloads/
+restored/
+evidence/
+logs/
+.service-lock.json
+.next/
+*.tsbuildinfo
+xiazai/
