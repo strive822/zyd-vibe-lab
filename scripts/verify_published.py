@@ -11,6 +11,8 @@ import hashlib
 import io
 import json
 import stat
+import time
+from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 from pathlib import PurePosixPath
 import zipfile
@@ -19,8 +21,21 @@ from package_projects import PROJECTS
 
 
 def get(url: str) -> bytes:
-    with urlopen(Request(url, headers={"User-Agent": "zyd-vibe-lab-verification/1"}), timeout=120) as response:
-        return response.read()
+    for attempt in range(3):
+        # A request made while a push is still arriving can cache a 404 at the
+        # edge. Retry the same official file with a fresh cache key, twice only.
+        candidate = url if attempt == 0 else f"{url}?verification={time.time_ns()}"
+        try:
+            with urlopen(Request(candidate, headers={"User-Agent": "zyd-vibe-lab-verification/1"}), timeout=120) as response:
+                return response.read()
+        except HTTPError as error:
+            if attempt == 2 or error.code not in {404, 429, 500, 502, 503, 504}:
+                raise
+        except (URLError, TimeoutError):
+            if attempt == 2:
+                raise
+        time.sleep(attempt + 1)
+    raise RuntimeError("Download did not complete")
 
 
 def verify(project: str, ref: str) -> str:

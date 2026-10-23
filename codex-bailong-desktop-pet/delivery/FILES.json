@@ -134,7 +134,7 @@
   "app/test_program_updates.py": "cc9a8c6ddec86b0d40a0747c2e30b070bd3d9a793d5addd6d1b0027deee9a562",
   "app/test_provider_accounts.py": "aecefa7e5ab8e1ed4ea198dfae3284fc4acb1a7bc3e2799c59de9536cc41c03c",
   "app/test_provider_tokens.py": "5ae1b0d8474db823522c6ff07d7791a84f9178663842b7d7e978c45e4ea2f5ea",
-  "app/test_provider_ui.py": "a2f794dfa25d852dea838ac8e03b3e05f3a3d10394fbfb7d34fd39724e108b11",
+  "app/test_provider_ui.py": "3c6ee97920a9378f21a978c30317c570699a85cd76b360128a2ff59ff13dbe90",
   "app/test_quick_deployment.py": "6d54a06b9b5e44cfe8ae61ae2f52bf96bbb741e1821efdc2690c0823e73983d4",
   "app/test_quota.py": "d22edcc2bcdd8759818e12fa6014b9300860e5d2d4cd89a3b4fc805a0bf44208",
   "app/test_quota_summary.py": "3f20582c30e7849d167f96690dd21172d5953206f04261edaa3867ab69fbd69a",

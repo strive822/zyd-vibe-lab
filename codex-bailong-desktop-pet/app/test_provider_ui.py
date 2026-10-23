@@ -3,6 +3,9 @@ os.environ.setdefault('QT_QPA_PLATFORM','offscreen')
 import json
 import tempfile
 import time
+import subprocess
+import sys
+import textwrap
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -85,22 +88,39 @@ class ProviderUiTests(unittest.TestCase):
             monitor.shutdown();settings.deleteLater();settle()
 
     def test_workbuddy_browser_starts_at_account_login_and_releases_profile(self):
-        from PySide6.QtWebEngineWidgets import QWebEngineView
+        # Chromium flushes profile files asynchronously. An isolated interpreter
+        # verifies the real persistent profile and releases its OS handles before
+        # the parent removes the temporary directory, including on slow CI hosts.
         with tempfile.TemporaryDirectory() as tmp:
-            with patch.object(QWebEngineView,'setUrl') as navigate:
-                login=WorkBuddyLogin(Path(tmp))
-                self.assertEqual(navigate.call_args.args[0].toString(),'https://www.workbuddy.cn/console/account')
-                captured=[];login.credentials.connect(captured.append)
-                login.cookie_values={b'session':b'test-only-cookie'}
-                login.connect_cookies()
-                self.assertEqual(captured[0]['headers']['cookie'],'session=test-only-cookie')
-                login.shutdown()
-                QCoreApplication.sendPostedEvents(None,QEvent.Type.DeferredDelete)
-                app.processEvents()
-                login.deleteLater()
-                QCoreApplication.sendPostedEvents(None,QEvent.Type.DeferredDelete)
-                from PySide6.QtTest import QTest
-                QTest.qWait(500)  # Chromium flushes the persistent cookie DB asynchronously.
+            code = textwrap.dedent('''
+                import sys
+                from pathlib import Path
+                from unittest.mock import patch
+                from PySide6.QtCore import QCoreApplication, QEvent
+                from PySide6.QtWidgets import QApplication
+                from PySide6.QtWebEngineWidgets import QWebEngineView
+                from provider_widgets import WorkBuddyLogin
+                app = QApplication([])
+                with patch.object(QWebEngineView, 'setUrl') as navigate:
+                    login = WorkBuddyLogin(Path(sys.argv[1]))
+                    assert navigate.call_args.args[0].toString() == 'https://www.workbuddy.cn/console/account'
+                    captured = []
+                    login.credentials.connect(captured.append)
+                    login.cookie_values = {b'session': b'test-only-cookie'}
+                    login.connect_cookies()
+                    assert captured[0]['headers']['cookie'] == 'session=test-only-cookie'
+                    login.shutdown()
+                    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+                    app.processEvents()
+                    login.deleteLater()
+                    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+                    app.processEvents()
+            ''')
+            environment = dict(os.environ)
+            environment['PYTHONPATH'] = os.pathsep.join([str(Path(__file__).resolve().parent), environment.get('PYTHONPATH', '')])
+            result = subprocess.run([sys.executable, '-c', code, tmp], env=environment,
+                                    capture_output=True, text=True, timeout=45)
+            self.assertEqual(result.returncode, 0, result.stderr)
 
 
 if __name__=='__main__':unittest.main()
