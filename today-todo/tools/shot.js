@@ -14,10 +14,12 @@
 const { spawn } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
+const os = require('node:os');
 
 const CHROME = 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 const PORT = 9333;
-const PROFILE = path.join(__dirname, '..', 'shots', '.cdp-profile');
+// 浏览器调试配置放到系统临时目录，避免落进项目被打包
+const PROFILE = path.join(os.tmpdir(), 'today-todo-cdp');
 
 const args = Object.fromEntries(
   process.argv.slice(2).map((raw) => {

@@ -20,8 +20,8 @@ const DATA_FILE = process.env.DATA_FILE
   : path.join(ROOT, 'data', 'todos.json');
 const BASE_PORT = Number.parseInt(process.env.PORT || '3000', 10);
 const PORT_TRIES = 5;
-const MAX_TEXT = 200;
-const MAX_BODY = 64 * 1024;
+// 任务长度不设上限；这里只是请求体的基础设施上限（1 MB），不是产品限制。
+const MAX_BODY = 1024 * 1024;
 const STALE_TMP_MS = 10 * 60 * 1000;
 
 // 已完成任务在多久没有再次操作后自动清理。测试里可以传小数（如 0.0003 ≈ 1 秒）。
@@ -281,7 +281,6 @@ async function createTodo(req, res) {
   const body = parseJsonBody(await readBody(req));
   const text = typeof body.text === 'string' ? body.text.trim() : '';
   if (!text) throw httpError(400, '写点什么再加：任务内容不能为空');
-  if (text.length > MAX_TEXT) throw httpError(400, `任务最多 ${MAX_TEXT} 个字`);
 
   const item = {
     id: crypto.randomUUID(),
@@ -318,7 +317,6 @@ async function updateTodo(req, res, id) {
     if (typeof body.text !== 'string') throw httpError(400, 'text 必须是字符串');
     nextText = body.text.trim();
     if (!nextText) throw httpError(400, '任务内容不能为空');
-    if (nextText.length > MAX_TEXT) throw httpError(400, `任务最多 ${MAX_TEXT} 个字`);
   }
   if (hasDone && typeof body.done !== 'boolean') throw httpError(400, 'done 必须是 true 或 false');
 

@@ -133,12 +133,15 @@ test('空白任务被拒绝：空串、半角空格、全角空格都不落库',
   assert.equal(after.json.items.some((item) => !item.text.trim()), false, '库里不应存在空文本');
 });
 
-test('超长任务被拒绝：200 字通过，201 字拒绝', async () => {
-  const ok = await request('/api/todos', { method: 'POST', body: { text: '字'.repeat(200) } });
-  assert.equal(ok.status, 201);
+test('任务长度不设上限：5000 字原样保存', async () => {
+  const text = '长'.repeat(5000);
+  const res = await request('/api/todos', { method: 'POST', body: { text } });
+  assert.equal(res.status, 201);
+  assert.equal(res.json.item.text.length, 5000);
 
-  const tooLong = await request('/api/todos', { method: 'POST', body: { text: '字'.repeat(201) } });
-  assert.equal(tooLong.status, 400);
+  const list = await request('/api/todos');
+  const saved = list.json.items.find((item) => item.id === res.json.item.id);
+  assert.equal(saved.text.length, 5000, '落库后长度不变');
 });
 
 test('勾选完成：200，且计数口径由 done 决定', async () => {
@@ -180,7 +183,7 @@ test('修改任务文本：200，文本更新，完成状态不动', async () =>
   assert.ok(res.json.item.doneAt, '改文本不该重置完成时间');
 });
 
-test('改文本的边界：空白 / 超长 / 无字段一律 400，原文保持不变', async () => {
+test('改文本的边界：空白与无字段被拒、原文不变；长文本可保存', async () => {
   const created = await request('/api/todos', { method: 'POST', body: { text: '不该被改掉' } });
   const id = created.json.item.id;
 
@@ -189,15 +192,16 @@ test('改文本的边界：空白 / 超长 / 无字段一律 400，原文保持�
     assert.equal(res.status, 400, `「${JSON.stringify(text)}」应被拒绝`);
   }
 
-  const tooLong = await request(`/api/todos/${id}`, { method: 'PATCH', body: { text: '字'.repeat(201) } });
-  assert.equal(tooLong.status, 400);
-
   const noField = await request(`/api/todos/${id}`, { method: 'PATCH', body: {} });
   assert.equal(noField.status, 400);
 
   const list = await request('/api/todos');
   const item = list.json.items.find((entry) => entry.id === id);
   assert.equal(item.text, '不该被改掉', '失败的请求不能改动原文');
+
+  const longEdit = await request(`/api/todos/${id}`, { method: 'PATCH', body: { text: '长'.repeat(3000) } });
+  assert.equal(longEdit.status, 200, '改文本同样没有长度上限');
+  assert.equal(longEdit.json.item.text.length, 3000);
 });
 
 test('文本和完成状态可以一次改完', async () => {

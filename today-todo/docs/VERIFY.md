@@ -36,7 +36,7 @@
 在 `E:\WorkBuddy` 打开终端，用极短保留时间启动一个临时实例：
 
 ```bash
-DATA_FILE=E:/WorkBuddy/test/ttl-check.json PORT=3200 DONE_TTL_HOURS=0.0004 node server.js
+DATA_FILE=E:/Code-GitHub/zyd-vibe-lab/today-todo/test/ttl-check.json PORT=3200 DONE_TTL_HOURS=0.0004 node server.js
 ```
 
 1. 打开 `http://localhost:3200`

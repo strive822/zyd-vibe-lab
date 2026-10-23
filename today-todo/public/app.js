@@ -17,7 +17,6 @@
     input: document.getElementById('new-task'),
     submit: document.getElementById('composer-submit'),
     cancel: document.getElementById('composer-cancel'),
-    charCount: document.getElementById('char-count'),
     msg: document.getElementById('form-msg'),
     tasks: document.getElementById('tasks'),
     listNote: document.getElementById('list-note'),
@@ -407,10 +406,6 @@
   let composerTimer = null;
   let originRect = null;
 
-  function updateCharCount() {
-    el.charCount.textContent = el.input.value.length + ' / 200';
-  }
-
   /** 展开后的落点：右下角锚定，宽度不超过视口；窄屏会自动往左展开。 */
   function panelRect(from) {
     const margin = 16;
@@ -500,7 +495,6 @@
     try {
       await api.create(text);
       el.input.value = '';
-      updateCharCount();
       markInvalid(false);
       hideMsg();
       closeComposer();
@@ -520,7 +514,6 @@
 
   el.input.addEventListener('input', () => {
     if (el.input.hasAttribute('aria-invalid')) markInvalid(false);
-    updateCharCount();
   });
 
   el.input.addEventListener('keydown', (event) => {
