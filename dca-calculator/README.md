@@ -181,6 +181,13 @@ scripts/start_backend.bat / start_frontend.bat
 
 数据源全部免个人密钥；东财的 UT_TOKEN 为网页端公共标识。`.gitignore` 排除虚拟环境、node_modules 与日志，提交前仍应检查凭据和私人文件；静态扫描不能保证不存在所有敏感内容。
 
+2026-10-23 依赖修复：Next.js 最低版本升至 15.5.28，sharp 最低版本升至 0.35.5，
+锁文件中的 source-map-js 更新至 1.2.2。对应上游公告为
+[Next.js 安全修复](https://github.com/advisories/GHSA-2464-fhr4-w9xw)和
+[source-map-js 安全修复](https://github.com/advisories/GHSA-68fv-2mgg-jv7q)。
+使用 `npm ci` 安装锁定依赖，`npm audit --audit-level=moderate --registry=https://registry.npmjs.org` 检查当前公告；
+以后出现新公告时仍需重新核验，旧的零漏洞结果不代表永久安全。
+
 ## 打包为单文件 exe（可选）
 
 已提供 `backend/build_exe.spec`（PyInstaller 单文件规格），可把前后端打成一个

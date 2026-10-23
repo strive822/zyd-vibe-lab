@@ -1,4 +1,6 @@
 # 依赖与虚拟环境
+.runtime/
+.npm-cache/
 backend/.venv/
 venv/
 __pycache__/

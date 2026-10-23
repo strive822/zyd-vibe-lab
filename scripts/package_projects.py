@@ -12,7 +12,7 @@ PROJECTS = tuple(p.name for p in sorted(ROOT.iterdir())
                  and (p / "README.md").is_file() and (p / "INSTALL.md").is_file())
 EXCLUDED = {"delivery", ".git", ".venv", "venv", "node_modules", ".next",
             "__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache",
-            ".downloads", ".runtime"}
+            ".downloads", ".runtime", ".npm-cache"}
 
 
 def source_files(project: Path):
@@ -20,9 +20,12 @@ def source_files(project: Path):
         relative = path.relative_to(project)
         if set(relative.parts) & EXCLUDED:
             continue
+        if relative.parts[:2] == ("frontend", "out"):
+            continue
         if path.is_symlink():
             raise ValueError(f"Symlink is not supported: {relative}")
-        if not path.is_file() or path.suffix == ".pyc":
+        if (not path.is_file() or path.suffix in {".pyc", ".tsbuildinfo"}
+                or path.name == "next-env.d.ts"):
             continue
         if path.name.startswith(".env") and path.name != ".env.example":
             raise ValueError(f"Private environment file must not be packaged: {relative}")
