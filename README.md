@@ -2,7 +2,7 @@
 
 zhongyudi 的个人项目仓库：各项目独立下载、安装、运行和维护；原工具箱已拆为五个独立目录。
 
-> 原 github-toolbox 已拆为五个独立项目；全部 8 个项目都有自己的 Agent 入口、独立下载包和 SHA-256。
+> 原 github-toolbox 已拆为五个独立项目；全部 10 个项目都有自己的 Agent 入口、独立下载包和 SHA-256。
 
 ## 直接让 Agent 帮你使用
 
@@ -91,7 +91,7 @@ zhongyudi 的个人项目仓库：各项目独立下载、安装、运行和维�
 
 从仓库根目录运行 `python scripts/check_repository.py`，检查受 Git 管理的文件、文档链接、Python 语法、下载包校验和及源码一致性。各项目的测试命令见对应 README；持续检查配置在 [.github/workflows/checks.yml](.github/workflows/checks.yml)。
 
-本轮检查范围、修复与尚未验证的项目见 [Repository Cleanup Report](docs/REPOSITORY_CLEANUP_REPORT.md)。
+本轮检查范围、版本更新与下载验收见 [仓库同步验收报告](docs/REPOSITORY_SYNC_2026-10-24.md)。早期检查记录见 [Repository Cleanup Report](docs/REPOSITORY_CLEANUP_REPORT.md)。
 
 ## 许可证
 

@@ -30,11 +30,9 @@ python .\restore.py --destination 'D:\MyTools\yt-dlp'
 缺少运行时先检查实际环境，按用户授权放到项目目录，不改系统 PATH、不全局安装。
 仅要求下载时停在文件保存与核验阶段，不执行 restore.py。
 
-LibreTV 恢复会准备独立 Node 和依赖并构建；yt-dlp 会准备 FFmpeg/Deno 并检查版本。
-Windows-MCP 仅保存源码与入口，后续依赖安装和 MCP 注册另行处理。
-REA 仅保存固定 npm 包，不运行 setup 或安装分析引擎。
-Winhance 仅保存官方安装器，不运行安装器或修改系统设置。
-本项目具体使用方式见 README.md 和 profile/ 中的说明。
+恢复准备 yt-dlp 2026.10.21、Deno 2.9.8 和固定资产 ID 的 FFmpeg shared 构建，执行三个程序的版本检查；FFmpeg 解压目录、DLL 与许可一起保留。
+
+在恢复目录使用 profile/README.md 中的入口或 yt-dlp.exe --help。实际下载须有具体链接和用户授权；默认只准备工具，不下载视频。移动目录后按 README 更新三项绝对路径。
 
 ## 可以直接给 Agent 的提示词
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import subprocess
 import zipfile
 from pathlib import Path
 
@@ -16,7 +17,15 @@ EXCLUDED = {"delivery", ".git", ".venv", "venv", "node_modules", ".next",
 
 
 def source_files(project: Path):
-    for path in sorted(project.rglob("*")):
+    if (ROOT / ".git").exists():
+        result = subprocess.run(
+            ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z", "--", project.name],
+            cwd=ROOT, check=True, capture_output=True,
+        )
+        paths = sorted({ROOT / name for name in result.stdout.decode("utf-8").split("\0") if name})
+    else:
+        paths = sorted(project.rglob("*"))
+    for path in paths:
         relative = path.relative_to(project)
         if set(relative.parts) & EXCLUDED:
             continue
@@ -46,9 +55,9 @@ def build(name: str) -> None:
             info = zipfile.ZipInfo(f"{name}/{relative}", date_time=(2026, 10, 23, 0, 0, 0))
             info.compress_type = zipfile.ZIP_DEFLATED
             bundle.writestr(info, data)
-    (output / "FILES.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    (output / "FILES.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8", newline="\n")
     digest = hashlib.sha256(archive.read_bytes()).hexdigest()
-    (output / "SHA256SUMS.txt").write_text(f"{digest}  {archive.name}\n", encoding="utf-8")
+    (output / "SHA256SUMS.txt").write_text(f"{digest}  {archive.name}\n", encoding="utf-8", newline="\n")
     verify(project)
     print(f"PASS {name}: {len(manifest)} files, {archive.stat().st_size} bytes")
 
@@ -60,6 +69,9 @@ def verify(project: Path) -> None:
     if hashlib.sha256(archive.read_bytes()).hexdigest() != expected:
         raise ValueError(f"Archive checksum mismatch: {project.name}")
     manifest = json.loads((output / "FILES.json").read_text(encoding="utf-8"))
+    sources = {path.relative_to(project).as_posix() for path in source_files(project)}
+    if set(manifest) != sources:
+        raise ValueError(f"Delivery manifest does not cover current sources: {project.name}")
     with zipfile.ZipFile(archive) as bundle:
         if bundle.testzip() is not None:
             raise ValueError("Archive CRC failure")

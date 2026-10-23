@@ -110,7 +110,7 @@ python scripts/package.py --out packages
 
 ## 来源与许可
 
-本仓库原创流程与脚本采用 [MIT License](LICENSE)。访谈流程为原创实现；Humanizer 3.0.0 已按 MIT 许可内置，保留上游版权、固定提交和文件哈希，见 [第三方说明](THIRD_PARTY_NOTICES.md)。未复制图片中来源不明的技能。可复用宿主已有文档技能，但不分发其受独立许可约束的内容。
+本仓库原创流程与脚本采用 [MIT License](LICENSE)。访谈流程为原创实现；Humanizer 3.1.0 已按 MIT 许可内置，保留上游版权、固定提交和文件哈希，见 [第三方说明](THIRD_PARTY_NOTICES.md)。未复制图片中来源不明的技能。可复用宿主已有文档技能，但不分发其受独立许可约束的内容。
 
 官方格式与接口依据：[Codex Skills](https://learn.chatgpt.com/docs/build-skills)、[Claude Code Skills](https://code.claude.com/docs/en/skills)、[WorkBuddy 技能结构](https://open.workbuddy.cn/docs/skill)、[Crossref REST API](https://www.crossref.org/documentation/retrieve-metadata/rest-api/)。
 

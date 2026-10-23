@@ -30,11 +30,9 @@ python .\restore.py --destination 'D:\MyTools\Windows-MCP'
 缺少运行时先检查实际环境，按用户授权放到项目目录，不改系统 PATH、不全局安装。
 仅要求下载时停在文件保存与核验阶段，不执行 restore.py。
 
-LibreTV 恢复会准备独立 Node 和依赖并构建；yt-dlp 会准备 FFmpeg/Deno 并检查版本。
-Windows-MCP 仅保存源码与入口，后续依赖安装和 MCP 注册另行处理。
-REA 仅保存固定 npm 包，不运行 setup 或安装分析引擎。
-Winhance 仅保存官方安装器，不运行安装器或修改系统设置。
-本项目具体使用方式见 README.md 和 profile/ 中的说明。
+恢复只保存固定 Windows-MCP 0.8.8 源码和入口。用户要求安装时，先确认 Windows uv 可用，再在恢复目录运行 install.cmd；该入口用源码 uv.lock 创建 source/.venv 和项目内 Python 3.14.7，不改全局环境。缺少 uv 时取得官方 Windows uv 便携程序，放到项目内并在当前进程 PATH 使用。
+
+用 source/.venv/Scripts/python.exe -m windows_mcp --help 检查入口。start.cmd 以 stdio 运行固定源码；MCP 注册是另外的宿主配置步骤，依用户授权操作，不能凭下载或 --help 声称已接入。具体说明见 profile/README.md。
 
 ## 可以直接给 Agent 的提示词
 

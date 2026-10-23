@@ -14,5 +14,6 @@ node_modules/
 Thumbs.db
 *.log
 
-# 图标由 tools/make-icon.js 生成，不入库（Windows 快捷方式用）
-assets/
+# 保留正式快捷方式图标，忽略其他生成素材
+assets/*
+!assets/app.ico

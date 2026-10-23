@@ -1,8 +1,8 @@
 # 我的 Windows-MCP 入口
 
-固定 Windows-MCP 0.8.7，Python 3.14.7；独立运行目录，stdio，关闭匿名遥测。恢复脚本准备固定源码和相对路径启动入口。已有全局连接不需要重复安装。
+固定 Windows-MCP 0.8.8，Python 3.14.7；独立运行目录，stdio，关闭匿名遥测。恢复脚本准备固定源码和相对路径启动入口。已有全局连接不需要重复安装。
 
-新电脑需要已有 Windows uv，先检查 `uv --version`，然后在恢复目录运行 `install.cmd`。uv 在本目录管理独立 Python、tools、bin 和 cache，不升级无关软件。`start.cmd` 使用本目录固定解释器，不依赖手动激活环境。
+新电脑需要已有 Windows uv，先检查 `uv --version`，然后在恢复目录运行 `install.cmd`。uv 按固定源码的 uv.lock 安装，在本目录管理独立 Python、source/.venv 和 cache，不升级无关软件。`start.cmd` 使用本目录固定解释器，不依赖手动激活环境。
 
 要新增 Agent 连接，先阅读宿主当前官方配置规则，展示将新增的单个服务配置，再按用户授权操作。保留其他 MCP 服务和配置；不要上传整份本机配置或覆盖旧文件。本包不自动注册。启动命令为 `cmd.exe /d /c` 加上恢复目录中的 `start.cmd` Windows 绝对路径；WSL 也必须通过 Windows 进程运行桌面自动化。两个超时均沿用 120 秒。
 

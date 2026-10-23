@@ -2,14 +2,18 @@
   {
     "id": "libretv-source",
     "file": "packages/libretv-source.zip",
-    "upstream": "https://github.com/LibreSpark/LibreTV/tree/9d86ec2568895b2a8b52da47fc9bfea6c74f8378",
-    "bytes": 625831,
-    "sha256": "a1a8636be43704f14df701b730de7d3f74dc44086541ce1c839a106f2f54c744"
+    "upstream": "https://github.com/LibreSpark/LibreTV/tree/b08c8242d2a3cdb4309b40c58001c69c04593ce1",
+    "bytes": 671950,
+    "sha256": "e2527448568a1aa18eb0ada0ebd4183a79908c54fe3a6892ed659615502895eb",
+    "local_modifications": [
+      "package.json",
+      "package-lock.json"
+    ]
   },
   {
     "id": "node",
-    "url": "https://nodejs.org/dist/v22.23.2/node-v22.23.2-win-x64.zip",
-    "bytes": 35683585,
-    "sha256": "1177b4137ba5adaa56354ae40f1080c7450e8ae09cecb47da459d1c52ac99f97"
+    "url": "https://nodejs.org/dist/v24.22.1/node-v24.22.1-win-x64.zip",
+    "bytes": 37748064,
+    "sha256": "d2046d28c2c3dcd211ac5145c0bf30e2047ef9dfb306693c8c6e2eccd8b95fa5"
   }
 ]

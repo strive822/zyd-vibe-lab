@@ -4,7 +4,13 @@
 
 ## 1. 完整获取与核验
 
-从 https://github.com/strive822/zyd-vibe-lab 完整克隆，或下载本项目的 `delivery/codex-bailong-desktop-pet.zip`，同时取得 `delivery/SHA256SUMS.txt`、`delivery/FILES.json`。首次上传完成后，这些文件可从仓库中的项目目录获取。下载只保存文件，不运行安装器。
+从 https://github.com/strive822/zyd-vibe-lab 完整克隆，或下载本项目的 `delivery/codex-bailong-desktop-pet.zip`，同时取得 `delivery/SHA256SUMS.txt`、`delivery/FILES.json`。下载入口如下，三份文件取自同一提交版本。下载只保存文件，不运行安装器。
+
+```text
+https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/codex-bailong-desktop-pet/delivery/codex-bailong-desktop-pet.zip
+https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/codex-bailong-desktop-pet/delivery/SHA256SUMS.txt
+https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/codex-bailong-desktop-pet/delivery/FILES.json
+```
 
 ```powershell
 Get-FileHash .\codex-bailong-desktop-pet.zip -Algorithm SHA256
@@ -35,7 +41,7 @@ Git 和源码交付 ZIP 不包含大型角色动画，保留 [NOTICE.md](NOTICE.
 .\.venv\Scripts\python.exe tools\prepare_assets.py --download
 ```
 
-该命令只下载固定的官方 v0.9.3 Windows 容器（约740MB），校验 SHA-256 `d31a35f3c2b7214c408843853bd6f4d9e73f61935a49e22e06b64efec45b1915`，只取播放清单和清单引用的动画，临时下载自动清理，不运行其中的安装器。来源和哈希固定在 `tools/prepare_assets.py`。也可用 `--archive` 提供同一已下载 ZIP。已有动画会保留并拒绝覆盖。上游撤回该版本或哈希不符时停止，不换未知镜像。
+该命令只下载固定的官方 v0.9.3 Windows 容器（约740MB），校验 SHA-256 `d31a35f3c2b7214c408843853bd6f4d9e73f61935a49e22e06b64efec45b1915`。官方 ZIP 内是安装器，脚本使用已声明的 PyInstaller 库将内嵌 payload.zip 作为数据读取，只取播放清单和引用的动画，临时文件自动清理，不执行安装器或安装其程序。来源和哈希固定在 `tools/prepare_assets.py`。也可用 `--archive` 提供同一已下载 ZIP。已有动画或清单会保留并拒绝覆盖。上游撤回该版本或哈希不符时停止，不换未知镜像。
 
 ## 4. 启动与验证
 
@@ -58,7 +64,7 @@ Git 和源码交付 ZIP 不包含大型角色动画，保留 [NOTICE.md](NOTICE.
 ```powershell
 $env:PYTHONPATH='app'
 $env:QT_QPA_PLATFORM='offscreen'
-.\.venv\Scripts\python.exe -m unittest test_provider_accounts test_provider_tokens test_provider_ui test_token_charts test_daily_report test_quota_summary_data test_island test_shortcuts_startup test_refresh_flow -q
+.\.venv\Scripts\python.exe -m unittest test_provider_accounts test_provider_tokens test_provider_ui test_token_charts test_daily_report test_quota_summary_data test_island test_refresh_flow -q
 .\.venv\Scripts\python.exe -m compileall -q app tools
 ```
 

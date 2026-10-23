@@ -30,11 +30,9 @@ python .\restore.py --destination 'D:\MyTools\Winhance'
 缺少运行时先检查实际环境，按用户授权放到项目目录，不改系统 PATH、不全局安装。
 仅要求下载时停在文件保存与核验阶段，不执行 restore.py。
 
-LibreTV 恢复会准备独立 Node 和依赖并构建；yt-dlp 会准备 FFmpeg/Deno 并检查版本。
-Windows-MCP 仅保存源码与入口，后续依赖安装和 MCP 注册另行处理。
-REA 仅保存固定 npm 包，不运行 setup 或安装分析引擎。
-Winhance 仅保存官方安装器，不运行安装器或修改系统设置。
-本项目具体使用方式见 README.md 和 profile/ 中的说明。
+恢复只下载官方 Winhance v26.06.12 的 Winhance.Installer.exe，核对 assets.json 中的大小和 SHA-256，保存许可和 Required Notice。
+
+成功标准是固定版本安装器与校验值一致。下载请求不运行安装器，也不宣称系统已经安装或优化。安装和系统改动由用户另行指定；具体许可见 THIRD_PARTY.md。
 
 ## 可以直接给 Agent 的提示词
 

@@ -14,3 +14,7 @@
 ## 0.3.0 发布顺序
 
 修改单一技能源 → `python -m unittest discover -s tests -v` → `python scripts/package.py --out packages` → 核对三端 ZIP、许可、校验和与本地链接 → 同步并只提交本项目文件。论文交付先实质审查再 review-snapshot，最后 audit；不能通过重写快照掩盖未检查的修改。
+
+## 2026-10-24 · Humanizer 上游更新
+
+更新 vendor 后核验 UPSTREAM.json 和原始文件字节，运行流程测试并在允许脚本执行的 Windows CI 验证安装器，再重建 packages 和独立 delivery。

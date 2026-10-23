@@ -13,6 +13,8 @@ For repository maintenance run python scripts/check_repository.py plus the chang
 
 Keep installation instructions, README links and download hashes consistent. Do not claim native client discovery, real account success or device acceptance based on a unit test. Publish only after checking staged changes and tests.
 
+After acceptance and before final delivery, remove confirmed disposable intermediate outputs, temporary downloads, failed builds, debug logs and caches. Keep source, tests, licenses, necessary environments, user data, useful evidence and intentional delivery packages with manifests. Verify cleanup targets stay within the intended workspace; review Git status and package integrity after cleanup.
+
 ## Required for every future project upload
 
 Every new project must be in its own subdirectory, with no shared toolbox wrapper.

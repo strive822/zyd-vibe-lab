@@ -25,3 +25,7 @@
 ## 2026-10-03 Windows CI 回归
 
 新增仓库 CI 实际运行后发现：Windows 捕获 stdout 使用传统代码页导致中文路径初始化虽创建文件却报编码失败；Git 自动换行转换改变 Humanizer 原始文件哈希。项目 CLI 现在明确 UTF-8 输出并增加 cp1252 回归，仓库属性保留技能包原始字节。同步重建三个分发 ZIP；没有修改上游 Humanizer 内容。CI 结果见仓库清理报告。
+
+## 2026-10-24 · Humanizer 上游更新
+
+内置 Humanizer 更新至 3.1.0，固定提交 8c307f367c91bd974002f10f2be2965d642c13df；保留原始 SKILL.md 与 MIT 许可，重建三个平台包。

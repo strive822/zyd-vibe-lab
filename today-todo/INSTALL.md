@@ -9,7 +9,7 @@
 | 项 | 要求 |
 |---|---|
 | 系统 | Windows 10/11（服务本身是跨平台的，`start.bat` / `stop.bat` 只在 Windows 可用） |
-| 运行时 | Node.js 18 或更新（在 22 上验证）。`node -v` 能输出版本即可 |
+| 运行时 | Node.js 18 或更新（在 Node 24 上验证）。`node -v` 能输出版本即可 |
 | 网络 | 电脑与手机在同一局域网；不需要外网 |
 | 磁盘 | 小于 1 MB（不含 `data/todos.json`） |
 | 端口 | 3000，被占用时自动试 3001–3005 |
@@ -26,7 +26,13 @@ git clone https://github.com/strive822/zyd-vibe-lab.git
 
 ### 方式 B：独立交付包
 
-从 `today-todo/delivery/today-todo.zip` 取得压缩包（首次推送后可从仓库 raw 链接下载），解压到一个**新目录**：
+从以下固定项目入口下载 ZIP、校验和与逐文件清单；先比较 ZIP SHA-256、检查归档路径，再解压到一个**新目录**：
+
+```text
+https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/today-todo/delivery/today-todo.zip
+https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/today-todo/delivery/SHA256SUMS.txt
+https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/today-todo/delivery/FILES.json
+```
 
 ```bash
 mkdir zyd-today-todo && tar -xf today-todo.zip -C zyd-today-todo
@@ -125,6 +131,6 @@ Agent 执行本项目的安装与运行时，只应做以下事情：
 - 覆盖用户已有的数据文件或另一个项目的目录
 - 声称“手机端可用”而未实际用手机打开过
 
-## 九、清理
+## 九、卸载
 
-删除项目目录即可，服务不写注册表、不装服务、不留后台进程。若建过桌面快捷方式，把快捷方式一并删除。
+先停止服务并备份仍需保留的 data/todos.json，再删除项目目录，服务不写注册表、不装服务、不留后台进程。若建过桌面快捷方式，把快捷方式一并删除。

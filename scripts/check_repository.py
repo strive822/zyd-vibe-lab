@@ -1,4 +1,4 @@
-"""Offline checks of Git-visible files and the four intentional delivery ZIPs.
+"""Offline checks of Git-visible files and all intentional delivery ZIPs.
 
 Run from any directory with Python 3.11+. No dependency installation, account
 queries or application launches. --inventory writes a per-file check summary.
@@ -54,9 +54,9 @@ def zip_check(path: Path, errors: list[str]) -> None:
     with zipfile.ZipFile(path) as archive:
         seen: set[str] = set()
         for info in archive.infolist():
-            name = PurePosixPath(info.filename)
-            if (name.is_absolute() or ".." in name.parts or "\\" in info.filename
-                    or ":" in info.filename or stat.S_ISLNK(info.external_attr >> 16)):
+            name = PurePosixPath(info.orig_filename)
+            if (name.is_absolute() or ".." in name.parts or "\\" in info.orig_filename
+                    or ":" in info.orig_filename or stat.S_ISLNK(info.external_attr >> 16)):
                 errors.append(f"{path.name}: unsafe ZIP entry {info.filename}")
             if info.filename.casefold() in seen:
                 errors.append(f"{path.name}: duplicate ZIP entry {info.filename}")
@@ -122,6 +122,10 @@ def check_file(path: Path, known: set[Path], errors: list[str]) -> list[str]:
         if not data.startswith(signatures[path.suffix]):
             errors.append(f"{label}: invalid image signature")
         return checks + ["image signature"]
+    if path.suffix == ".ico":
+        if not data.startswith(b"\x00\x00\x01\x00"):
+            errors.append(f"{label}: invalid ICO signature")
+        return checks + ["ICO signature"]
     if path.suffix in {".ttf", ".wav"}:
         valid = (data.startswith((b"\x00\x01\x00\x00", b"true", b"OTTO")) if path.suffix == ".ttf"
                  else len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WAVE")
@@ -185,7 +189,7 @@ def main() -> int:
                  "", "| 文件（相对仓库根目录） | 已执行静态检查 |", "| --- | --- |"]
         lines += [f"| `{name}` | {', '.join(checks)} |" for name, checks in rows]
         args.inventory.parent.mkdir(parents=True, exist_ok=True)
-        args.inventory.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        args.inventory.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
     print(f"PASS: {len(files)} Git-visible files; local links, syntax, secret patterns and delivery packages.")
     print("Projects:", dict(Counter(p.relative_to(ROOT).parts[0] for p in files)))
     return 0

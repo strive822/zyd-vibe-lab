@@ -30,11 +30,9 @@ python .\restore.py --destination 'D:\MyTools\rea'
 缺少运行时先检查实际环境，按用户授权放到项目目录，不改系统 PATH、不全局安装。
 仅要求下载时停在文件保存与核验阶段，不执行 restore.py。
 
-LibreTV 恢复会准备独立 Node 和依赖并构建；yt-dlp 会准备 FFmpeg/Deno 并检查版本。
-Windows-MCP 仅保存源码与入口，后续依赖安装和 MCP 注册另行处理。
-REA 仅保存固定 npm 包，不运行 setup 或安装分析引擎。
-Winhance 仅保存官方安装器，不运行安装器或修改系统设置。
-本项目具体使用方式见 README.md 和 profile/ 中的说明。
+恢复只取得校验后的 rea-agents 6.7.0 npm 发布包和许可，不运行 setup、不安装分析引擎。
+
+用户要求使用时，在本项目准备符合包 engines 的独立 Node/npm（推荐 24.22.1 LTS），按 profile/README.md 运行固定版本的帮助入口。setup 可能修改 Agent 配置和下载引擎，先展示具体计划；只下载请求停在包完整性核验。
 
 ## 可以直接给 Agent 的提示词
 
