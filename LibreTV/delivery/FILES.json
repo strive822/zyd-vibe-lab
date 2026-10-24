@@ -1,21 +1,21 @@
 {
   ".gitignore": "cb9caad13bfcad11aa2ac757c54ffe2930ffe69b6c3814da78242ee3d5d4e10a",
   "AGENTS.md": "cac608ec13d120772e3ec7fbf86566064b8e82919394772ac78484182499c613",
-  "assets.json": "bcf94d70a0d402b7fe0068927df75af6b78b46d3fba6e0f6cc4961799f88e363",
   "INSTALL.md": "ffc21eb4b459c6991335711d7793023e8150b4b4e3c90d531777fa78c5cb1f0c",
+  "README.md": "56c359b54be1f0783cb86ab5d4da766d6b791e6df2f11eaa1a4ec959a6525df8",
+  "SECURITY_PATCHES.md": "55d6ebecc17a9adc218867134a6f415d6a66e3a86a7077c733b534e72addd1a5",
+  "THIRD_PARTY.md": "ec0050500100e5b43d980b9ddbf3bf80f3c0b8765f0a174e9ef3d187b9a1260e",
+  "assets.json": "bcf94d70a0d402b7fe0068927df75af6b78b46d3fba6e0f6cc4961799f88e363",
   "packages/libretv-files.json": "b4a2bc9a6f257b66ad1e4f47f97e815c453fce4204d17dfd8b48195bbc616d22",
   "packages/libretv-source.zip": "e2527448568a1aa18eb0ada0ebd4183a79908c54fe3a6892ed659615502895eb",
+  "profile/LICENSE": "0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0",
   "profile/defaults.json": "0a6f762c916f50a7bb3af229ef6e541838aa617f3660415446e875668bf0b818",
   "profile/launcher.mjs": "e59ff4605d9fcfd5b62ad223bf8369cd9196ccd401c75cdeab81d99bba87e79d",
-  "profile/LICENSE": "0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0",
   "profile/notify.vbs": "d7a5493cdafedd2ad3208a636a4de5a8a0c3b8078fcb79e21c1ca4ed66d6282b",
   "profile/open-browser.ps1": "abb81dd0de5556105a2d564866706b06d4e56eff5eb66b37cb57ca13d1544c82",
   "profile/rebuild.cmd": "321fe0484c566ab5d73ce9a1849386cf39766a996c3e09fd03017ef7ed3a88c2",
   "profile/start.vbs": "f18939464b75f832eb9093b16d9428d4b655af3f10256ba2297391cf5d4750cc",
   "profile/stop.mjs": "90292ff4c2d3a15eca634bf780f7c5c136b382768e00ef8c248c7ca8835e6a61",
   "profile/stop.vbs": "42965d0519aa012e17e80336c5c99a25d0aa3909d26a2dcef2c50b0b5b534e7c",
-  "README.md": "56c359b54be1f0783cb86ab5d4da766d6b791e6df2f11eaa1a4ec959a6525df8",
-  "restore.py": "a685fa282308af7ad7aaed97ea77ed98036d1b7579a9fbc6a569b86fdeb384d7",
-  "SECURITY_PATCHES.md": "55d6ebecc17a9adc218867134a6f415d6a66e3a86a7077c733b534e72addd1a5",
-  "THIRD_PARTY.md": "0060c9c55e8dbe2de00dfbd6aa8ffdbb8c7100de0d2f55712a075a1c163df65e"
+  "restore.py": "a685fa282308af7ad7aaed97ea77ed98036d1b7579a9fbc6a569b86fdeb384d7"
 }
