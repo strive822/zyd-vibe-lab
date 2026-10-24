@@ -126,8 +126,8 @@ def check_file(path: Path, known: set[Path], errors: list[str]) -> list[str]:
         if not data.startswith(b"\x00\x00\x01\x00"):
             errors.append(f"{label}: invalid ICO signature")
         return checks + ["ICO signature"]
-    if path.suffix in {".ttf", ".wav"}:
-        valid = (data.startswith((b"\x00\x01\x00\x00", b"true", b"OTTO")) if path.suffix == ".ttf"
+    if path.suffix in {".ttf", ".otf", ".wav"}:
+        valid = (data.startswith((b"\x00\x01\x00\x00", b"true", b"OTTO")) if path.suffix in {".ttf", ".otf"}
                  else len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WAVE")
         if not valid:
             errors.append(f"{label}: invalid font/audio signature")

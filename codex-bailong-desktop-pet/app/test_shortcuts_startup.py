@@ -33,6 +33,14 @@ class ShortcutTests(unittest.TestCase):
     def click(self,key):
         self.pet.apply_settings(dict(capsule_action=key),save=False);settle(self.pet)
         self.pet.bubble.shortcut_button.click()
+    def test_upgraded_settings_preserve_accounts_and_never_restore_chat(self):
+        from PySide6.QtWidgets import QPushButton
+        self.pet.open_settings();settle(self.pet)
+        settings=self.pet.settings_dialog
+        for index in range(settings.tabs.count()):settings.build_page(index)
+        self.assertTrue(hasattr(settings,'account_settings'))
+        self.assertFalse(any('聊天服务' in button.text() for button in settings.findChildren(QPushButton)))
+        self.assertFalse(hasattr(self.pet,'open_chat_service'))
     def test_default_gpt_uses_browser_without_expanding_or_changing_size(self):
         b=self.pet.bubble;size=b.size()
         with patch('desktop.QDesktopServices.openUrl',return_value=True) as opened:
@@ -62,6 +70,7 @@ class ShortcutTests(unittest.TestCase):
         self.assertEqual(json.loads((self.root/'settings.json').read_text(encoding='utf-8'))['capsule_action'],'website')
     def test_codex_link_is_separate_draft_and_failed_registration_stays_dirty(self):
         self.pet.open_settings();settle(self.pet);s=self.pet.settings_dialog
+        s.tabs.setCurrentIndex(2)
         s.codex_startup.setChecked(True)
         with patch('codex_startup.configure',side_effect=OSError('denied')):s.apply()
         self.assertIn('codex_startup',s.draft.dirty)

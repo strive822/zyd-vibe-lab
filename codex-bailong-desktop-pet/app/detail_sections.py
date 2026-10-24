@@ -24,15 +24,15 @@ class DetailCard(QWidget):
         label=self.text(title,size=12,strong=True)
         label.setObjectName('detail_section_title')
     def text(self,text,size=12,strong=False,muted=False,warning=False):
-        if muted and not warning:size=min(size,10)
+        size=max(11,min(size,11) if muted and not warning else size)
         label=QLabel(str(text));label.setTextFormat(Qt.TextFormat.PlainText);label.setWordWrap(True)
         color='#915e74' if warning else '#706879' if muted else '#393343'
-        label.setStyleSheet(FONT_CSS+f'font-size:{size}px;font-weight:{600 if strong else 500};color:{color};background:transparent;')
+        label.setStyleSheet(FONT_CSS+f'font-size:{size}px;font-weight:{600 if size>14 else 500};color:{color};background:transparent;')
         self.body.addWidget(label);return label
     def add_metric(self,name,value,icon):
         row=QHBoxLayout();row.setSpacing(7);row.addWidget(MetricIcon(icon))
         title=QLabel(name);title.setTextFormat(Qt.TextFormat.PlainText);title.setWordWrap(True);title.setStyleSheet(FONT_CSS+'font-size:12px;color:#706879;');row.addWidget(title,1)
-        number=QLabel(value);number.setStyleSheet(FONT_CSS+'font-size:20px;color:#514360;');row.addWidget(number)
+        number=QLabel(value);number.setStyleSheet(FONT_CSS+'font-size:20px;font-weight:600;color:#514360;');row.addWidget(number)
         self.body.addLayout(row)
     def paintEvent(self,event):
         p=QPainter(self);p.setRenderHint(QPainter.RenderHint.Antialiasing)
@@ -78,16 +78,16 @@ class DetailsTabs(QTabWidget):
             card.add_metric(snapshot.get('month','')+' 累计',f"{snapshot.get('total',0):,}",'tokens')
             card.text(today_tokens(snapshot)['description'],size=11,muted=True)
             if snapshot.get('partial'):card.text('部分日志暂不可读，当前用量统计可能不完整。',size=11,warning=True)
-        card=self.card(tokens,'图表与统计范围')
+        card=self.card(tokens,'图表与统计口径')
         card.text('全部 / 近30天 / 近7天：用量柱状图。\n今日00–24时：每小时消耗曲线，非累计值。\n悬停图表可查看精确日期与用量。',size=11,muted=True)
         card.text('按各平台真实接口或本机记录统计；平台未提供的明细显示为不可用。长时段自动合并日期。',size=11,muted=True)
         pending=pending_reset(bubble.reset_snapshot)
-        countdown=Announcement(bubble.reset_snapshot,bubble.reset_feed_error,with_refresh=False)
+        countdown=Announcement(bubble.reset_snapshot,getattr(bubble,'reset_error_details',None) or bubble.reset_feed_error,with_refresh=False)
         card=self.card(reset,countdown.view['title'])
         card.body.addWidget(countdown)
         if countdown.view['phase']=='pending':card.text(schedule_text(bubble.reset_snapshot),size=10,muted=True)
         if pending and pending.get('text'):card.text(pending['text'])
-        if bubble.reset_feed_error:card.text('重置消息连接失败 · 显示上次记录' if bubble.reset_snapshot else '重置消息暂不可用，稍后自动重试',size=11,warning=True)
+        if bubble.reset_feed_error:card.text((getattr(bubble,'reset_error_details',None) or {}).get('message') or ('重置消息连接失败 · 显示上次记录' if bubble.reset_snapshot else '重置消息暂不可用，稍后自动重试'),size=11,warning=True)
         card=self.card(reset,'公告来源')
         card.text('Codex Resets（第三方）\n预计安排不等于账户额度已到账。',size=11,muted=True)
         card.body.addWidget(source_button(),0,Qt.AlignmentFlag.AlignLeft)

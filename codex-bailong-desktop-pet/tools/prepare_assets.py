@@ -36,10 +36,12 @@ def extract_assets(archive,destination):
             if not (0<entries[name].file_size<256*1024*1024):raise ValueError('Invalid asset size')
             target=destination.joinpath(*p.parts)
             if not target.resolve().is_relative_to(destination):raise ValueError('Asset path escaped destination')
-            if target.exists():raise ValueError('Existing asset file was preserved')
+            if target.exists() and not (name=='素材清单.json' and target.read_bytes()==bundle.read(entries[name])):
+                raise ValueError('Existing asset file was preserved')
         for name in names:
             target=destination.joinpath(*PurePosixPath(name).parts)
             if not target.resolve().is_relative_to(destination):raise ValueError('Asset path escaped destination')
+            if name=='素材清单.json' and target.exists():continue  # Keep an identical checked-in manifest.
             target.parent.mkdir(parents=True,exist_ok=True)
             with bundle.open(entries[name]) as source,target.open('wb') as output:shutil.copyfileobj(source,output)
     return len(names)
