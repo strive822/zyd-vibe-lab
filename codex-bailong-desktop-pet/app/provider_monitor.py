@@ -24,7 +24,10 @@ class ProviderMonitor(QObject):
         self.revisions = {key: 0 for key in PROVIDERS}
         self.inflight, self.next_due = set(), {}
         self.closed = False
-        self.query = query or AccountQueries().query
+        queries=None if query else AccountQueries(state_dir)
+        self.query = query or queries.query
+        if queries and start and self.configured('antigravity'):
+            self.snapshots['antigravity']=queries.antigravity.cached()
         self.completed.connect(self._complete)
         self.timer = QTimer(self)
         self.timer.setInterval(INTERVAL_MS)
@@ -78,6 +81,8 @@ class ProviderMonitor(QObject):
         if self.closed or revision != self.revisions[key]: return
         snapshot = dict(self.snapshots[key])
         if failure:
+            if key=='antigravity' and hasattr(failure,'account_scope') and snapshot.get('account_scope')!=failure.account_scope:
+                snapshot={}
             snapshot.update(error=str(failure), code=failure.code)
             delay = failure.retry_after or (30 if failure.code in ('authentication', 'configuration') else 5)
             self.next_due[key] = time.monotonic()+delay

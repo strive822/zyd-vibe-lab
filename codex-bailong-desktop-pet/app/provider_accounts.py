@@ -245,8 +245,9 @@ class AntigravityReader:
 
 
 class AccountQueries:
-    def __init__(self):
-        self.antigravity = AntigravityReader()
+    def __init__(self, state_dir=None):
+        from antigravity_cloud import AntigravityQuotaReader
+        self.antigravity = AntigravityQuotaReader(state_dir)
 
     def query(self, provider, config, secret):
         if provider == 'antigravity':
@@ -278,10 +279,11 @@ class AccountQueries:
 def snapshot_caption(provider, snapshot):
     pieces = [PROVIDERS[provider]]
     if snapshot.get('plan'): pieces.append(snapshot['plan'])
-    if snapshot.get('observed'): pieces.append(time.strftime('%H:%M:%S', time.localtime(snapshot['observed'])))
+    if snapshot.get('observed'): pieces.append(time.strftime('%m/%d %H:%M:%S', time.localtime(snapshot['observed'])))
     if snapshot.get('error'):
         pieces.append(snapshot['error'])
         if snapshot.get('windows'): pieces.append('上次记录')
-    elif snapshot.get('observed'): pieces.append('每5秒刷新')
+    elif snapshot.get('observed'):
+        pieces.append('云端 · 每5秒刷新' if snapshot.get('source')=='cloud' else '每5秒刷新')
     else: pieces.append('未连接')
     return ' · '.join(pieces)

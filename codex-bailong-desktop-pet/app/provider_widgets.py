@@ -68,7 +68,7 @@ class AccountSettings(QWidget):
         self.add_status(outer, 'workbuddy')
         self.add_header(outer,'antigravity')
         antigravity_form=QWidget();antigravity_outer=QVBoxLayout(antigravity_form);antigravity_outer.setContentsMargins(0,0,0,0)
-        note = QLabel('Antigravity 读取本机运行中的语言服务额度。请先在 Antigravity 中登录并打开一个项目；重登在原应用完成。')
+        note = QLabel('Antigravity 首次在原应用登录后，可直接查询云端额度，无需保持软件打开；登录失效时在原应用重新登录。网络异常会保留并标记最近一次额度。')
         note.setWordWrap(True)
         antigravity_outer.addWidget(note)
         button = QPushButton('重新检测 Antigravity')

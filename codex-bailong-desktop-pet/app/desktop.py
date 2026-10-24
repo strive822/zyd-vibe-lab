@@ -986,7 +986,7 @@ class DesktopPet(EnhancedPet):
         value['chat_enabled']=False
         value['account_refresh_ms']=self.accounts.timer.interval()
         value['provider_accounts']={key:dict(state=snapshot.get('code','pending' if self.accounts.configured(key) else 'unconfigured'),
-            observed=snapshot.get('observed'),metric_count=len(snapshot.get('windows',[]))) for key,snapshot in self.accounts.snapshots.items()}
+            observed=snapshot.get('observed'),source=snapshot.get('source'),metric_count=len(snapshot.get('windows',[]))) for key,snapshot in self.accounts.snapshots.items()}
         atomic_json(path,value)
     def closeEvent(self,event):
         if getattr(self,'_cleanup_job',None):
