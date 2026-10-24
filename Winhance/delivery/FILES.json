@@ -1,10 +1,10 @@
 {
   ".gitignore": "cb9caad13bfcad11aa2ac757c54ffe2930ffe69b6c3814da78242ee3d5d4e10a",
   "AGENTS.md": "1ab128cb181f21e966a97d8cffc925b8c2df2da5faec0175f135dbc8b504efdf",
-  "assets.json": "59af763be7c1a6effec3ee5f96eec09d5cd7b39bc3b70cd26cb5280f788a9472",
   "INSTALL.md": "173cb3c302158cb40a2311cdfb55c9e5fb3adb12ff66258667c71d3b38121b0b",
-  "profile/README.md": "9611f96de52dcf2fc53073b3aa9e602a96f087095c33beeed73c4fd2d28e4ac9",
   "README.md": "2344645e1349f07647ad12f205be6272c93aa7586c90136ead4c109fdcd809c6",
-  "restore.py": "cd42c6a0806fc653951fc0a3be5634d862a84a1dfd73e4f2a8b66872321568fa",
-  "THIRD_PARTY.md": "06ccb1a58b82ad03a5a88eeca16135e0f3bea8fb7ddbef1a5e358dfbded21a79"
+  "THIRD_PARTY.md": "3f8626cc730be7ec5874c0c7fc7666f84c910e48b8ffff55535347296fb80797",
+  "assets.json": "59af763be7c1a6effec3ee5f96eec09d5cd7b39bc3b70cd26cb5280f788a9472",
+  "profile/README.md": "9611f96de52dcf2fc53073b3aa9e602a96f087095c33beeed73c4fd2d28e4ac9",
+  "restore.py": "cd42c6a0806fc653951fc0a3be5634d862a84a1dfd73e4f2a8b66872321568fa"
 }
