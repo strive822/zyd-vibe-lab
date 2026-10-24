@@ -406,16 +406,34 @@
   let composerTimer = null;
   let originRect = null;
 
-  /** 展开后的落点：右下角锚定，宽度不超过视口；窄屏会自动往左展开。 */
+  /** 展开后的落点：右下角锚定，宽度不超过视口；窄屏会自动往左展开。
+   *  可见区域以 visualViewport 为准：键盘弹起时布局视口不会变矮，
+   *  只看 window.innerHeight 会把面板算到键盘底下。 */
   function panelRect(from) {
     const margin = 16;
-    const vw = window.innerWidth;
+    const vv = window.visualViewport;
+    const vw = vv ? vv.width : window.innerWidth;
+    const vh = vv ? vv.height : window.innerHeight;
     const width = Math.min(470, vw - margin * 2);
-    const height = Math.min(300, Math.round(window.innerHeight * 0.62));
+    const height = Math.min(300, Math.round(vh * 0.62), vh - margin * 2);
     const expandRight = from.left + width <= vw - margin;
     const left = expandRight ? from.left : Math.max(margin, vw - margin - width);
-    const top = Math.max(margin, from.bottom - height);
+    const bottom = Math.min(from.bottom, vh - margin);
+    const top = Math.max(margin, bottom - height);
     return { left, top, width, height };
+  }
+
+  /** 面板打开期间跟随可见区域：键盘是展开动画结束后聚焦时才弹起的，
+   *  迟到一步就会盖住面板下半截，所以打开期间持续按 panelRect 校正落点。 */
+  function followVisibleArea() {
+    if (!composerOpen || !originRect) return;
+    if (!el.composer.classList.contains('is-in')) return;
+    const target = panelRect(originRect);
+    el.composer.style.transition = 'none';
+    el.composer.style.left = target.left + 'px';
+    el.composer.style.top = target.top + 'px';
+    el.composer.style.width = target.width + 'px';
+    el.composer.style.height = target.height + 'px';
   }
 
   function openComposer() {
@@ -444,6 +462,11 @@
     el.composer.classList.add('is-open');
     el.fab.setAttribute('aria-expanded', 'true');
 
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', followVisibleArea);
+      window.visualViewport.addEventListener('scroll', followVisibleArea);
+    }
+
     clearTimeout(composerTimer);
     composerTimer = window.setTimeout(() => {
       el.panel.hidden = false;
@@ -459,13 +482,19 @@
     composerOpen = false;
     clearTimeout(composerTimer);
 
+    if (window.visualViewport) {
+      window.visualViewport.removeEventListener('resize', followVisibleArea);
+      window.visualViewport.removeEventListener('scroll', followVisibleArea);
+    }
+
     el.composer.classList.remove('is-in');
     el.panel.hidden = true;
     el.fab.setAttribute('aria-expanded', 'false');
     markInvalid(false);
 
-    // 沿同一条曲线收回 FAB 原来的矩形
+    // 沿同一条曲线收回 FAB 原来的矩形（先恢复过渡，跟随键盘时曾临时关掉）
     if (originRect) {
+      el.composer.style.transition = '';
       el.composer.style.left = originRect.left + 'px';
       el.composer.style.top = originRect.top + 'px';
       el.composer.style.width = originRect.width + 'px';
