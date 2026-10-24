@@ -13,10 +13,10 @@
   },
   {
     "id": "ffmpeg",
-    "url": "https://api.github.com/repos/yt-dlp/FFmpeg-Builds/releases/assets/666728455",
+    "url": "https://api.github.com/repos/yt-dlp/FFmpeg-Builds/releases/assets/669997580",
     "original_url": "https://github.com/yt-dlp/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl-shared.zip",
-    "release_id": 421069302,
-    "bytes": 91441336,
-    "sha256": "01e6b86d4a9405d775a783b8be82e2d48d6e4a1784347a568764502556121a3d"
+    "release_id": 422175147,
+    "bytes": 91450836,
+    "sha256": "8acccd2d34859919b51d07495544a19e8d0d15929290d8c88a3467b16f665473"
   }
 ]
