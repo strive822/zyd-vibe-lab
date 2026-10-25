@@ -1,6 +1,6 @@
 # 下载、准备环境与使用
 
-这是 Windows x64 / Python 3.12 的个人多平台白龙桌宠源码版，目录名 `codex-bailong-desktop-pet`。源码、依赖清单、字体许可、素材来源和启动脚本在同一项目内；不依赖其他项目。
+这是基于上游 v1.0.0 的 Windows x64 / Python 3.12 个人多平台白龙桌宠源码版，目录名 `codex-bailong-desktop-pet`。源码、依赖清单、字体许可、素材来源和启动脚本在同一项目内；不依赖其他项目。
 
 ## 1. 完整获取与核验
 
@@ -29,7 +29,7 @@ py -3.12 -m venv .venv
 
 ## 3. 动画素材
 
-Git 和源码交付 ZIP 不包含大型角色动画，保留 [NOTICE.md](NOTICE.md) 和 [上游素材说明](docs/upstream/ASSETS.md)。优先复用用户已下载的白龙播放素材：
+可先直接运行仅卡片模式，之后在设置中下载角色动画。Git 和源码交付 ZIP 不包含大型角色动画，保留 [NOTICE.md](NOTICE.md) 和 [上游素材说明](docs/upstream/ASSETS.md)。优先复用用户已下载的白龙播放素材：
 
 ```powershell
 .\.venv\Scripts\python.exe tools\import_installed_assets.py --source '已有白龙目录'
@@ -51,9 +51,9 @@ Git 和源码交付 ZIP 不包含大型角色动画，保留 [NOTICE.md](NOTICE.
 .\.venv\Scripts\python.exe app\enhanced.py --settings
 ```
 
-确认人物和卡片实际显示；中间胶囊悬浮展开正常卡片，右侧额度胶囊悬浮展开详情，离开后收回；左侧快捷按钮仍为点击。设置中的快捷动作可选择 Codex。聊天入口已移除。快捷方式图标使用项目内 `app\branding\bailong.ico` 的官方白龙娘头像；目标保持源码启动入口。
+确认卡片实际显示，有动画素材时还会显示人物；中间胶囊悬浮展开正常卡片，右侧额度胶囊悬浮展开详情，离开后收回；左侧快捷按钮仍为点击。设置中的快捷动作可选择 Codex。聊天入口已移除。快捷方式图标使用项目内 `app\branding\bailong.ico` 的官方白龙娘头像；目标保持源码启动入口。
 
-在“设置 → 连接 → 其他平台账号”连接本人账号。保存后表单收起，点“管理”修改。顶部平台菜单切换额度与 Token，日报“模型”可按平台筛选。详细数据口径和限制见 [多平台账号说明](docs/多平台账号说明.md)。GLM、DeepSeek、WorkBuddy、Antigravity 额度正常每5秒刷新；限流与失效会退避，失败保留有效旧值。Token 获取失败不影响额度。
+在“设置 → 连接 → 其他平台账号”连接本人账号。保存后表单收起，点“管理”修改。顶部平台菜单切换额度与 Token，数据面板“模型”可按平台筛选，“额度对比”展示 Codex 历史估算，不代表其他平台额度。详细数据口径和限制见 [多平台账号说明](docs/多平台账号说明.md)。GLM、DeepSeek、WorkBuddy、Antigravity 额度正常每5秒刷新；限流与失效会退避，失败保留有效旧值。Token 获取失败不影响额度。
 
 后台运行不等于账号成功；分别核验余额/积分/比例与 Token 的连接状态。DeepSeek 用量需单独在官方页面登录，API Key 仅能查余额。WorkBuddy 云端会话未提供 Token 时显示“未提供”，不按积分估算。Antigravity 首次在原应用登录后，桌宠直接用已保存的 Windows 登录状态查询云端额度，软件关闭也可刷新；失效后才需原应用重新登录。Token 会话明细仍依赖本机语言服务，和额度查询分开。
 
@@ -64,7 +64,7 @@ Git 和源码交付 ZIP 不包含大型角色动画，保留 [NOTICE.md](NOTICE.
 ```powershell
 $env:PYTHONPATH='app'
 $env:QT_QPA_PLATFORM='offscreen'
-.\.venv\Scripts\python.exe -m unittest test_provider_accounts test_provider_tokens test_provider_ui test_token_charts test_daily_report test_quota_summary_data test_island test_refresh_flow -q
+.\.venv\Scripts\python.exe -m unittest test_antigravity_cloud test_optional_materials test_quota_history test_settings_controls test_wandering test_week_cycle test_provider_accounts test_provider_tokens test_provider_ui test_token_charts test_daily_report test_quota_summary_data test_island test_refresh_flow -q
 .\.venv\Scripts\python.exe -m compileall -q app tools
 ```
 

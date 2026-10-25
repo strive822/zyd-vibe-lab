@@ -59,6 +59,28 @@ class ProviderUiTests(unittest.TestCase):
         text='\n'.join(w.text() for w in self.b.details_tabs.findChildren(QLabel))
         for i in range(6):self.assertIn('Model '+str(i),text)
 
+    def test_model_filter_and_codex_quota_history_survive_page_switch(self):
+        from daily_report import DailyReport
+        from test_daily_report import sample
+        self.b.token_snapshot=sample()
+        history={'cycles':[], 'migration':{'complete':True}}
+        self.b.token_snapshot['quota_history']=history
+        self.b.provider_token_snapshots['glm']=dict(report=dict(
+            day='2026-10-18',models_end='2026-10-18',
+            daily_models=[dict(day='2026-10-18',model='glm-test',total=123,input=100,output=23,known=True)]))
+        report=DailyReport(self.b)
+        try:
+            report.set_snapshot(self.b.report_snapshot())
+            report.set_page('models');report.set_platform('glm')
+            self.assertEqual(report.report['daily_models'][0]['model'],'glm-test')
+            report.set_page('cycle')
+            self.assertIs(report.snapshot['quota_history'],history)
+            self.assertNotIn('glm-test',str(report.snapshot['report']['daily_models']))
+            report.set_page('models')
+            self.assertEqual(report.platform_filter,'glm')
+            self.assertEqual(report.report['daily_models'][0]['model'],'glm-test')
+        finally:report.close();report.deleteLater();settle()
+
     def test_chat_removed_from_navigation_shortcuts_and_runtime(self):
         from quick_actions import ACTIONS,action_info
         from desktop import DesktopPet

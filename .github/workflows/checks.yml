@@ -163,4 +163,4 @@ jobs:
           python-version: '3.12'
       - run: python -m pip install -r requirements-enhanced.txt
       - run: python -m compileall -q app tools
-      - run: python -m unittest test_antigravity_cloud test_provider_accounts test_provider_tokens test_provider_ui test_token_charts test_daily_report test_quota_summary_data test_island test_refresh_flow -q
+      - run: python -m unittest test_optional_materials test_quota_history test_settings_controls test_wandering test_week_cycle test_antigravity_cloud test_provider_accounts test_provider_tokens test_provider_ui test_token_charts test_daily_report test_quota_summary_data test_island test_refresh_flow -q
