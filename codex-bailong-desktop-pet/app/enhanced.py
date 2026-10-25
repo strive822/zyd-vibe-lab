@@ -674,6 +674,7 @@ class EnhancedPet(Pet):
         if not self.refresh_flow.batches:self.refresh_timeout.stop()
 
     def notify(self,title,text):
+        if not self.settings.get('notifications',False):return
         self.notify_history.append({'title':title,'at':time.time()})
         if sys.platform=='win32':
             # Qt's showMessage has no silent option. Never fall back to an audible alert.

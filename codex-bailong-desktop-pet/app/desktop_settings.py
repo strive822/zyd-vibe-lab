@@ -99,6 +99,7 @@ class SettingsDialog(QDialog):
         appearance=self.tab('面板与显示')
         self.section(appearance,'显示内容',None)
         self.check(appearance,'panel_detached','面板与人物分别移动')
+        self.check(appearance,'notifications','桌宠系统通知（任务完成、额度及重置提醒）')
         for key,title in [('character_visible','显示人物'),('on_top','始终置顶'),('video_fullscreen_yield','全屏视频时让位'),('mouse_through','鼠标穿透（可从托盘恢复）'),('bubble','显示面板'),('quota_visible','显示额度和重置时间')]:
             self.check(appearance,key,title)
             if key=='video_fullscreen_yield':
