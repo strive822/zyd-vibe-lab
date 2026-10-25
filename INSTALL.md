@@ -1,6 +1,6 @@
 # 给 Agent 的下载与使用入口
 
-这是包含10 个独立项目的仓库。用户要你下载、安装或运行时，请完成实际操作，并报告文件、环境和运行的真实结果。
+这是包含 11 个独立项目的仓库。用户要你下载、安装或运行时，请完成实际操作，并报告文件、环境和运行的真实结果。
 
 ## 按用户点名的项目选择
 
@@ -9,6 +9,7 @@
 | 毕业论文、论文工作流、graduation-thesis-workflow | 安装论文技能，再进入需求访谈 | [论文安装入口](graduation-thesis-workflow/INSTALL.md) |
 | 定投、三资产、计算器、dca-calculator | 下载源码、准备依赖、启动本地网页 | [计算器安装入口](dca-calculator/INSTALL.md) |
 | 额度、浮窗、usage、codex-usage | Windows x64 优先使用便携包 | [浮窗安装入口](codex-usage/INSTALL.md) |
+| Pi 任务通知、任务完成通知、pi-task-notify | Pi 完成任务、出错、等你确认时发系统通知 | [任务通知安装入口](pi-task-notify/INSTALL.md) |
 | 白龙、桌宠、多平台 Token、codex-bailong-desktop-pet | 项目内 Python 环境、官方播放素材与源码启动 | [白龙安装入口](codex-bailong-desktop-pet/INSTALL.md) |
 | 今日待办、待办清单、today-todo | 下载零依赖 Node 服务并验证 | [待办安装入口](today-todo/INSTALL.md) |
 | LibreTV | 单独下载、核验与按需恢复 | [LibreTV 安装入口](LibreTV/INSTALL.md) |
@@ -32,6 +33,7 @@ https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/INSTALL.md
 https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/graduation-thesis-workflow/INSTALL.md
 https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/dca-calculator/INSTALL.md
 https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/codex-usage/INSTALL.md
+https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/pi-task-notify/INSTALL.md
 ```
 
 按当前宿主识别 Windows / PowerShell、WSL / Linux 或 macOS，并检查实际可用工具。Agent 自动完成已授权且必要的依赖准备；组织策略和系统权限提示仍使用正常流程，不绕过。

@@ -1,0 +1,38 @@
+{
+  "name": "pi-task-notify",
+  "version": "0.1.0",
+  "description": "System notifications when the Pi coding agent needs you: task complete, run errors, waiting for your confirmation, and long-task heartbeat. Unfocused-window aware, tiered sounds, zero-config.",
+  "keywords": [
+    "pi-package",
+    "pi",
+    "notification",
+    "toast",
+    "notify-send",
+    "osascript"
+  ],
+  "type": "module",
+  "license": "MIT",
+  "author": "strive822",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/strive822/zyd-vibe-lab"
+  },
+  "pi": {
+    "extensions": [
+      "./extensions/index.ts"
+    ]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "peerDependenciesMeta": {
+    "@earendil-works/pi-coding-agent": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "^1.4.0",
+    "@types/node": "^22",
+    "typescript": "^5"
+  }
+}

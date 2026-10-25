@@ -2,7 +2,7 @@
 
 zhongyudi 的个人项目仓库：各项目独立下载、安装、运行和维护；原工具箱已拆为五个独立目录。
 
-> 原 github-toolbox 已拆为五个独立项目；全部 10 个项目都有自己的 Agent 入口、独立下载包和 SHA-256。
+> 原 github-toolbox 已拆为五个独立项目；全部 11 个项目都有自己的 Agent 入口、独立下载包和 SHA-256。
 
 ## 直接让 Agent 帮你使用
 
@@ -62,6 +62,12 @@ zhongyudi 的个人项目仓库：各项目独立下载、安装、运行和维�
 下载并运行 https://github.com/strive822/zyd-vibe-lab 里的 today-todo。请先读取该项目 INSTALL.md，把文件放进新目录并核验，再用 Node.js 启动本地服务、打开 http://localhost:3000 验证页面；不要覆盖已有的数据文件。
 ```
 
+**Pi 任务通知（任务完成/出错/等确认/心跳系统通知）：**
+
+```text
+下载并安装 https://github.com/strive822/zyd-vibe-lab 里的 pi-task-notify。请先读取该项目 INSTALL.md，按说明用 pi install npm:pi-task-notify 安装（或下载源码用 pi -e 试用），重启 Pi 后运行 /notify-test 验证 4 条样例通知，并向我报告每一步的真实结果；不要改动我已有的 Pi 配置。
+```
+
 **白龙桌宠（多平台额度与 Token）：**
 
 ```text
@@ -82,6 +88,7 @@ zhongyudi 的个人项目仓库：各项目独立下载、安装、运行和维�
 | [Windows-MCP](Windows-MCP/README.md) | 独立的个人使用配置与固定下载版本 | [Agent 入口](Windows-MCP/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/Windows-MCP/delivery/Windows-MCP.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/Windows-MCP/delivery/SHA256SUMS.txt) |
 | [rea](rea/README.md) | 独立的个人使用配置与固定下载版本 | [Agent 入口](rea/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/rea/delivery/rea.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/rea/delivery/SHA256SUMS.txt) |
 | [Winhance](Winhance/README.md) | 独立的个人使用配置与固定下载版本 | [Agent 入口](Winhance/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/Winhance/delivery/Winhance.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/Winhance/delivery/SHA256SUMS.txt) |
+| [pi-task-notify](pi-task-notify/README.md) | Pi 编码代理任务通知：完成/出错/等确认/心跳，失焦才打扰，Windows 实测 | [安装与验证](pi-task-notify/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/pi-task-notify/delivery/pi-task-notify.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/pi-task-notify/delivery/SHA256SUMS.txt) |
 | [today-todo](today-todo/README.md) | 电脑与手机局域网共用的今日清单，零依赖 Node 服务 + 原生前端 | [下载与启动](today-todo/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/today-todo/delivery/today-todo.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/today-todo/delivery/SHA256SUMS.txt) |
 | [codex-bailong-desktop-pet](codex-bailong-desktop-pet/README.md) | 白龙桌宠，多平台额度、Token 与悬浮胶囊 | [安装与使用](codex-bailong-desktop-pet/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/codex-bailong-desktop-pet/delivery/codex-bailong-desktop-pet.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/codex-bailong-desktop-pet/delivery/SHA256SUMS.txt) |
 
