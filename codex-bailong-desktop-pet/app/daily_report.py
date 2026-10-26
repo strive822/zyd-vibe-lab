@@ -244,15 +244,26 @@ class DailyReport(QWidget):
         frame=None
         if self.isVisible() and not self._animating and not self.follow.active and motion_enabled():
             if self.plot:self.plot.freeze_reveal()
-            frame=self.page_fade.snapshot(self.scroll)
+            frame=self.page_fade.snapshot_region(self.surface,self.scroll.geometry()) if self.page_fade.isVisible() else self.page_fade.snapshot(self.scroll)
         self.page_fade.clear()
         self.page=page
         requested=self.requested;self.requested=False
         try:self.set_snapshot(self.full_snapshot)
         finally:self.requested=requested
         self.rebuild();self.sync_geometry();self.layout.activate()
-        if frame is not None:self.page_fade.present(frame,self.scroll.geometry())
-        self.chart_entry()
+        if frame is not None:
+            # Settle and paint the live page first. The old frame then fades
+            # over a ready target while its chart reveal runs beneath it.
+            widgets=[self.scroll]+self.scroll.findChildren(QWidget)
+            for widget in reversed(widgets):
+                widget.ensurePolished()
+                if widget.layout():widget.layout().activate()
+            QApplication.sendPostedEvents(None,QEvent.Type.LayoutRequest)
+            self.page_fade.present(frame,None,self.scroll.geometry(),fade_out=True)
+            self.chart_entry()
+            # Start from a painted zero-progress chart underneath the overlay.
+            self.scroll.repaint()
+        else:self.chart_entry()
     def set_platform(self,key):
         self.platform_filter=key;self.selected_model=None;self._series_cache.clear()
         self.set_snapshot(self.full_snapshot);self.rebuild();self.sync_geometry();self.chart_entry()
@@ -425,7 +436,6 @@ class DailyReport(QWidget):
             model_group=QWidget();self.model_layout=QVBoxLayout(model_group);self.model_layout.setContentsMargins(0,0,0,0);self.model_layout.setSpacing(4)
             self._add_model_rows(series);content.addWidget(model_group)
             self.body_height=163+min(4,max(1,len(series['models'])))*43
-        self.scroll.setWidget(body);self.layout.addWidget(self.scroll,1);self.scroll.show()
         self.body_height+=30
         if self.readout:
             self.readout.setSizePolicy(QSizePolicy.Policy.Ignored,QSizePolicy.Policy.Fixed)
@@ -447,6 +457,9 @@ class DailyReport(QWidget):
         foot.setVisible(self.page!='cycle')
         content.addWidget(foot)
         content.addStretch()
+        # Attach once the complete body exists. Showing the scroll area earlier
+        # leaves later cards pending ShowToParent, so their height is omitted.
+        self.scroll.setWidget(body);self.layout.addWidget(self.scroll,1);self.scroll.show()
         # Measure the whole overview, including wrapped book/source notes.
         # Models reuse this canvas and scroll only when their rows overflow it.
         self._building=False
@@ -567,9 +580,15 @@ class DailyReport(QWidget):
                 self._pending_rebuild=False;self.rebuild()
                 if self.plot:self.plot.begin_reveal()
             self.fraction=1.;self.sync_geometry();self.surface.move(self.PAD,self.PAD);self.surface.show()
-            self.refresh_button.resume_motion('surface')
-            self._frame=None;self._input_passthrough(False)
         finally:self.setUpdatesEnabled(enabled)
+        # Keep the prepared raster underneath until the live, possibly long-idle
+        # child hierarchy has painted at its final native size. The old order
+        # dropped _frame before this first real paint, exposing stale/blank
+        # scroll-area backing pixels for one compositor frame on Windows.
+        self.surface.repaint()
+        if self.scroll and self.scroll.isVisible():self.scroll.repaint()
+        self.refresh_button.resume_motion('surface')
+        self._frame=None;self._input_passthrough(False)
         self.repaint()
         if guarded:
             present_barrier();self.follow.park(self.follow.shield)

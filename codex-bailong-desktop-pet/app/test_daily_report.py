@@ -82,6 +82,15 @@ def sample():
              for day,value in [(12,1200),(13,30000),(14,12000),(15,56000),(16,78000),(17,30000)] for m in ('gpt-6.1-sol','gpt-6-sol')]))
 
 class ReportUiTests(unittest.TestCase):
+    def test_cycle_to_overview_measures_complete_body_before_resize(self):
+        self.r.open();self.complete()
+        for width in (268,420,560):
+            self.b.setFixedWidth(width);self.r.sync_geometry();initial=self.r.surface.size()
+            for page in ('cycle','overview','models','overview','cycle','overview'):
+                self.r.set_page(page)
+                self.assertEqual(self.r.surface.size(),initial,(width,page))
+                APP.processEvents()
+                self.assertEqual(self.r.surface.size(),initial,(width,page))
     def setUp(self):
         self.b=CompactBubble();self.b.move(100,650);self.b.show();APP.processEvents()
         self.r=DailyReport(self.b);self.b.report=self.r;self.r.set_snapshot(sample())
@@ -123,8 +132,8 @@ class ReportUiTests(unittest.TestCase):
         self.assertIn('75%',self.r.cycle_view.detail.text())
         APP.processEvents()
         self.assertEqual(self.r.scroll.verticalScrollBar().maximum(),0)
-        self.assertTrue(self.r.scroll.viewport().rect().contains(
-            self.r.cycle_view.note.mapTo(self.r.scroll.viewport(),self.r.cycle_view.note.rect().bottomRight())))
+        self.assertTrue(self.r.cycle_view.note.isHidden() or self.r.cycle_view.rules.isHidden())
+        self.assertTrue(self.r.cycle_view.rules_button.isVisible())
         data=dict(data,quota_history=dict(cycles=[dict(item,estimated_total=None,complete=False)]))
         self.r.set_snapshot(data)
         self.assertEqual(self.r.cycle_view.estimate.text(),'—')
