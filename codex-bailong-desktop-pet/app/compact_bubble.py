@@ -829,8 +829,9 @@ class CompactBubble(Bubble):
     def set_mode(self,mode):
         if mode not in ('auto','mini','minimal'):raise ValueError('未知的卡片显示模式')
         if self.size_transition.running:self._pending_mode=mode;self._pending_navigation=None;return
+        self.size_transition.begin()
         self.hover_expanded=False;self.hover_watch.stop()
-        self.size_transition.begin();self.bubble_mode=mode;self.auto_compact=False;self._minimal_normal_open=False
+        self.bubble_mode=mode;self.auto_compact=False;self._minimal_normal_open=False
         self.expanded=False;self.panel_page='status';self._editor_origin=None
         self.last_task_update=time.monotonic();self._manual_grace_until=self.last_task_update+15
         if self.report:self.report.dismiss()

@@ -61,6 +61,15 @@ class ProviderUiTests(unittest.TestCase):
         card=next(c for c in self.b.findChildren(QuotaSummary) if c.isVisible())
         self.assertEqual(card.items[0]['display'],'75%')
 
+    def test_compact_button_after_hover_expansion_captures_the_visible_card(self):
+        self.b.set_mode('mini');settle()
+        self.b.expand_on_hover();settle()
+        self.assertTrue(self.b.hover_expanded)
+        self.assertIsNone(self.b.island)
+        self.b.set_mode('mini');settle()
+        self.assertTrue(self.b.is_island())
+        self.assertFalse(self.b.hover_expanded)
+
     def test_antigravity_details_include_every_model_not_only_first_two(self):
         self.b.provider_snapshots['antigravity']=parse_antigravity({'clientModelConfigs':[
             dict(label='Model '+str(i),quotaInfo=dict(remainingFraction=.5)) for i in range(6)]})

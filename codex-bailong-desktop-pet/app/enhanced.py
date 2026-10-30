@@ -96,14 +96,14 @@ class ActivityThread(QThread):
                     existing={session_id(s) for s in self.tail.reducer.sessions}
                     for e in seeds:
                         if session_id(e['session']) not in existing:
-                            self.tail.reducer.sessions[e['session']]=Session(title=e['title'],state='working',turn=e['turn'],done=False,updated=time.monotonic())
+                            self.tail.reducer.sessions[e['session']]=Session(title=e['title'],state='working',turn=e['turn'],done=False,updated=time.monotonic(),activity_confirmed=False)
                 with self.context_lock:displayed=self.displayed;visited=self.visited
                 self.targets.sync(self.tail.reducer.sessions,pending,displayed,visited)
                 self.tail.set_pins(self.targets.pinned());batch=self.tail.poll()
                 if not self.seed_status_sent:
                     self.seed_status_sent=True
                     states={session_id(sid):v for sid,v in self.tail.reducer.sessions.items()}
-                    batch.extend(e for e in seeds if not states.get(session_id(e['session']),Session()).done)
+                    batch.extend(e for e in seeds if not states.get(session_id(e['session']),Session()).done and states[session_id(e['session'])].activity_confirmed)
                 self.targets.sync(self.tail.reducer.sessions,pending,displayed,visited)
                 self.live_reader.set_targets(self.targets.ipc_targets())
                 while not self.live_events.empty():
@@ -112,6 +112,7 @@ class ActivityThread(QThread):
                         if phase=='terminal':
                             batch.extend(self.tail.reducer.terminate(target,value,turn));continue
                         if phase=='activity':
+                            batch.extend(self.tail.reducer.confirm_activity(target,value,turn))
                             batch.append(dict(kind='animation_lifecycle',session=target,turn=turn,active=value));continue
                         apply=self.tail.reducer.set_waiting if phase=='waiting' else self.tail.reducer.set_compacting
                         batch.extend(apply(target,value,turn))

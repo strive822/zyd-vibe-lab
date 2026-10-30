@@ -103,6 +103,7 @@ class Session:
     compacting: bool = False
     waiting_reason: str = ''
     updated: float = 0
+    activity_confirmed: bool = True
 
 
 class ActivityReducer:
@@ -113,16 +114,24 @@ class ActivityReducer:
     def _status(self,sid,s,activity='commentary',user_message=False,turn_started=False):
         waiting=s.waiting_reason if not s.done else ''
         label={'input':'等待你的输入','approval':'等待你的批准'}.get(waiting)
-        return dict(kind='status',session=sid,state='waiting' if waiting else 'working' if s.compacting else s.state,
-                    text=label or ('正在压缩上下文' if s.compacting else s.message),title=s.title,turn=s.turn,
-                    activity='waiting' if waiting else 'compact' if s.compacting else activity,display=label or ('正在压缩上下文' if s.compacting else s.display),
-                    compacting=s.compacting,waiting_reason=waiting,waiting=sum(bool(x.waiting_reason) and not x.done for x in self.sessions.values()),
-                    user_message=user_message,turn_started=turn_started,active=sum(not x.done or x.compacting for x in self.sessions.values()))
+        confirmed=s.activity_confirmed
+        return dict(kind='status',session=sid,state=('waiting' if waiting else 'working' if s.compacting else s.state) if confirmed else 'idle',
+                    text=(label or ('正在压缩上下文' if s.compacting else s.message)) if confirmed else '等待任务状态确认',title=s.title,turn=s.turn,
+                    activity=('waiting' if waiting else 'compact' if s.compacting else activity) if confirmed else 'recovery_pending',display=(label or ('正在压缩上下文' if s.compacting else s.display)) if confirmed else '等待任务状态确认',
+                    compacting=s.compacting if confirmed else False,waiting_reason=waiting if confirmed else '',waiting=sum(x.activity_confirmed and bool(x.waiting_reason) and not x.done for x in self.sessions.values()),
+                    user_message=user_message,turn_started=turn_started,active=sum(x.activity_confirmed and (not x.done or x.compacting) for x in self.sessions.values()))
+
+    def confirm_activity(self,sid,active,turn):
+        """Recover a historical seed once, only for a matching live active turn."""
+        s=self.sessions.get(sid)
+        if not active or not s or s.activity_confirmed or s.source_subagent or s.done or not turn or s.turn!=turn:return []
+        s.activity_confirmed=True
+        return [self._status(sid,s,activity='recovery')]
 
     def terminate(self,sid,status,turn):
         s=self.sessions.get(sid)
         if not s or s.source_subagent or s.done or not turn or s.turn!=turn or status not in ('completed','failed','interrupted'):return []
-        s.done=True;s.closed_turn=turn;s.compacting=False;s.waiting_reason=''
+        s.done=True;s.closed_turn=turn;s.compacting=False;s.waiting_reason='';s.activity_confirmed=True
         s.state='complete' if status=='completed' else 'interrupted'
         s.message=s.display={'completed':'任务已完成','failed':'任务执行失败','interrupted':'任务已中断'}[status]
         events=[]
@@ -135,6 +144,7 @@ class ActivityReducer:
         if turn and s.turn and turn!=s.turn:return []
         if reason==s.waiting_reason:return []
         s.waiting_reason=reason
+        if reason:s.activity_confirmed=True
         return [self._status(sid,s)]
 
     def set_compacting(self,sid,value,turn=''):
@@ -144,10 +154,11 @@ class ActivityReducer:
         if turn and s.turn and turn!=s.turn and not s.done:return []
         if turn and (not s.turn or s.done):s.turn=turn;s.closed_turn=''
         s.compacting=bool(value)
+        if value:s.activity_confirmed=True
         return [self._status(sid,s)]
 
     def apply(self, sid, obj, historical=False):
-        s = self.sessions.setdefault(sid, Session())
+        s = self.sessions.setdefault(sid, Session(activity_confirmed=not historical))
         s.updated=time.monotonic()
         kind = obj.get('type')
         p = obj.get('payload') or {}
@@ -275,6 +286,7 @@ class ActivityReducer:
             if kinds and not s.done:
                 s.state='working';s.display=operation_label(kinds,True);changed=True
         if changed and not historical:
+            s.activity_confirmed=True
             activity='commentary'
             if s.state=='thinking':activity='thinking'
             elif s.state=='responding':activity='reply'
