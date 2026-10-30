@@ -18,6 +18,21 @@ def settle():
     app.processEvents()
 
 class BubbleTests(unittest.TestCase):
+    def test_pet_speech_temporarily_replaces_rows_then_restores_latest_session(self):
+        b=self.bubble;b.show();settle()
+        b.roster.observe(dict(session='a',state='working',title='任务A',display='正在编辑文件'))
+        b.refresh_status();self.assertIn('正在编辑文件',b.status_view.text())
+        b.message('测试点击台词',speech=True);self.assertEqual(b.status_view.text(),'测试点击台词')
+        b.roster.observe(dict(session='a',state='working',title='任务A',display='正在运行命令'));b.refresh_status()
+        self.assertEqual(b.status_view.text(),'测试点击台词')
+        b.set_activity_text('等待 Codex 新消息');self.assertIn('正在运行命令',b.status_view.text())
+    def test_speech_survives_redraw_and_does_not_acknowledge_completion(self):
+        b=self.bubble;b.show();settle()
+        b.roster.observe(dict(session='a',state='complete',title='任务A',text='完成'))
+        b.status_indicator.notify_complete(dict(session='a',turn='done-1'))
+        b.message('测试自动台词',speech=True);b.redraw()
+        self.assertEqual(b.status_view.text(),'测试自动台词');self.assertEqual(len(b.status_indicator.unread),1)
+        b.set_activity_text('完成');self.assertEqual(len(b.status_indicator.unread),1)
     def setUp(self):self.bubble=CompactBubble();self.bubble.status='正在检查代码';self.bubble.heading='Codex · 处理中'
     def tearDown(self):self.bubble.close();self.bubble.deleteLater();settle()
     def test_single_quota_uses_adjacent_default_token_chart(self):
@@ -54,15 +69,15 @@ class BubbleTests(unittest.TestCase):
         self.bubble.refreshAllRequested.connect(lambda:events.append('all'))
         self.bubble.codexRequested.connect(lambda:events.append('codex'))
         self.bubble.settingsRequested.connect(lambda:events.append('settings'))
-        self.bubble.chatRequested.connect(lambda:events.append('chat'))
         self.bubble.optionRequested.connect(lambda key,value:events.append((key,value)))
         self.bubble.refresh_button.click();self.visible_button('open_codex').click()
         self.assertEqual(events,['all','codex']);self.assertEqual(self.bubble.size(),small)
         self.bubble.finish_refresh();self.visible_button('card_reset').click();self.bubble.refresh_button.click();self.assertEqual(events[-1],'all')
         self.bubble.finish_refresh()
-        self.bubble.toggle_details();settle();self.visible_button('bubble_settings').click();self.visible_button('bubble_chat').click()
+        self.bubble.toggle_details();settle();self.visible_button('bubble_settings').click()
+        self.assertFalse(self.bubble.findChildren(QToolButton,'bubble_chat'))
         self.visible_button('bubble_pin').click();self.visible_button('bubble_move').click()
-        self.assertEqual(events[-4:],['settings','chat',('on_top',False),('wandering',False)])
+        self.assertEqual(events[-3:],['settings',('on_top',False),('wandering',False)])
         self.bubble.toggle_details();settle();self.assertEqual(self.bubble.size(),small)
     def test_busy_refresh_state_survives_status_redraw_and_recovers(self):
         events=[];self.bubble.windows=[dict(name='一周',remaining=80)];self.bubble.select_dashboard('reset')

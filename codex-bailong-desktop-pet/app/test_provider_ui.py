@@ -28,6 +28,16 @@ def settle():
 
 
 class ProviderUiTests(unittest.TestCase):
+    def test_system_notifications_stay_off_before_any_shell_access(self):
+        from types import SimpleNamespace
+        from desktop_core import normalized
+        from enhanced import EnhancedPet
+        settings=normalized({'notifications':False})
+        self.assertFalse(normalized({})['notifications'])
+        pet=SimpleNamespace(settings=settings,notify_history=[])
+        EnhancedPet.notify(pet,'test-only notification','test-only body')
+        self.assertEqual(pet.notify_history,[])
+
     def setUp(self):
         self.b=CompactBubble()
         self.b.windows=[dict(name='5小时',remaining=75)]
@@ -61,6 +71,8 @@ class ProviderUiTests(unittest.TestCase):
 
     def test_model_filter_and_codex_quota_history_survive_page_switch(self):
         from daily_report import DailyReport
+        from desktop import DesktopPet
+        from types import SimpleNamespace
         from test_daily_report import sample
         self.b.token_snapshot=sample()
         history={'cycles':[], 'migration':{'complete':True}}
@@ -69,6 +81,7 @@ class ProviderUiTests(unittest.TestCase):
             day='2026-10-18',models_end='2026-10-18',
             daily_models=[dict(day='2026-10-18',model='glm-test',total=123,input=100,output=23,known=True)]))
         report=DailyReport(self.b)
+        self.b.report=report
         try:
             report.set_snapshot(self.b.report_snapshot())
             report.set_page('models');report.set_platform('glm')
@@ -78,6 +91,11 @@ class ProviderUiTests(unittest.TestCase):
             self.assertNotIn('glm-test',str(report.snapshot['report']['daily_models']))
             report.set_page('models')
             self.assertEqual(report.platform_filter,'glm')
+            self.assertEqual(report.report['daily_models'][0]['model'],'glm-test')
+            with patch.object(report,'open'):
+                DesktopPet.open_quota_comparison(SimpleNamespace(bubble=self.b))
+            self.assertIn('glm',report.full_snapshot.get('platform_snapshots',{}))
+            report.set_page('models')
             self.assertEqual(report.report['daily_models'][0]['model'],'glm-test')
         finally:report.close();report.deleteLater();settle()
 

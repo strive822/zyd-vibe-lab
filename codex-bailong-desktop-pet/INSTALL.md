@@ -1,6 +1,8 @@
+> 本版本已完成v1.2.1人工终审和源码运行升级。验证范围、历史审查及回滚见 [升级审阅说明](docs/upgrade-review-1.2.1.md)。
+
 # 下载、准备环境与使用
 
-这是基于上游 v1.1.0 的 Windows x64 / Python 3.12 个人多平台白龙桌宠源码版，目录名 `codex-bailong-desktop-pet`。源码、依赖清单、字体许可、素材来源和启动脚本在同一项目内；不依赖其他项目。
+这是基于上游 v1.2.1 的 Windows x64 / Python 3.12 个人多平台白龙桌宠源码版，目录名 `codex-bailong-desktop-pet`。源码、依赖清单、字体许可、素材来源和启动脚本在同一项目内；不依赖其他项目。
 
 ## 1. 完整获取与核验
 
@@ -64,7 +66,7 @@ py -3.12 -m venv .venv
 ```powershell
 $env:PYTHONPATH='app'
 $env:QT_QPA_PLATFORM='offscreen'
-.\.venv\Scripts\python.exe -m unittest test_storage_locations test_wsl_codex test_animation_updates test_quota_compare_ui test_antigravity_cloud test_optional_materials test_quota_history test_settings_controls test_wandering test_week_cycle test_provider_accounts test_provider_tokens test_provider_ui test_token_charts test_daily_report test_quota_summary_data test_island test_refresh_flow -q
+.\.venv\Scripts\python.exe -m unittest test_tray_history test_tray_quota test_native_landing test_hover_hints test_shared_card_transition test_status_handoff test_decode_geometry test_shortcuts_startup test_entry_icon test_storage_locations test_wsl_codex test_animation_updates test_quota_compare_ui test_antigravity_cloud test_optional_materials test_quota_history test_settings_controls test_wandering test_week_cycle test_provider_accounts test_provider_tokens test_provider_ui test_token_charts test_daily_report test_quota_summary_data test_island test_refresh_flow -q
 .\.venv\Scripts\python.exe -m compileall -q app tools
 ```
 
