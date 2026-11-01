@@ -110,6 +110,7 @@
 | `docs/FILE_AUDIT.md` | secret patterns, UTF-8, local Markdown links |
 | `docs/REPOSITORY_CLEANUP_REPORT.md` | secret patterns, UTF-8, local Markdown links |
 | `docs/REPOSITORY_SYNC_2026-10-24.md` | secret patterns, UTF-8, local Markdown links |
+| `docs/REPOSITORY_SYNC_2026-11-01.md` | secret patterns, UTF-8, local Markdown links |
 | `docs/TOOL_PROFILE_HISTORY_2026-10-22.md` | secret patterns, UTF-8, local Markdown links |
 | `graduation-thesis-workflow/.gitignore` | secret patterns, UTF-8 |
 | `graduation-thesis-workflow/AGENTS.md` | secret patterns, UTF-8, local Markdown links |
