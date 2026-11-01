@@ -71,23 +71,6 @@ def check_packages(errors: list[str]) -> None:
     from package_projects import PROJECTS, verify
     for name in PROJECTS:
         verify(ROOT / name)
-    usage = ROOT / "codex-usage"
-    name = "usage-0.1.0-windows-x64.zip"
-    expected, filename = (usage / "packages/SHA256SUMS.txt").read_text().strip().split()
-    if filename != name or digest((usage / "packages" / name).read_bytes()) != expected:
-        errors.append("codex-usage: archive SHA-256 mismatch")
-    with zipfile.ZipFile(usage / "packages" / name) as archive:
-        prefix = next(n.removesuffix("build-manifest.json") for n in archive.namelist()
-                      if n.endswith("/build-manifest.json"))
-        manifest = json.loads(archive.read(prefix + "build-manifest.json"))
-        for relative, sha in json.loads(archive.read(prefix + "SHA256SUMS.json")).items():
-            if digest(archive.read(prefix + relative)) != sha:
-                errors.append(f"codex-usage: packaged file mismatch {relative}")
-        for relative, sha in manifest["sources"].items():
-            path = usage / "src" / relative
-            if not path.is_file() or digest(path.read_bytes()) != sha:
-                errors.append(f"codex-usage: portable/source mismatch {relative}; rebuild before publishing")
-
     thesis = ROOT / "graduation-thesis-workflow"
     for record in json.loads((thesis / "packages/checksums.json").read_text()):
         path = thesis / "packages" / record["file"]

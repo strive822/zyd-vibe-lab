@@ -17,7 +17,7 @@ SPEC.loader.exec_module(restore)
 
 class RestoreBoundaryTests(unittest.TestCase):
     def test_each_tool_restores_without_sibling_projects(self):
-        for tool in ("yt-dlp", "Windows-MCP", "rea", "Winhance"):
+        for tool in ("yt-dlp", "Windows-MCP", "rea"):
             with self.subTest(tool=tool), tempfile.TemporaryDirectory() as temporary:
                 directory = Path(temporary)
                 project = ROOT.parent / tool

@@ -1,8 +1,8 @@
 # zyd-vibe-lab
 
-zhongyudi 的个人项目仓库：各项目独立下载、安装、运行和维护；原工具箱已拆为五个独立目录。
+zhongyudi 的个人项目仓库：各项目独立下载、安装、运行和维护；原工具箱已拆为四个独立目录。
 
-> 原 github-toolbox 已拆为五个独立项目；全部 11 个项目都有自己的 Agent 入口、独立下载包和 SHA-256。
+> 原 github-toolbox 已拆为四个独立项目；全部 8 个项目都有自己的 Agent 入口、独立下载包和 SHA-256。
 
 ## 直接让 Agent 帮你使用
 
@@ -18,12 +18,6 @@ zhongyudi 的个人项目仓库：各项目独立下载、安装、运行和维�
 
 ```text
 下载并运行 https://github.com/strive822/zyd-vibe-lab 里的 dca-calculator。请先读取仓库 INSTALL.md，自动准备隔离环境与依赖，启动前后端并验证页面；不要覆盖已有项目。
-```
-
-**Windows 额度浮窗：**
-
-```text
-下载并运行 https://github.com/strive822/zyd-vibe-lab 里的 codex-usage。请先读取仓库 INSTALL.md，优先使用 Windows x64 便携包，核对 SHA-256 后完整解压并启动；保留已有配置，不代填密钥或开启自启动。
 ```
 
 **LibreTV：**
@@ -50,12 +44,6 @@ zhongyudi 的个人项目仓库：各项目独立下载、安装、运行和维�
 下载 https://github.com/strive822/zyd-vibe-lab 里的 rea。请先读取该项目 INSTALL.md，取得完整独立目录，下载并核验固定的 rea-agents 包，保留许可和使用说明；不全局安装、不自动运行 setup 或安装分析引擎。
 ```
 
-**Winhance：**
-
-```text
-下载 https://github.com/strive822/zyd-vibe-lab 里的 Winhance。请先读取该项目 INSTALL.md，取得完整独立目录，下载官方固定版本安装包并核对 SHA-256，保留使用说明和许可；只下载，不运行安装器或修改系统设置。
-```
-
 **今日待办（电脑与手机局域网共用清单）：**
 
 ```text
@@ -68,12 +56,6 @@ zhongyudi 的个人项目仓库：各项目独立下载、安装、运行和维�
 下载并安装 https://github.com/strive822/zyd-vibe-lab 里的 pi-task-notify。请先读取该项目 INSTALL.md，按说明用 pi install npm:pi-task-notify 安装（或下载源码用 pi -e 试用），重启 Pi 后运行 /notify-test 验证 4 条样例通知，并向我报告每一步的真实结果；不要改动我已有的 Pi 配置。
 ```
 
-**白龙桌宠（多平台额度与 Token）：**
-
-```text
-下载并运行 https://github.com/strive822/zyd-vibe-lab 里的 codex-bailong-desktop-pet。请先读取该项目 INSTALL.md，下载完整文件并核验，在新目录准备项目内 Python 环境和已验证的官方播放素材，然后启动并检查；保留已有文件与账号，不全局安装、不代填密钥、不自动开启自启动。
-```
-
 简短说“安装这个仓库里的论文工作流”也可使用论文入口。未指定项目时，Agent 应先确认项目。
 
 ## 项目与下载
@@ -82,17 +64,14 @@ zhongyudi 的个人项目仓库：各项目独立下载、安装、运行和维�
 | --- | --- | --- | --- |
 | [graduation-thesis-workflow](graduation-thesis-workflow/README.md) | 本科论文需求访谈、真实文献与证据、写作审查；包含 Humanizer | [安装技能](graduation-thesis-workflow/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/graduation-thesis-workflow/delivery/graduation-thesis-workflow.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/graduation-thesis-workflow/delivery/SHA256SUMS.txt) |
 | [dca-calculator](dca-calculator/README.md) | 三资产 SMA800 定投权重与金额计算，FastAPI + Next.js | [下载与启动](dca-calculator/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/dca-calculator/delivery/dca-calculator.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/dca-calculator/delivery/SHA256SUMS.txt) |
-| [codex-usage](codex-usage/README.md) | Windows 三平台额度、六位快捷复制和每日提醒，Python + PySide6 | [便携包与源码](codex-usage/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/codex-usage/delivery/codex-usage.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/codex-usage/delivery/SHA256SUMS.txt) |
 | [LibreTV](LibreTV/README.md) | 独立的个人使用配置与固定下载版本 | [Agent 入口](LibreTV/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/LibreTV/delivery/LibreTV.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/LibreTV/delivery/SHA256SUMS.txt) |
 | [yt-dlp](yt-dlp/README.md) | 独立的个人使用配置与固定下载版本 | [Agent 入口](yt-dlp/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/yt-dlp/delivery/yt-dlp.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/yt-dlp/delivery/SHA256SUMS.txt) |
 | [Windows-MCP](Windows-MCP/README.md) | 独立的个人使用配置与固定下载版本 | [Agent 入口](Windows-MCP/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/Windows-MCP/delivery/Windows-MCP.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/Windows-MCP/delivery/SHA256SUMS.txt) |
 | [rea](rea/README.md) | 独立的个人使用配置与固定下载版本 | [Agent 入口](rea/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/rea/delivery/rea.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/rea/delivery/SHA256SUMS.txt) |
-| [Winhance](Winhance/README.md) | 独立的个人使用配置与固定下载版本 | [Agent 入口](Winhance/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/Winhance/delivery/Winhance.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/Winhance/delivery/SHA256SUMS.txt) |
 | [pi-task-notify](pi-task-notify/README.md) | Pi 编码代理任务通知：完成/出错/等确认/心跳，失焦才打扰，Windows 实测 | [安装与验证](pi-task-notify/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/pi-task-notify/delivery/pi-task-notify.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/pi-task-notify/delivery/SHA256SUMS.txt) |
 | [today-todo](today-todo/README.md) | 电脑与手机局域网共用的今日清单，零依赖 Node 服务 + 原生前端 | [下载与启动](today-todo/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/today-todo/delivery/today-todo.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/today-todo/delivery/SHA256SUMS.txt) |
-| [codex-bailong-desktop-pet](codex-bailong-desktop-pet/README.md) | 白龙桌宠，多平台额度、Token 与悬浮胶囊 | [安装与使用](codex-bailong-desktop-pet/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/codex-bailong-desktop-pet/delivery/codex-bailong-desktop-pet.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/codex-bailong-desktop-pet/delivery/SHA256SUMS.txt) |
 
-论文工作流不保证毕业或检测分数；计算器只计算，不执行交易；浮窗为未签名的个人使用候选，设备验收边界见项目说明。
+论文工作流不保证毕业或检测分数；计算器只计算，不执行交易。
 
 ## 维护
 
@@ -102,7 +81,7 @@ zhongyudi 的个人项目仓库：各项目独立下载、安装、运行和维�
 
 ## 许可证
 
-[计算器](dca-calculator/LICENSE)与[论文工作流](graduation-thesis-workflow/LICENSE)的原创内容使用各自目录的 MIT 许可证；论文工作流中的 Humanizer 保留上游许可。codex-usage 的第三方许可见 [THIRD_PARTY.md](codex-usage/docs/guides/THIRD_PARTY.md)，其原创源码尚未单独声明许可证。
+[计算器](dca-calculator/LICENSE)与[论文工作流](graduation-thesis-workflow/LICENSE)的原创内容使用各自目录的 MIT 许可证；论文工作流中的 Humanizer 保留上游许可。
 
 
 ## 新增项目交付规范
