@@ -11,8 +11,5 @@
 | FFmpeg | [yt-dlp/FFmpeg-Builds 资产](https://api.github.com/repos/yt-dlp/FFmpeg-Builds/releases/assets/669997580)，win64 GPL shared | 下载并完整保留解压目录中的许可/说明及 DLL；二进制不在本仓库再分发 |
 | Deno | [denoland/deno v2.9.8](https://github.com/denoland/deno/releases/tag/v2.9.8) | 原发布者提供；解压目录保留，不重打包二进制 |
 | Node.js | [nodejs.org 24.22.1](https://nodejs.org/dist/v24.22.1/) | 官方 Windows ZIP 完整解压到独立 runtime，保留 LICENSE 和附带第三方声明 |
-| Winhance | [memstechtips/Winhance v26.06.12 LICENSE.txt](https://github.com/memstechtips/Winhance/blob/v26.06.12/LICENSE.txt)，PolyForm Shield 1.0.0 | 按原发布者固定 URL 下载；不修改、改名或作为竞争替代软件发布；保留原许可与 Required Notice，未宣称为通用 MIT 开源工具 |
-
-Winhance 原文 Required Notice: Copyright (c) 2025 Marco du Plessis (https://github.com/Jeyloh/Winhance)。许可原文见上表链接，第三方声明见 [上游 THIRD-PARTY-NOTICES.txt](https://github.com/memstechtips/Winhance/blob/v26.06.12/THIRD-PARTY-NOTICES.txt)。
 
 LibreTV 的源码快照可直接下载并解压审查，`libretv-files.json` 对应全部条目。源码包中的上游 GitHub Actions 只是来源材料，不复制为本仓库的镜像发布流程。若后续改网页源码或提供网络服务，应重新核对该版本 AGPL 原文及相应源码提供要求。
