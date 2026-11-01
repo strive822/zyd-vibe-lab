@@ -2,9 +2,9 @@
   {
     "id": "libretv-source",
     "file": "packages/libretv-source.zip",
-    "upstream": "https://github.com/LibreSpark/LibreTV/tree/b08c8242d2a3cdb4309b40c58001c69c04593ce1",
-    "bytes": 671950,
-    "sha256": "e2527448568a1aa18eb0ada0ebd4183a79908c54fe3a6892ed659615502895eb",
+    "upstream": "https://github.com/LibreSpark/LibreTV/tree/29cbeb3d37b4876f909a0354087a3531af0447f6",
+    "bytes": 671659,
+    "sha256": "d291e406481f64de7a8537f3de957ea2a6c78011bbbbfb292a6945672c248228",
     "local_modifications": [
       "package.json",
       "package-lock.json"

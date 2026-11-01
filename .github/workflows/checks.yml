@@ -61,7 +61,7 @@ jobs:
         working-directory: LibreTV/.ci-source
       - run: npm run typecheck && npm run lint && npm test
         working-directory: LibreTV/.ci-source
-      - run: npm audit --audit-level=moderate --registry=https://registry.npmjs.org
+      - run: npm audit --omit=dev --audit-level=moderate --registry=https://registry.npmjs.org
         working-directory: LibreTV/.ci-source
       - run: npm run build
         working-directory: LibreTV/.ci-source

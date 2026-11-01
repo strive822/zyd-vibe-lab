@@ -30,9 +30,9 @@ python .\restore.py --destination 'D:\MyTools\LibreTV'
 缺少运行时先检查实际环境，按用户授权放到项目目录，不改系统 PATH、不全局安装。
 仅要求下载时停在文件保存与核验阶段，不执行 restore.py。
 
-恢复准备 LibreTV 2.21.0、项目内 Node.js 24.22.1 LTS、个人预置源，并执行依赖安装、类型检查、Lint、测试和构建。首次恢复生成独立随机访问密码，保存在恢复目录 source/.env.local，不回显或上传。
+恢复准备 LibreTV 2.21.1、项目内 Node.js 24.22.1 LTS、个人预置源，并执行依赖安装、类型检查、Lint、测试和构建。首次恢复生成独立随机访问密码，保存在恢复目录 source/.env.local，不回显或上传。
 
-运行时在恢复目录双击 start.vbs，访问 http://localhost:8080；停止用 stop.vbs。先检查端口占用，验证 /api/status 返回 version=2.21.0、页面可访问与登录状态。源站搜索、播放可用性须用实际链接验证，构建通过不能替代。
+运行时在恢复目录双击 start.vbs，访问 http://localhost:8080；停止用 stop.vbs。先检查端口占用，验证 /api/status 返回 version=2.21.1、页面可访问与登录状态。源站搜索、播放可用性须用实际链接验证，构建通过不能替代。
 
 ## 可以直接给 Agent 的提示词
 

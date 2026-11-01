@@ -30,7 +30,7 @@ python .\restore.py --destination 'D:\MyTools\yt-dlp'
 缺少运行时先检查实际环境，按用户授权放到项目目录，不改系统 PATH、不全局安装。
 仅要求下载时停在文件保存与核验阶段，不执行 restore.py。
 
-恢复准备 yt-dlp 2026.10.21、Deno 2.9.8 和固定资产 ID 的 FFmpeg shared 构建，执行三个程序的版本检查；FFmpeg 解压目录、DLL 与许可一起保留。
+恢复准备 yt-dlp 2026.10.26、Deno 2.9.8 和固定资产 ID 的 FFmpeg shared 构建，执行三个程序的版本检查；FFmpeg 解压目录、DLL 与许可一起保留。
 
 在恢复目录使用 profile/README.md 中的入口或 yt-dlp.exe --help。实际下载须有具体链接和用户授权；默认只准备工具，不下载视频。移动目录后按 README 更新三项绝对路径。
 

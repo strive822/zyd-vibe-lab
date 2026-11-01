@@ -95,7 +95,7 @@ def install(tool: str, destination: Path, assets: dict, cache: Path):
 
     def asset(name: str) -> Path:
         return download(assets[name], cache)
-    shutil.copy2(asset('rea-package'), destination / 'rea-agents-6.7.0.tgz')
+    shutil.copy2(asset('rea-package'), destination / 'rea-agents-6.8.0.tgz')
     shutil.copytree(ROOT / 'profile', destination, dirs_exist_ok=True)
 
 

@@ -11,6 +11,7 @@ Thumbs.db
 *.log
 .venv/
 .venv-*/
+.tmp/
 node_modules/
 coverage/
 core
