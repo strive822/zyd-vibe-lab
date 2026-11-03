@@ -1,7 +1,8 @@
 # 每个项目的 Agent 交付规范
 
+权威准入清单在根 [AGENTS.md](../AGENTS.md)；本文件只提供 README/INSTALL 模板与操作细节，两者冲突时以根 AGENTS.md 为准。
 用户要求：现在所有项目，以及以后上传的项目，都提供可直接复制给 Agent 的使用入口。
-项目各自放在独立子目录；LibreTV、yt-dlp、Windows-MCP、REA 分别交付。
+项目各自放在独立子目录；libretv、yt-dlp、windows-mcp、rea 分别交付。
 
 ## README 模板
 
@@ -20,7 +21,7 @@
 ````
 
 提示词按项目目的区分“仅下载”“安装”“运行”。不要让仅下载固定安装包的项目自动变成安装或系统优化，
-也不要把 REA 下载、MCP 源码准备自动变成修改所有 Agent 配置。
+也不要把 rea 下载、MCP 源码准备自动变成修改所有 Agent 配置。
 
 ## INSTALL.md 与交付包
 

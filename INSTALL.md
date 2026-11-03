@@ -1,6 +1,6 @@
 # 给 Agent 的下载与使用入口
 
-这是包含 8 个独立项目的仓库。用户要你下载、安装或运行时，请完成实际操作，并报告文件、环境和运行的真实结果。
+这是包含 9 个独立项目的仓库。用户要你下载、安装或运行时，请完成实际操作，并报告文件、环境和运行的真实结果。
 
 ## 按用户点名的项目选择
 
@@ -10,10 +10,11 @@
 | 定投、三资产、计算器、dca-calculator | 下载源码、准备依赖、启动本地网页 | [计算器安装入口](dca-calculator/INSTALL.md) |
 | Pi 任务通知、任务完成通知、pi-task-notify | Pi 完成任务、出错、等你确认时发系统通知 | [任务通知安装入口](pi-task-notify/INSTALL.md) |
 | 今日待办、待办清单、today-todo | 下载零依赖 Node 服务并验证 | [待办安装入口](today-todo/INSTALL.md) |
-| LibreTV | 单独下载、核验与按需恢复 | [LibreTV 安装入口](LibreTV/INSTALL.md) |
+| LibreTV | 单独下载、核验与按需恢复 | [LibreTV 安装入口](libretv/INSTALL.md) |
 | yt-dlp | 单独下载、核验与按需恢复 | [yt-dlp 安装入口](yt-dlp/INSTALL.md) |
-| Windows-MCP | 单独下载、核验与按需恢复 | [Windows-MCP 安装入口](Windows-MCP/INSTALL.md) |
+| Windows-MCP | 单独下载、核验与按需恢复 | [Windows-MCP 安装入口](windows-mcp/INSTALL.md) |
 | rea | 单独下载、核验与按需恢复 | [rea 安装入口](rea/INSTALL.md) |
+| flyingmouse-format | 单独下载、核验与按需使用 | [飞鼠格式安装入口](flyingmouse-format/INSTALL.md) |
 
 仅说“安装这个仓库”且无法从上下文确定项目时，只询问选择哪个项目；不要默认安装全部。说“安装工作流”沿用论文入口。
 

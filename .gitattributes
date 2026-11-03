@@ -9,4 +9,12 @@ graduation-thesis-workflow/** -text whitespace=cr-at-eol
 
 # Preserve the personal Windows launchers and exported metadata byte for byte.
 */profile/** -text whitespace=cr-at-eol
-LibreTV/packages/*.json -text whitespace=cr-at-eol
+libretv/packages/*.json -text whitespace=cr-at-eol
+
+# flyingmouse-format is packaged from the working tree; keep text bytes equal to blobs
+# so delivery ZIPs byte-match published sources (see verify_published.py).
+flyingmouse-format/** -text
+
+# Packaging trust: committed bytes are what gets shipped and verified.
+# LF checkout everywhere; per-project rules above stay for documentation.
+* -text

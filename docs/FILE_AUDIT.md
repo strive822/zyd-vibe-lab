@@ -10,45 +10,10 @@
 | `.gitignore` | secret patterns, UTF-8 |
 | `AGENTS.md` | secret patterns, UTF-8, local Markdown links |
 | `INSTALL.md` | secret patterns, UTF-8, local Markdown links |
-| `LibreTV/.gitignore` | secret patterns, UTF-8 |
-| `LibreTV/AGENTS.md` | secret patterns, UTF-8, local Markdown links |
-| `LibreTV/INSTALL.md` | secret patterns, UTF-8, local Markdown links |
-| `LibreTV/README.md` | secret patterns, UTF-8, local Markdown links |
-| `LibreTV/SECURITY_PATCHES.md` | secret patterns, UTF-8, local Markdown links |
-| `LibreTV/THIRD_PARTY.md` | secret patterns, UTF-8, local Markdown links |
-| `LibreTV/assets.json` | secret patterns, UTF-8, JSON |
-| `LibreTV/delivery/FILES.json` | secret patterns, UTF-8, JSON |
-| `LibreTV/delivery/LibreTV.zip` | secret patterns, ZIP CRC/paths, package/source SHA-256 |
-| `LibreTV/delivery/SHA256SUMS.txt` | secret patterns, UTF-8 |
-| `LibreTV/packages/libretv-files.json` | secret patterns, UTF-8, JSON |
-| `LibreTV/packages/libretv-source.zip` | secret patterns, ZIP CRC/paths, package/source SHA-256 |
-| `LibreTV/profile/LICENSE` | secret patterns, UTF-8 |
-| `LibreTV/profile/defaults.json` | secret patterns, UTF-8, JSON |
-| `LibreTV/profile/launcher.mjs` | secret patterns, UTF-8 |
-| `LibreTV/profile/notify.vbs` | secret patterns, UTF-8 |
-| `LibreTV/profile/open-browser.ps1` | secret patterns, UTF-8 |
-| `LibreTV/profile/rebuild.cmd` | secret patterns, UTF-8 |
-| `LibreTV/profile/start.vbs` | secret patterns, UTF-8 |
-| `LibreTV/profile/stop.mjs` | secret patterns, UTF-8 |
-| `LibreTV/profile/stop.vbs` | secret patterns, UTF-8 |
-| `LibreTV/restore.py` | secret patterns, UTF-8, Python syntax |
 | `README.md` | secret patterns, UTF-8, local Markdown links |
-| `Windows-MCP/.gitignore` | secret patterns, UTF-8 |
-| `Windows-MCP/AGENTS.md` | secret patterns, UTF-8, local Markdown links |
-| `Windows-MCP/INSTALL.md` | secret patterns, UTF-8, local Markdown links |
-| `Windows-MCP/README.md` | secret patterns, UTF-8, local Markdown links |
-| `Windows-MCP/THIRD_PARTY.md` | secret patterns, UTF-8, local Markdown links |
-| `Windows-MCP/assets.json` | secret patterns, UTF-8, JSON |
-| `Windows-MCP/delivery/FILES.json` | secret patterns, UTF-8, JSON |
-| `Windows-MCP/delivery/SHA256SUMS.txt` | secret patterns, UTF-8 |
-| `Windows-MCP/delivery/Windows-MCP.zip` | secret patterns, ZIP CRC/paths, package/source SHA-256 |
-| `Windows-MCP/profile/LICENSE.md` | secret patterns, UTF-8, local Markdown links |
-| `Windows-MCP/profile/README.md` | secret patterns, UTF-8, local Markdown links |
-| `Windows-MCP/profile/install.cmd` | secret patterns, UTF-8 |
-| `Windows-MCP/profile/start.cmd` | secret patterns, UTF-8 |
-| `Windows-MCP/restore.py` | secret patterns, UTF-8, Python syntax |
 | `dca-calculator/.gitattributes` | secret patterns, UTF-8 |
 | `dca-calculator/.gitignore` | secret patterns, UTF-8 |
+| `dca-calculator/AGENTS.md` | secret patterns, UTF-8, local Markdown links |
 | `dca-calculator/CHANGELOG.md` | secret patterns, UTF-8, local Markdown links |
 | `dca-calculator/DECISIONS.md` | secret patterns, UTF-8, local Markdown links |
 | `dca-calculator/DEVLOG.md` | secret patterns, UTF-8, local Markdown links |
@@ -447,6 +412,7 @@
 | `graduation-thesis-workflow/packages/graduation-thesis-codex.zip` | secret patterns, ZIP CRC/paths, package/source SHA-256 |
 | `graduation-thesis-workflow/packages/graduation-thesis-pi.zip` | secret patterns, ZIP CRC/paths, package/source SHA-256 |
 | `graduation-thesis-workflow/packages/graduation-thesis-workbuddy.zip` | secret patterns, ZIP CRC/paths, package/source SHA-256 |
+| `graduation-thesis-workflow/scripts/build_delivery.py` | secret patterns, UTF-8, Python syntax |
 | `graduation-thesis-workflow/scripts/install.ps1` | secret patterns, UTF-8 |
 | `graduation-thesis-workflow/scripts/package.py` | secret patterns, UTF-8, Python syntax |
 | `graduation-thesis-workflow/skills/graduation-thesis/SKILL.md` | secret patterns, UTF-8, local Markdown links |
@@ -471,7 +437,30 @@
 | `graduation-thesis-workflow/skills/graduation-thesis/scripts/project.py` | secret patterns, UTF-8, Python syntax |
 | `graduation-thesis-workflow/tests/test_windows_setup.py` | secret patterns, UTF-8, Python syntax |
 | `graduation-thesis-workflow/tests/test_workflow.py` | secret patterns, UTF-8, Python syntax |
+| `libretv/.gitignore` | secret patterns, UTF-8 |
+| `libretv/AGENTS.md` | secret patterns, UTF-8, local Markdown links |
+| `libretv/INSTALL.md` | secret patterns, UTF-8, local Markdown links |
+| `libretv/README.md` | secret patterns, UTF-8, local Markdown links |
+| `libretv/SECURITY_PATCHES.md` | secret patterns, UTF-8, local Markdown links |
+| `libretv/THIRD_PARTY.md` | secret patterns, UTF-8, local Markdown links |
+| `libretv/assets.json` | secret patterns, UTF-8, JSON |
+| `libretv/delivery/FILES.json` | secret patterns, UTF-8, JSON |
+| `libretv/delivery/LibreTV.zip` | secret patterns, ZIP CRC/paths, package/source SHA-256 |
+| `libretv/delivery/SHA256SUMS.txt` | secret patterns, UTF-8 |
+| `libretv/packages/libretv-files.json` | secret patterns, UTF-8, JSON |
+| `libretv/packages/libretv-source.zip` | secret patterns, ZIP CRC/paths, package/source SHA-256 |
+| `libretv/profile/LICENSE` | secret patterns, UTF-8 |
+| `libretv/profile/defaults.json` | secret patterns, UTF-8, JSON |
+| `libretv/profile/launcher.mjs` | secret patterns, UTF-8 |
+| `libretv/profile/notify.vbs` | secret patterns, UTF-8 |
+| `libretv/profile/open-browser.ps1` | secret patterns, UTF-8 |
+| `libretv/profile/rebuild.cmd` | secret patterns, UTF-8 |
+| `libretv/profile/start.vbs` | secret patterns, UTF-8 |
+| `libretv/profile/stop.mjs` | secret patterns, UTF-8 |
+| `libretv/profile/stop.vbs` | secret patterns, UTF-8 |
+| `libretv/restore.py` | secret patterns, UTF-8, Python syntax |
 | `pi-task-notify/.gitignore` | secret patterns, UTF-8 |
+| `pi-task-notify/AGENTS.md` | secret patterns, UTF-8, local Markdown links |
 | `pi-task-notify/INSTALL.md` | secret patterns, UTF-8, local Markdown links |
 | `pi-task-notify/LICENSE` | secret patterns, UTF-8 |
 | `pi-task-notify/README.md` | secret patterns, UTF-8, local Markdown links |
@@ -502,8 +491,10 @@
 | `scripts/verify_published.py` | secret patterns, UTF-8, Python syntax |
 | `scripts/verify_runtime.py` | secret patterns, UTF-8, Python syntax |
 | `today-todo/.gitignore` | secret patterns, UTF-8 |
+| `today-todo/AGENTS.md` | secret patterns, UTF-8, local Markdown links |
 | `today-todo/DESIGN.md` | secret patterns, UTF-8, local Markdown links |
 | `today-todo/INSTALL.md` | secret patterns, UTF-8, local Markdown links |
+| `today-todo/LICENSE` | secret patterns, UTF-8 |
 | `today-todo/PLAN.md` | secret patterns, UTF-8, local Markdown links |
 | `today-todo/README.md` | secret patterns, UTF-8, local Markdown links |
 | `today-todo/SPEC.md` | secret patterns, UTF-8, local Markdown links |
@@ -527,6 +518,20 @@
 | `today-todo/tools/contrast.js` | secret patterns, UTF-8 |
 | `today-todo/tools/make-icon.js` | secret patterns, UTF-8 |
 | `today-todo/tools/shot.js` | secret patterns, UTF-8 |
+| `windows-mcp/.gitignore` | secret patterns, UTF-8 |
+| `windows-mcp/AGENTS.md` | secret patterns, UTF-8, local Markdown links |
+| `windows-mcp/INSTALL.md` | secret patterns, UTF-8, local Markdown links |
+| `windows-mcp/README.md` | secret patterns, UTF-8, local Markdown links |
+| `windows-mcp/THIRD_PARTY.md` | secret patterns, UTF-8, local Markdown links |
+| `windows-mcp/assets.json` | secret patterns, UTF-8, JSON |
+| `windows-mcp/delivery/FILES.json` | secret patterns, UTF-8, JSON |
+| `windows-mcp/delivery/SHA256SUMS.txt` | secret patterns, UTF-8 |
+| `windows-mcp/delivery/Windows-MCP.zip` | secret patterns, ZIP CRC/paths, package/source SHA-256 |
+| `windows-mcp/profile/LICENSE.md` | secret patterns, UTF-8, local Markdown links |
+| `windows-mcp/profile/README.md` | secret patterns, UTF-8, local Markdown links |
+| `windows-mcp/profile/install.cmd` | secret patterns, UTF-8 |
+| `windows-mcp/profile/start.cmd` | secret patterns, UTF-8 |
+| `windows-mcp/restore.py` | secret patterns, UTF-8, Python syntax |
 | `yt-dlp/.gitignore` | secret patterns, UTF-8 |
 | `yt-dlp/AGENTS.md` | secret patterns, UTF-8, local Markdown links |
 | `yt-dlp/INSTALL.md` | secret patterns, UTF-8, local Markdown links |

@@ -45,7 +45,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: LibreTV
+        working-directory: libretv
     env:
       NEXT_TELEMETRY_DISABLED: '1'
     steps:
@@ -58,13 +58,13 @@ jobs:
           python-version: '3.12'
       - run: python -m zipfile -e packages/libretv-source.zip .ci-source
       - run: npm ci
-        working-directory: LibreTV/.ci-source
+        working-directory: libretv/.ci-source
       - run: npm run typecheck && npm run lint && npm test
-        working-directory: LibreTV/.ci-source
+        working-directory: libretv/.ci-source
       - run: npm audit --omit=dev --audit-level=moderate --registry=https://registry.npmjs.org
-        working-directory: LibreTV/.ci-source
+        working-directory: libretv/.ci-source
       - run: npm run build
-        working-directory: LibreTV/.ci-source
+        working-directory: libretv/.ci-source
 
   published-downloads:
     if: github.event_name == 'push'

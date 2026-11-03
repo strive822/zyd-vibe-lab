@@ -1,6 +1,7 @@
 {
   ".gitattributes": "c6c058f0cf66df9142fca822fa0f7442520bf8330d37c887d6c012e70658a701",
   ".gitignore": "fe448e5368f5efcbd0a17240f1348ccbb7439f888c7fd4d8d4525cdf924263a4",
+  "AGENTS.md": "0990bc229651fbd1bf8a5c8298d2011f75e0a3a02e6a80e323c87def9408dbb9",
   "backend/app/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   "backend/app/config.py": "591ee9ef98e96f122d4c60c82515c64bb6dd62df8c34c495f4d4cccd071aa511",
   "backend/app/data/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",

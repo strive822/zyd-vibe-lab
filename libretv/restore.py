@@ -95,12 +95,30 @@ def install(tool: str, destination: Path, assets: dict, cache: Path):
 
     def asset(name: str) -> Path:
         return download(assets[name], cache)
-    extract_zip(asset('windows-mcp-source'), destination / 'source', strip_root=True)
+    snapshot = ROOT / 'packages' / 'libretv-source.zip'
+    if not checked_file(snapshot, assets['libretv-source']):
+        raise ValueError('Local source snapshot checksum mismatch')
+    extract_zip(snapshot, destination / 'source')
     shutil.copytree(ROOT / 'profile', destination, dirs_exist_ok=True)
+    extract_zip(asset('node'), destination / 'runtime', strip_root=True)
+    defaults = json.loads((destination / 'defaults.json').read_text(encoding='utf-8'))
+    with (destination / 'source' / '.env.local').open('x', encoding='utf-8') as stream:
+        stream.write('PASSWORD=' + secrets.token_urlsafe(32) + '\n')
+        stream.write('DEFAULT_SOURCES=' + json.dumps(defaults, ensure_ascii=False) + '\n')
+    node = destination / 'runtime' / 'node.exe'
+    npm_cli = destination / 'runtime' / 'node_modules' / 'npm' / 'bin' / 'npm-cli.js'
+    previous_path = os.environ.get('PATH', '')
+    os.environ['PATH'] = str(node.parent) + os.pathsep + previous_path
+    try:
+        run([str(node), str(npm_cli), 'ci', '--no-audit', '--no-fund'], destination / 'source')
+        for task in ('typecheck', 'lint', 'test', 'build'):
+            run([str(node), str(npm_cli), 'run', task], destination / 'source')
+    finally:
+        os.environ['PATH'] = previous_path
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Restore Windows-MCP into a NEW directory.")
+    parser = argparse.ArgumentParser(description="Restore LibreTV into a NEW directory.")
     parser.add_argument("--destination", required=True, type=Path)
     parser.add_argument("--cache", type=Path, default=ROOT / ".downloads")
     args = parser.parse_args()
@@ -111,8 +129,8 @@ def main() -> None:
         parser.error("Destination already exists; choose a new directory. Existing data is never overwritten.")
     assets = {record["id"]: record for record in json.loads((ROOT / "assets.json").read_text(encoding="utf-8"))}
     destination.mkdir(parents=True)
-    install('Windows-MCP', destination, assets, args.cache.resolve())
-    print("RESTORED:", 'Windows-MCP', destination)
+    install('libretv', destination, assets, args.cache.resolve())
+    print("RESTORED:", 'libretv', destination)
     print("No service, desktop shortcut, global Agent configuration or system optimization was started.")
 
 

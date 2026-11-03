@@ -2,16 +2,16 @@
 
 ## 获取完整文件
 
-本地目录可直接使用。单独传递时，取本目录 `delivery/LibreTV.zip` 与
+本地目录可直接使用。单独传递时，取本目录 `delivery/libretv.zip` 与
 `delivery/SHA256SUMS.txt`，实际核对 SHA-256，检查归档路径并解压到新目录。
-包内包含完整 `LibreTV/` 目录，不依赖 github-toolbox 或其他项目。
+包内包含完整 `libretv/` 目录，不依赖 github-toolbox 或其他项目。
 
 官方仓库内的完整独立包与校验文件：
 
 ```text
-https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/LibreTV/delivery/LibreTV.zip
-https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/LibreTV/delivery/SHA256SUMS.txt
-https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/LibreTV/delivery/FILES.json
+https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/libretv/delivery/libretv.zip
+https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/libretv/delivery/SHA256SUMS.txt
+https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/libretv/delivery/FILES.json
 ```
 
 先核验 ZIP 的 SHA-256，再检查归档条目没有绝对路径、`..`、链接或重名冲突。

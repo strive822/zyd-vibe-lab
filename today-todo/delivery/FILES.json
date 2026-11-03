@@ -1,5 +1,6 @@
 {
   ".gitignore": "2da9525181242b87923a934080973ed03e2a0515b5abd4766254b9550aed59a6",
+  "AGENTS.md": "e777fef8c5e94131f13cddff1eae4c067a006aab673e7835674cd1c4d133468d",
   "assets/app.ico": "636c84aae3f3ba76c78ec4c65817b25abc88821277d577080368402147f3d256",
   "DESIGN.md": "8af8540e7e207f251c5f2eefb1db39edc1d719812905e0adf43f19666b807783",
   "docs/screenshots/composer-open.png": "68f4fda3071eb4b2337f6ea8d1a8e888ace0af16aa012dfd6cf3d657738df879",
@@ -7,7 +8,8 @@
   "docs/screenshots/mobile.png": "cc33103c3ede53353225d95ca8fd42f911ee04a88c7911d48b3520ec6ee8fcf5",
   "docs/VERIFY.md": "75345e7b0e498bcdd5156a40d8adb334e87f5e93acddb517b0af1cae900a072d",
   "INSTALL.md": "0aeceac929be91c5495c370b55f6355137303004484077d7175f6d39d75bb5b9",
-  "package.json": "a18f993de1a4862ce50d7ea50e05627fb9f764cf9e30e5e2519130cabeb861a7",
+  "LICENSE": "498f975146de2e4bdb50dc948bc15167cda3143847f439fed4aacabc0f71cbae",
+  "package.json": "167f48a6faaca81724db45864c481e9c4f5e11cc4a1958466e2aee460864c2ae",
   "PLAN.md": "a235d45bef28e37bdab6598e19aa9cdffa04bfe9c435aedefb901a14b8093770",
   "public/app.js": "738fbef0eb008616241ca0de759f7954cf54892808f785f9dbaff9918d1a3a94",
   "public/favicon.svg": "67e2d2d4ddfd370344fea2d98c3e0bb7c8bceaf9e71db2e4fd52b803153fa585",

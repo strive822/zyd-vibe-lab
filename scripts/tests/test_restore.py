@@ -9,7 +9,7 @@ import zipfile
 from pathlib import Path
 from unittest.mock import patch
 
-ROOT = Path(__file__).resolve().parents[2] / "LibreTV"
+ROOT = Path(__file__).resolve().parents[2] / "libretv"
 SPEC = importlib.util.spec_from_file_location("toolbox_restore", ROOT / "restore.py")
 restore = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(restore)
@@ -17,7 +17,7 @@ SPEC.loader.exec_module(restore)
 
 class RestoreBoundaryTests(unittest.TestCase):
     def test_each_tool_restores_without_sibling_projects(self):
-        for tool in ("yt-dlp", "Windows-MCP", "rea"):
+        for tool in ("yt-dlp", "windows-mcp", "rea"):
             with self.subTest(tool=tool), tempfile.TemporaryDirectory() as temporary:
                 directory = Path(temporary)
                 project = ROOT.parent / tool
@@ -133,7 +133,7 @@ class RestoreBoundaryTests(unittest.TestCase):
                 target = directory / str(count)
                 target.mkdir()
                 with patch.object(restore, "download", return_value=node_archive), patch.object(restore, "run"):
-                    restore.install("LibreTV", target, assets, directory / "cache")
+                    restore.install("libretv", target, assets, directory / "cache")
                 configuration = (target / "source/.env.local").read_text(encoding="utf-8")
                 password_line = configuration.splitlines()[0]
                 self.assertTrue(password_line.startswith("PASSWORD="))
@@ -165,7 +165,7 @@ class RestoreBoundaryTests(unittest.TestCase):
             with patch.object(exporter, "ROOT", output), patch.object(sys, "argv", ["export", "--source", str(origin)]):
                 exporter.main()
             self.assertIn("private-sentinel-value", (source / ".env.local").read_text())
-            with zipfile.ZipFile(output / "LibreTV/packages/libretv-source.zip") as bundle:
+            with zipfile.ZipFile(output / "libretv/packages/libretv-source.zip") as bundle:
                 self.assertNotIn(".env.local", bundle.namelist())
                 self.assertFalse(any(b"private-sentinel-value" in bundle.read(name) for name in bundle.namelist()))
 

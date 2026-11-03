@@ -7,11 +7,11 @@
 只想保存文件时，把“安装/运行”改成“只下载，不安装、不启动”。
 
 ```text
-下载并准备使用 https://github.com/strive822/zyd-vibe-lab 里的 Windows-MCP。请先读取该项目 INSTALL.md，在新目录恢复固定源码与入口，使用项目内环境安装必要依赖并验证；保留已有配置，注册 MCP 接入前先说明具体改动。
+下载并准备使用 https://github.com/strive822/zyd-vibe-lab 里的 windows-mcp。请先读取该项目 INSTALL.md，在新目录恢复固定源码与入口，使用项目内环境安装必要依赖并验证；保留已有配置，注册 MCP 接入前先说明具体改动。
 ```
 
-本地独立交付包：`delivery/Windows-MCP.zip`，校验文件：`delivery/SHA256SUMS.txt`。
-直接下载：[独立项目 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/Windows-MCP/delivery/Windows-MCP.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/Windows-MCP/delivery/SHA256SUMS.txt) · [逐文件清单](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/Windows-MCP/delivery/FILES.json)。
+本地独立交付包：`delivery/windows-mcp.zip`，校验文件：`delivery/SHA256SUMS.txt`。
+直接下载：[独立项目 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/windows-mcp/delivery/windows-mcp.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/windows-mcp/delivery/SHA256SUMS.txt) · [逐文件清单](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/windows-mcp/delivery/FILES.json)。
 Agent 可下载独立 ZIP，或取得完整仓库后只使用本项目目录。
 
 独立项目目录，保留原来的固定版本、个人使用配置和下载校验。无须获取其他项目。
