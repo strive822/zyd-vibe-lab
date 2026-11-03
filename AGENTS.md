@@ -28,7 +28,7 @@ steps; the root README only points here. When documents conflict, this file wins
 
 ## Extra requirements by type
 
-- Self-written source code: automated tests and a CI job in .github/workflows/checks.yml.
+- Self-written source code: automated tests and a CI job in .github/workflows/checks.yml. Host-driven extensions that cannot be exercised outside their host (for example pi-task-notify) are exempt; they must document their host-driven verification path in INSTALL/AGENTS instead.
 - Upstream snapshot: pinned upstream commit, assets.json + restore.py + profile/ + THIRD_PARTY.md; restore only into new directories.
 - Skill/extension packages: versioned packages/ with checksums and a documented installer path.
 

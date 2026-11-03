@@ -445,8 +445,8 @@
 | `libretv/THIRD_PARTY.md` | secret patterns, UTF-8, local Markdown links |
 | `libretv/assets.json` | secret patterns, UTF-8, JSON |
 | `libretv/delivery/FILES.json` | secret patterns, UTF-8, JSON |
-| `libretv/delivery/LibreTV.zip` | secret patterns, ZIP CRC/paths, package/source SHA-256 |
 | `libretv/delivery/SHA256SUMS.txt` | secret patterns, UTF-8 |
+| `libretv/delivery/libretv.zip` | secret patterns, ZIP CRC/paths, package/source SHA-256 |
 | `libretv/packages/libretv-files.json` | secret patterns, UTF-8, JSON |
 | `libretv/packages/libretv-source.zip` | secret patterns, ZIP CRC/paths, package/source SHA-256 |
 | `libretv/profile/LICENSE` | secret patterns, UTF-8 |
@@ -526,7 +526,7 @@
 | `windows-mcp/assets.json` | secret patterns, UTF-8, JSON |
 | `windows-mcp/delivery/FILES.json` | secret patterns, UTF-8, JSON |
 | `windows-mcp/delivery/SHA256SUMS.txt` | secret patterns, UTF-8 |
-| `windows-mcp/delivery/Windows-MCP.zip` | secret patterns, ZIP CRC/paths, package/source SHA-256 |
+| `windows-mcp/delivery/windows-mcp.zip` | secret patterns, ZIP CRC/paths, package/source SHA-256 |
 | `windows-mcp/profile/LICENSE.md` | secret patterns, UTF-8, local Markdown links |
 | `windows-mcp/profile/README.md` | secret patterns, UTF-8, local Markdown links |
 | `windows-mcp/profile/install.cmd` | secret patterns, UTF-8 |

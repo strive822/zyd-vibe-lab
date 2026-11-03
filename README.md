@@ -88,7 +88,7 @@ zhongyudi 的个人项目仓库：各项目独立下载、安装、运行和维�
 
 ## 许可证
 
-[计算器](dca-calculator/LICENSE)与[论文工作流](graduation-thesis-workflow/LICENSE)的原创内容使用各自目录的 MIT 许可证；论文工作流中的 Humanizer 保留上游许可。
+[计算器](dca-calculator/LICENSE)、[今日待办](today-todo/LICENSE)与 [Pi 任务通知](pi-task-notify/LICENSE)使用 MIT（版权人 zhongyudi）；[论文工作流](graduation-thesis-workflow/LICENSE)的原创内容为 MIT，其中的 Humanizer 保留上游许可；其余项目保留上游许可证，见各目录 LICENSE / THIRD_PARTY / NOTICE。
 
 
 ## 新增项目交付规范
