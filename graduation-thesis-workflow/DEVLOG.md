@@ -35,3 +35,7 @@
 内置润色工具由英文版 blader/humanizer 3.1.0 全量替换为 Humanizer-zh（op7418/Humanizer-zh，MIT，固定提交 f4518a8eab97b8bfebc66a89d34320a89bef6930，本地副本逐字节对照）；SKILL.md 与 LICENSE 按上游字节保存，UPSTREAM.json 记录哈希。08 模块重写，明确中文润色定位与外文稿件边界；polishing.json 新项目写入 tool=humanizer-zh，audit 同时接受旧值 humanizer，schema_version 保持 1。
 
 新增 Pi 为第四个分发客户端：package.py 生成 graduation-thesis-pi.zip（与 Codex 包同内容）；install.ps1 支持 -Client pi，目标 ~/.pi/agent/skills/graduation-thesis/，只复制文件不改动客户端配置；settings.json 注册步骤写入安装文档，由助手在用户授权下执行。分发 ZIP 从三个增加到四个。
+
+## 2026-11-03 · 0.4.0 交付包可复现
+
+`.gitattributes` 把本项目整体标记为 `-text`，使工作区字节始终等于提交的 blob；此前 16 个文件被 `core.autocrlf` 转成 CRLF，重建 delivery 会改变 FILES.json 却无人察觉。新增 `scripts/build_delivery.py`，固定条目顺序、时间戳与 `create_system`，同一份签出字节重建得到相同 ZIP 哈希；工作区按 blob 对齐回 LF 后重建交付包为 46 个文件。仓库级 check_repository 与 29 项流程测试通过。

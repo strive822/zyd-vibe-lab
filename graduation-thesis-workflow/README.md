@@ -105,6 +105,7 @@ SOP.md                    维护和发布流程
 ```text
 python -m unittest discover -s tests -v
 python scripts/package.py --out packages
+python scripts/build_delivery.py
 ```
 
 可下载的 ZIP 位于 `packages/`，附 SHA256 清单；维护时使用上面的命令同步重建。发布到 GitHub 的步骤见 [发布指南](docs/RELEASE.md)。当前验证范围见 [验证记录](docs/VALIDATION.md)，不能把打包成功等同于四端真实论文端到端验证。

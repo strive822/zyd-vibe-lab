@@ -1,7 +1,8 @@
-# Skill ZIPs and the upstream manifest verify exact bytes, including original EOLs.
+# Skill ZIPs, the upstream manifest and the delivery package verify exact bytes, including
+# original EOLs. Without -text, a CRLF checkout changes delivery/FILES.json on rebuild.
 graduation-thesis-workflow/skills/graduation-thesis/** -text
 graduation-thesis-workflow/LICENSE -text
-graduation-thesis-workflow/** whitespace=cr-at-eol
+graduation-thesis-workflow/** -text whitespace=cr-at-eol
 *.zip -text
 *.png -text
 *.gif -text
