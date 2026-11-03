@@ -80,7 +80,7 @@ def init(root):
         'blockers': ['Requirements have not been confirmed.'], 'next_action': 'Run the intake interview.'})
     for name in ('evidence', 'claims', 'artifacts'):
         write_json(root / (name + '.json'), [])
-    write_json(root / 'polishing.json', {'status': 'pending', 'tool': 'humanizer'})
+    write_json(root / 'polishing.json', {'status': 'pending', 'tool': 'humanizer-zh'})
     for name, text in {
         'README.md': '# 私有论文项目\n\n先确认需求；个人材料不得自动进入公共工作流仓库。\n',
         'NEXT.md': '# 下一步\n\n完成需求访谈并取得用户确认。\n',
@@ -151,7 +151,7 @@ def audit(root):
     require(type(req.get('version')) is int and req.get('version', 0) > 0, 'Invalid requirements version')
     require(state.get('requirements_version') == req.get('version'), 'State uses stale requirements')
     require(state.get('status') in {'intake', 'design', 'research', 'drafting', 'review', 'polishing', 'delivery', 'needs_input', 'complete'}, 'Unknown state')
-    require(polishing.get('tool') == 'humanizer', 'Humanizer record missing')
+    require(polishing.get('tool') in ('humanizer-zh', 'humanizer'), 'Humanizer record missing')
     require(polishing.get('status') in ('applied', 'skipped_school_policy'), 'Humanizer stage not completed')
     file_check(polishing.get('review_path'), 'Humanizer review', polishing.get('review_sha256', ''))
     if polishing.get('status') == 'applied':

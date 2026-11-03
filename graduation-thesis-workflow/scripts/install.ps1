@@ -2,7 +2,7 @@
 <#! Assistant-run installer. Does not require Git or Python. !#>
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory=$true)][ValidateSet('codex','claude-code','workbuddy')][string]$Client,
+    [Parameter(Mandatory=$true)][ValidateSet('codex','claude-code','pi','workbuddy')][string]$Client,
     [string]$SkillsDir,
     [string]$SourceRoot,
     [switch]$Plan
@@ -14,7 +14,7 @@ $source = Join-Path $bundleRoot 'skills\graduation-thesis'
 if (-not (Test-Path -LiteralPath (Join-Path $source 'SKILL.md') -PathType Leaf)) { throw 'Skill source missing. Download the complete workflow folder first.' }
 if (-not $SkillsDir) {
     $userRoot = [Environment]::GetFolderPath('UserProfile')
-    $relative = switch ($Client) { 'codex' {'.agents\skills'}; 'claude-code' {'.claude\skills'}; 'workbuddy' {'.workbuddy\skills'} }
+    $relative = switch ($Client) { 'codex' {'.agents\skills'}; 'claude-code' {'.claude\skills'}; 'pi' {'.pi\agent\skills'}; 'workbuddy' {'.workbuddy\skills'} }
     $SkillsDir = Join-Path $userRoot $relative
     if ($Client -eq 'workbuddy' -and -not (Test-Path -LiteralPath $SkillsDir -PathType Container)) {
         throw 'WorkBuddy skill directory not confirmed. Inspect the host and pass its actual SkillsDir; do not guess.'
@@ -35,7 +35,7 @@ foreach ($file in Get-ChildItem -LiteralPath $source -File -Recurse) {
         $text = [Text.Encoding]::UTF8.GetString($bytes).Replace("`r`n", "`n")
         $boundary = $text.IndexOf("`n---`n", 3)
         if ($boundary -lt 0) { throw 'Invalid skill frontmatter.' }
-        $extra = "`ndescription_zh: Evidence-based undergraduate thesis workflow`ndescription_en: Evidence-based undergraduate thesis workflow`nversion: 0.3.0`nauthor: Graduation Thesis Workflow contributors"
+        $extra = "`ndescription_zh: Evidence-based undergraduate thesis workflow`ndescription_en: Evidence-based undergraduate thesis workflow`nversion: 0.4.0`nauthor: Graduation Thesis Workflow contributors"
         $text = $text.Insert($boundary, $extra)
         $bytes = [Text.Encoding]::UTF8.GetBytes($text)
     }

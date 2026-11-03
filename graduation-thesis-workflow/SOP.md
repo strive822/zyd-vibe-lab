@@ -18,3 +18,7 @@
 ## 2026-10-24 · Humanizer 上游更新
 
 更新 vendor 后核验 UPSTREAM.json 和原始文件字节，运行流程测试并在允许脚本执行的 Windows CI 验证安装器，再重建 packages 和独立 delivery。
+
+## 2026-11-03 · 0.4.0
+
+四个客户端的安装验证统一用 -Plan 与临时 -SkillsDir，不在维护者本机注册技能。更新 Humanizer-zh 时从上游拉取固定提交，与本地副本逐字节对照后更新 UPSTREAM.json 哈希，再重建 packages 和 delivery。

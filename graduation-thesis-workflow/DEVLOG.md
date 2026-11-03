@@ -29,3 +29,9 @@
 ## 2026-10-24 · Humanizer 上游更新
 
 内置 Humanizer 更新至 3.1.0，固定提交 8c307f367c91bd974002f10f2be2965d642c13df；保留原始 SKILL.md 与 MIT 许可，重建三个平台包。
+
+## 2026-11-03 · 0.4.0 Pi 客户端与 Humanizer-zh
+
+内置润色工具由英文版 blader/humanizer 3.1.0 全量替换为 Humanizer-zh（op7418/Humanizer-zh，MIT，固定提交 f4518a8eab97b8bfebc66a89d34320a89bef6930，本地副本逐字节对照）；SKILL.md 与 LICENSE 按上游字节保存，UPSTREAM.json 记录哈希。08 模块重写，明确中文润色定位与外文稿件边界；polishing.json 新项目写入 tool=humanizer-zh，audit 同时接受旧值 humanizer，schema_version 保持 1。
+
+新增 Pi 为第四个分发客户端：package.py 生成 graduation-thesis-pi.zip（与 Codex 包同内容）；install.ps1 支持 -Client pi，目标 ~/.pi/agent/skills/graduation-thesis/，只复制文件不改动客户端配置；settings.json 注册步骤写入安装文档，由助手在用户授权下执行。分发 ZIP 从三个增加到四个。

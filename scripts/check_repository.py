@@ -13,6 +13,7 @@ import json
 import re
 import stat
 import subprocess
+import sys
 import tomllib
 import xml.etree.ElementTree as ET
 import zipfile
@@ -77,6 +78,11 @@ def check_packages(errors: list[str]) -> None:
     for name in PROJECTS:
         verify(ROOT / name)
     thesis = ROOT / "graduation-thesis-workflow"
+    sys.path.insert(0, str(thesis / "scripts"))
+    try:
+        from package import workbuddy_skill
+    finally:
+        sys.path.pop(0)
     for record in json.loads((thesis / "packages/checksums.json").read_text()):
         path = thesis / "packages" / record["file"]
         if digest(path.read_bytes()) != record["sha256"]:
@@ -86,11 +92,7 @@ def check_packages(errors: list[str]) -> None:
                 source = thesis / "skills" / name if name != "graduation-thesis/LICENSE" else thesis / "LICENSE"
                 expected_bytes = source.read_bytes()
                 if name == "graduation-thesis/SKILL.md" and "workbuddy" in path.name:
-                    text = expected_bytes.decode("utf-8").replace("\r\n", "\n")
-                    extra = ("\ndescription_zh: Evidence-based undergraduate thesis workflow"
-                             "\ndescription_en: Evidence-based undergraduate thesis workflow"
-                             "\nversion: 0.3.0\nauthor: Graduation Thesis Workflow contributors\n---\n")
-                    expected_bytes = text.replace("\n---\n", extra, 1).encode("utf-8")
+                    expected_bytes = workbuddy_skill(expected_bytes)
                 if archive.read(name) != expected_bytes:
                     errors.append(f"{path.name}: bundle/source mismatch {name}")
 

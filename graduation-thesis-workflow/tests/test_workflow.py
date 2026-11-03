@@ -57,9 +57,9 @@ class WorkflowTests(unittest.TestCase):
         for name in ('confirmation.md', 'school.md', 'policy.md', 'evidence.txt', 'thesis.md', 'before.md', 'review.md'):
             (self.root / name).write_text('SYNTHETIC TEST FIXTURE ONLY\n', encoding='utf-8')
         review_hash = project.digest(self.root / 'review.md')
-        self.write('polishing.json', {'tool': 'humanizer', 'status': 'applied',
+        self.write('polishing.json', {'tool': 'humanizer-zh', 'status': 'applied',
                    'before_path': 'before.md', 'after_path': 'thesis.md',
-                   'before_sha256': project.digest(self.root / 'thesis.md'),
+                   'before_sha256': project.digest(self.root / 'before.md'),
                    'after_sha256': project.digest(self.root / 'thesis.md'),
                    'review_path': 'review.md', 'review_sha256': review_hash})
         req = self.read('requirements.json')
@@ -124,20 +124,39 @@ class WorkflowTests(unittest.TestCase):
 
     def test_humanizer_cannot_be_silently_skipped(self):
         self.fixture()
-        self.write('polishing.json', {'tool': 'humanizer', 'status': 'pending'})
+        self.write('polishing.json', {'tool': 'humanizer-zh', 'status': 'pending'})
         self.assertTrue(any('Humanizer stage' in e for e in project.audit(self.root)))
+
+    def test_legacy_humanizer_tool_still_passes_audit(self):
+        # 0.3.x projects recorded tool=humanizer; audit must keep accepting them.
+        self.fixture()
+        polishing = self.read('polishing.json')
+        polishing['tool'] = 'humanizer'
+        self.write('polishing.json', polishing)
+        # polishing.json is snapshot-bound; re-bind after the change, as a real project would.
+        project.review_snapshot(self.root, 'review.md')
+        self.assertEqual(project.audit(self.root), [])
+
+    def test_unknown_polish_tool_fails(self):
+        self.fixture()
+        polishing = self.read('polishing.json')
+        polishing['tool'] = 'unverified-polisher'
+        self.write('polishing.json', polishing)
+        self.assertTrue(any('Humanizer record' in e for e in project.audit(self.root)))
 
     def test_vendor_is_unmodified_in_packages(self):
         output = Path(self.temp.name) / 'vendor-packages'
         package.build(output)
-        vendor = SKILL / 'references/vendor/humanizer'
+        vendor = SKILL / 'references/vendor/humanizer-zh'
         manifest = json.loads((vendor / 'UPSTREAM.json').read_text())
         for name, sha in manifest['files'].items():
             self.assertEqual(project.digest(vendor / name), sha)
         for target in output.glob('*.zip'):
             with zipfile.ZipFile(target) as archive:
-                self.assertEqual(archive.read('graduation-thesis/references/vendor/humanizer/SKILL.md'),
+                self.assertEqual(archive.read('graduation-thesis/references/vendor/humanizer-zh/SKILL.md'),
                                  (vendor / 'SKILL.md').read_bytes())
+                self.assertEqual(archive.read('graduation-thesis/references/vendor/humanizer-zh/LICENSE'),
+                                 (vendor / 'LICENSE').read_bytes())
 
     def test_init_never_overwrites(self):
         with self.assertRaises(ValueError):
@@ -223,6 +242,7 @@ class WorkflowTests(unittest.TestCase):
                 text = archive.read('graduation-thesis/SKILL.md').decode('utf-8')
                 if 'workbuddy' in target.name:
                     self.assertIn('description_zh:', text)
+                    self.assertIn('version: 0.4.0', text)
 
     def test_network_failure_writes_no_fake_results(self):
         output = self.root / 'literature' / 'failed.json'

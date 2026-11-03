@@ -1,3 +1,17 @@
+# 0.4.0 验证记录（2026-11-03）
+
+35 项 unittest 中 29 项流程测试全部通过；6 项 PowerShell 安装/环境测试在本机被执行策略阻止（UnauthorizedAccess，且安全模块无法加载，连 Get-ExecutionPolicy 都不可用）。测试文件与 bootstrap-windows.ps1 本次未改动，失败类型与 2026-10-24 GOTCHAS 记录一致，属环境限制，不计为通过。
+
+- 流程测试覆盖：tool=humanizer-zh 新项目写入与 audit 接受、旧值 humanizer 兼容（改值后重新快照后通过）、未知 tool 拒绝、vendor/humanizer-zh 的 UPSTREAM.json 哈希与全部四个平台包内字节一致、四包自包含与 WorkBuddy 元数据、既有证据/快照/路径回归全部保持。
+- 补偿验证（进程级 -ExecutionPolicy Bypass，未改机器策略）：install.ps1 -Plan 四客户端目标正确（codex ~/.agents/skills、claude-code ~/.claude/skills、pi ~/.pi/agent/skills、workbuddy 显式 SkillsDir）；临时目录实际安装 pi 返回 files_installed，重复安装返回 already_installed，篡改 SKILL.md 后安装被拒并保留原文件；workbuddy 安装注入 version: 0.4.0。
+- packages 重建为四个 ZIP：codex/claude-code/pi 三者字节相同，workbuddy 差异仅为元数据；全部四个包内 vendor SKILL.md/LICENSE 与上游 op7418/Humanizer-zh 提交 f4518a8 的 git blob（非 CRLF 工作区文件）逐字节一致。
+- delivery 重建：45 个文件（新增 pi ZIP），ZIP 内文件清单与 FILES.json 一致，SHA256SUMS 匹配。
+- 上游拉取自 GitHub 固定提交 f4518a8，与本地 ~/.agents/skills/Humanizer-zh 副本逐字节对照一致。
+
+尚未验证：Pi 真实宿主注册 settings 后的原生发现、四端实际宿主中的真实论文端到端交付；这些边界与 0.3.0 记录相同，没有伪造宿主行为或检测分数。
+
+---
+
 # 0.3.0 验证记录（2026-09-10）
 
 32 项 unittest 全部通过，0 项跳过；skill-creator quick_validate 使用 Python UTF-8 模式通过。

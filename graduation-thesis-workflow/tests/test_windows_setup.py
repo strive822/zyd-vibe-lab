@@ -24,11 +24,11 @@ class WindowsSetupTests(unittest.TestCase):
         return subprocess.run([POWERSHELL, '-NoProfile', '-NonInteractive', '-File', str(ROOT / relative), *map(str, args)],
                               capture_output=True, timeout=120)
 
-    def test_three_clients_install_and_repeat(self):
+    def test_clients_install_and_repeat(self):
         packages = self.base / 'packages'
         subprocess.run([sys.executable, str(ROOT / 'scripts/package.py'), '--out', str(packages)],
                        check=True, capture_output=True)
-        for client in ('codex', 'claude-code', 'workbuddy'):
+        for client in ('codex', 'claude-code', 'pi', 'workbuddy'):
             target = self.base / '中文 带空格路径' / client
             args = ('-Client', client, '-SkillsDir', target)
             result = self.run_script('scripts/install.ps1', *args)

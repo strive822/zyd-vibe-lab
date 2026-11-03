@@ -4,7 +4,7 @@
 
 # 安装与平台差异
 
-唯一源目录是 `skills/graduation-thesis/`，必须完整复制其中 references 与 scripts，不要只复制 SKILL.md。三端复用同一核心规则；不使用特定平台的工具名称、动态 shell frontmatter 或绝对个人路径。
+唯一源目录是 `skills/graduation-thesis/`，必须完整复制其中 references 与 scripts，不要只复制 SKILL.md。四端复用同一核心规则；不使用特定平台的工具名称、动态 shell frontmatter 或绝对个人路径。
 
 ## Codex
 
@@ -15,6 +15,12 @@
 ## Claude Code
 
 依 [官方技能说明](https://code.claude.com/docs/en/skills)，项目级目录是 `.claude/skills/graduation-thesis/`，个人级可放 `~/.claude/skills/graduation-thesis/`。完整复制，重新进入会话，使用 `/graduation-thesis`，再指定论文项目路径。
+
+## Pi
+
+Pi 遵循 [Agent Skills 规范](https://agentskills.io/specification)，开箱即扫描 `~/.agents/skills/`；为了与 Codex 安装目录分离，本包为 Pi 使用独立目录。运行 `scripts/install.ps1 -Client pi` 把技能复制到 `%USERPROFILE%\.pi\agent\skills\graduation-thesis\`；安装器只复制文件，不改写任何客户端配置。
+
+Pi 默认不扫描该目录，安装后需由助手在用户授权下完成注册：先备份 `~/.pi/agent/settings.json`，把 `~/.pi/agent/skills` 幂等追加到 `skills` 数组（已存在则跳过；文件缺失或 JSON 解析失败时停止并报告，不盲目改写），也可由使用者在设置界面自行添加。重新进入会话后用 `/skill:graduation-thesis` 调用。未注册时技能不被发现是预期行为，不是安装失败；此时助手可直接读取已安装的 SKILL.md 继续工作流。
 
 ## WorkBuddy
 

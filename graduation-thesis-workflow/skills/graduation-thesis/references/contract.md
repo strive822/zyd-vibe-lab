@@ -45,7 +45,7 @@ audit 检查：必需记录、非空文件、路径范围、哈希、需求版�
 
 ## polishing.json
 
-初始为 tool=humanizer、status=pending。实际润色后填写 status=applied、before_path/before_sha256、after_path/after_sha256、review_path/review_sha256。前后文件和审查报告都必须实际存在且哈希匹配。学校明确禁止时允许 status=skipped_school_policy，另需 reason、policy_source_path 和审查报告。工具检查不能证明润色质量，仍须审查其语义与最终文件来源。旧项目缺少此记录时创建 pending 并补做，不能直接标完成。
+初始为 tool=humanizer-zh、status=pending（0.3.x 及更早项目记录为 tool=humanizer，审计同时接受两个值）。实际润色后填写 status=applied、before_path/before_sha256、after_path/after_sha256、review_path/review_sha256。前后文件和审查报告都必须实际存在且哈希匹配。学校明确禁止时允许 status=skipped_school_policy，另需 reason、policy_source_path 和审查报告。工具检查不能证明润色质量，仍须审查其语义与最终文件来源。旧项目缺少此记录时创建 pending 并补做，不能直接标完成。
 
 ## final-review.json：绑定实际审查版本
 

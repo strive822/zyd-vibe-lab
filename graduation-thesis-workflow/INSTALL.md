@@ -24,9 +24,10 @@
 | --- | --- |
 | Codex | 优先宿主技能安装器实际使用的目录；手工文件安装可用当前官方个人目录 `~/.agents/skills/graduation-thesis/`，项目安装可用 `.agents/skills/` |
 | Claude Code | `~/.claude/skills/graduation-thesis/` 或用户要求的项目 `.claude/skills/` |
+| Pi | `%USERPROFILE%\.pi\agent\skills\graduation-thesis\`（与 Codex 目录分离）。安装器只复制文件；Pi 需先把 `~/.pi/agent/skills` 注册进 `~/.pi/agent/settings.json` 的 `skills` 数组才发现技能，注册由助手在用户授权下完成（先备份、幂等、解析失败即停），见 [docs/INSTALL.md](docs/INSTALL.md) |
 | WorkBuddy | 优先宿主内置导入能力；否则检查当前客户端实际的 skills 目录。本机已有 `~/.workbuddy/skills/` 时可使用，但不得把它硬当成所有版本通用路径 |
 
-Windows 已下载完整目录后，由助手调用 `scripts/install.ps1 -Client codex|claude-code|workbuddy`；`-SkillsDir` 可指定已经核实的真实技能根目录。参数里的竖线只是候选说明，调用时必须选择一个值。此脚本不需要 Python，保留同名不同内容技能，不自动覆盖。macOS/Linux 用宿主文件工具完成同样的目录复制与核验，不运行 PowerShell 脚本。
+Windows 已下载完整目录后，由助手调用 `scripts/install.ps1 -Client codex|claude-code|pi|workbuddy`；`-SkillsDir` 可指定已经核实的真实技能根目录。参数里的竖线只是候选说明，调用时必须选择一个值。此脚本不需要 Python，保留同名不同内容技能，不自动覆盖，也不改动任何客户端配置文件。macOS/Linux 用宿主文件工具完成同样的目录复制与核验，不运行 PowerShell 脚本。
 
 若通过原生导入 ZIP 安装，不再重复复制一次。更新已有技能时先检查现状、备份原文件，在用户更新授权范围内替换，不删除无关技能。
 
