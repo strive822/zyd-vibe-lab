@@ -10,6 +10,7 @@
 | 定投、三资产、计算器、dca-calculator | 下载源码、准备依赖、启动本地网页 | [计算器安装入口](dca-calculator/INSTALL.md) |
 | Pi 任务通知、任务完成通知、pi-task-notify | Pi 完成任务、出错、等你确认时发系统通知 | [任务通知安装入口](pi-task-notify/INSTALL.md) |
 | 今日待办、待办清单、today-todo | 下载零依赖 Node 服务并验证 | [待办安装入口](today-todo/INSTALL.md) |
+| 图绳、截图工具、PicRope | Windows 截图暂存与挂图，含额度面板 | [图绳安装入口](PicRope/INSTALL.md) |
 | LibreTV | 单独下载、核验与按需恢复 | [LibreTV 安装入口](LibreTV/INSTALL.md) |
 | yt-dlp | 单独下载、核验与按需恢复 | [yt-dlp 安装入口](yt-dlp/INSTALL.md) |
 | Windows-MCP | 单独下载、核验与按需恢复 | [Windows-MCP 安装入口](Windows-MCP/INSTALL.md) |

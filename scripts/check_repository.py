@@ -112,8 +112,8 @@ def check_file(path: Path, known: set[Path], errors: list[str]) -> list[str]:
         if not data.startswith(signatures[path.suffix]):
             errors.append(f"{label}: invalid image signature")
         return checks + ["image signature"]
-    if path.suffix in {".exe", ".bin"}:
-        if path.suffix == ".exe" and not data.startswith(b"MZ"):
+    if path.suffix in {".exe", ".bin", ".dll"}:
+        if path.suffix in {".exe", ".dll"} and not data.startswith(b"MZ"):
             errors.append(f"{label}: invalid PE signature")
         return checks + ["binary blob"]
     if path.suffix == ".ico":

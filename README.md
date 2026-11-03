@@ -62,6 +62,12 @@ zhongyudi 的个人项目仓库：各项目独立下载、安装、运行和维�
 下载并使用 https://github.com/strive822/zyd-vibe-lab 里的 flyingmouse-format。请先读取该项目 INSTALL.md，取得完整独立目录并核对 SHA-256；只要软件本体就改用上游官方安装包核验安装，要让 Agent 驱动转换就按上游 agent-skill 说明接入 CLI；保留许可证与署名，不用于商业用途。
 ```
 
+**图绳截图（PicRope 个人增强版）：**
+
+```text
+下载并安装 https://github.com/strive822/zyd-vibe-lab 里的 PicRope。请先读取 PicRope/INSTALL.md，取得完整独立目录并核验，确认 .NET Framework 4.8 环境，按官方 install.ps1 流程安装到 %LocalAppData%\Programs\PicRope，迁移已有 data 数据，验证程序可启动；不要覆盖用户已有的截图与设置。
+```
+
 简短说“安装这个仓库里的论文工作流”也可使用论文入口。未指定项目时，Agent 应先确认项目。
 
 ## 项目与下载
@@ -77,6 +83,7 @@ zhongyudi 的个人项目仓库：各项目独立下载、安装、运行和维�
 | [pi-task-notify](pi-task-notify/README.md) | Pi 编码代理任务通知：完成/出错/等确认/心跳，失焦才打扰，Windows 实测 | [安装与验证](pi-task-notify/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/pi-task-notify/delivery/pi-task-notify.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/pi-task-notify/delivery/SHA256SUMS.txt) |
 | [today-todo](today-todo/README.md) | 电脑与手机局域网共用的今日清单，零依赖 Node 服务 + 原生前端 | [下载与启动](today-todo/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/today-todo/delivery/today-todo.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/today-todo/delivery/SHA256SUMS.txt) |
 | [flyingmouse-format](flyingmouse-format/README.md) | 飞鼠格式离线文件转换器 0.7.10 源码快照：图片/Office/PDF/音视频互转 + OCR，含上游 Agent CLI 技能 | [下载与使用](flyingmouse-format/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/flyingmouse-format/delivery/flyingmouse-format.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/flyingmouse-format/delivery/SHA256SUMS.txt) |
+| [PicRope](PicRope/README.md) | 图绳截图工具个人增强版：矩形/窗口/全屏三入口、文件与文字挂绳、悬浮挂钩展开、图片调序、模型额度面板 | [安装入口](PicRope/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/PicRope/delivery/PicRope.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/PicRope/delivery/SHA256SUMS.txt) |
 
 论文工作流不保证毕业或检测分数；计算器只计算，不执行交易。
 
