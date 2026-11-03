@@ -70,6 +70,8 @@ namespace ScreenLine
             Shelf.BasketRequested += ShowBasket;
             Shelf.TextRequested += ShowTexts;
             Texts.Changed += Shelf.UpdateTexts;
+            Shelf.RopeShown += delegate { if (Gallery.Store.State.QuotaFollowRope) EnsureQuotaPanel().Follow(true); };
+            Shelf.RopeHidden += delegate { if (QuotaPanel != null) QuotaPanel.Follow(false); };
             events = new WindowsEvents();
             events.RegisterCapture(store.State.CaptureModifiers, store.State.CaptureKey);
             events.CaptureRequested += ShowCapture;
@@ -134,6 +136,20 @@ namespace ScreenLine
             UpdateCaptureLabel();
             more.AddAction("截图快捷键…", "shortcut", delegate { OpenShortcutSettings(); });
             more.AddAction("模型额度", "save", delegate { ToggleQuotaPanel(); });
+            MenuItem quotaFollow = null;
+            quotaFollow = more.AddAction("额度面板跟随绳子", "show", delegate
+            {
+                bool follow = quotaFollow.IsChecked;
+                var state = Gallery.Store.State;
+                bool previous = state.QuotaFollowRope;
+                state.QuotaFollowRope = follow;
+                try { Gallery.Store.Save(); }
+                catch (Exception error) { state.QuotaFollowRope = previous; quotaFollow.IsChecked = previous; Gallery.Store.Log(error); Notice("额度面板设置保存失败"); return; }
+                if (follow) { if (Shelf.Revealed) EnsureQuotaPanel().Follow(true); }
+                else if (QuotaPanel != null) QuotaPanel.Follow(false);
+            });
+            quotaFollow.IsCheckable = true;
+            quotaFollow.IsChecked = Gallery.Store.State.QuotaFollowRope;
             more.Separator();
             more.AddAction("添加图片…", "add", async delegate
             {
@@ -392,10 +408,17 @@ namespace ScreenLine
 
         void ToggleQuotaPanel()
         {
-            if (QuotaPanel != null) { QuotaPanel.Activate(); QuotaPanel.RefreshNow(); return; }
+            var panel = EnsureQuotaPanel();
+            if (panel.IsVisible) { panel.Follow(false); return; }
+            panel.ShowStandalone();
+        }
+
+        private QuotaPanelWindow EnsureQuotaPanel()
+        {
+            if (QuotaPanel != null) return QuotaPanel;
             QuotaPanel = new QuotaPanelWindow(Gallery.Store);
             QuotaPanel.Closed += delegate { QuotaPanel = null; };
-            QuotaPanel.Show();
+            return QuotaPanel;
         }
 
         async void CollectClipboardText()

@@ -284,7 +284,8 @@ namespace ScreenLine
         {
             store = source;
             Title = "模型额度 · 图绳"; Width = 400; SizeToContent = SizeToContent.Height; ResizeMode = ResizeMode.NoResize;
-            WindowStartupLocation = WindowStartupLocation.CenterScreen; ShowInTaskbar = false;
+            WindowStartupLocation = WindowStartupLocation.Manual; ShowInTaskbar = false;
+            Topmost = true; ShowActivated = false;
             FontFamily = new FontFamily("Microsoft YaHei UI");
             var body = new StackPanel { Margin = new Thickness(16) };
             BuildRow("codex", "Codex（ChatGPT 订阅）");
@@ -304,6 +305,14 @@ namespace ScreenLine
             timer.Tick += delegate { RefreshNow(); };
             Loaded += delegate { RestartTimer(); RefreshNow(); };
             Closed += delegate { timer.Stop(); };
+        }
+
+        // 托盘菜单手动打开：不依赖绳子是否展开。
+        internal void ShowStandalone()
+        {
+            if (!IsVisible) Show();
+            PositionNearRope();
+            RefreshNow();
         }
 
         void BuildRow(string id, string name)
@@ -396,6 +405,36 @@ namespace ScreenLine
         }
 
         void RestartTimer() { }
+
+        // 跟随绳子：展开时贴在屏幕右侧、绳子下沿浮出，收起时一起隐藏。
+        internal void Follow(bool shelfShown)
+        {
+            if (shelfShown)
+            {
+                if (!IsVisible) Show();
+                PositionNearRope();
+                RefreshNow();
+            }
+            else if (IsVisible) Hide();
+        }
+
+        void PositionNearRope()
+        {
+            try
+            {
+                var screen = System.Windows.Forms.Screen.PrimaryScreen;
+                double scale = WindowsNative.MonitorScale(screen);
+                double left = screen.Bounds.Left / scale;
+                double right = screen.Bounds.Right / scale;
+                double top = screen.Bounds.Top / scale;
+                double bottom = screen.Bounds.Bottom / scale;
+                double width = ActualWidth > 0 ? ActualWidth : Width;
+                double height = ActualHeight > 0 ? ActualHeight : 360;
+                Left = Math.Max(left + 8, right - width - 24);
+                Top = Math.Min(top + 228, Math.Max(top + 8, bottom - height - 56));
+            }
+            catch { }
+        }
 
         void OpenConfig()
         {

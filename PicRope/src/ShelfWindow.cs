@@ -58,6 +58,7 @@ namespace ScreenLine
         readonly Border textCounter = new Border();
         public event Action TextRequested;
         public event Action RopeHidden;
+        public event Action RopeShown;
         readonly TranslateTransform slide = new TranslateTransform(0, HiddenY);
         readonly SpringMotion revealMotion = new SpringMotion(0.42, 0.82, HiddenY);
         readonly SpringMotion ropeMotion = new SpringMotion(0.55, 0.78, 18);
@@ -737,6 +738,7 @@ namespace ScreenLine
             if (shown == Revealed) return;
             if (shown) avoidingCaption = false;
             Revealed = shown;
+            if (shown && RopeShown != null) RopeShown();
             revealMotion.Target = shown ? 0 : HiddenY;
             hideFrom = revealMotion.Position;
             hideTime = 0;

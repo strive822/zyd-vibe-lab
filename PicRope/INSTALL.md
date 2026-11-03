@@ -27,7 +27,7 @@ https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/PicRope/delivery/P
 https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/PicRope/delivery/INSTALLER-SHA256.txt
 ```
 
-下载到一个专用临时目录，校验 SHA-256（`INSTALLER-SHA256.txt` 里是安装包的值，当前为 `2ab474eee45e2ea00686ab8462d56366f154b184bf39bcd0dc7d950f1e668f5c`），失败最多重试两次，不换未知来源。
+下载到一个专用临时目录，校验 SHA-256（`INSTALLER-SHA256.txt` 里是安装包的值，当前为 `8901682c5e952128b42bc9a120a7b75d4071f70455d8c12288857ae74e79977b`），失败最多重试两次，不换未知来源。
 
 解压后用 PowerShell 7 运行：
 

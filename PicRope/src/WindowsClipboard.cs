@@ -107,13 +107,39 @@ namespace ScreenLine
                     if (WindowsNative.GetClipboardSequenceNumber() != sequence) return null;
                     try
                     {
-                        var data = Clipboard.GetDataObject();
-                        if (data == null || !data.GetDataPresent(DataFormats.FileDrop)) return null;
-                        var list = data.GetData(DataFormats.FileDrop) as System.Collections.Specialized.StringCollection;
-                        if (list == null) return null;
                         var files = new List<string>();
-                        foreach (string item in list) if (File.Exists(item)) files.Add(item);
-                        return files.ToArray();
+                        // WinForms 的 GetFileDropList 返回 StringCollection；GetData 对 FileDrop 返回 string[]，两种都兼容。
+                        if (Clipboard.ContainsFileDropList())
+                        {
+                            foreach (string item in Clipboard.GetFileDropList())
+                            {
+                                if (!string.IsNullOrEmpty(item) && File.Exists(item)) files.Add(item);
+                            }
+                        }
+                        if (files.Count == 0)
+                        {
+                            var raw = Clipboard.GetData(DataFormats.FileDrop);
+                            var array = raw as string[];
+                            if (array != null)
+                            {
+                                foreach (string item in array)
+                                {
+                                    if (!string.IsNullOrEmpty(item) && File.Exists(item)) files.Add(item);
+                                }
+                            }
+                            else
+                            {
+                                var collection = raw as System.Collections.Specialized.StringCollection;
+                                if (collection != null)
+                                {
+                                    foreach (string item in collection)
+                                    {
+                                        if (!string.IsNullOrEmpty(item) && File.Exists(item)) files.Add(item);
+                                    }
+                                }
+                            }
+                        }
+                        return files.Count == 0 ? null : files.ToArray();
                     }
                     catch (ExternalException) { }
                     Thread.Sleep(50);

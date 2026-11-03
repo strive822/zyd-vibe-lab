@@ -20,6 +20,7 @@ namespace ScreenLine
         public bool AutoHang { get; set; }
         public bool HoverPreview { get; set; }
         public bool RevealOnTopHover { get; set; }
+        public bool QuotaFollowRope { get; set; }
         public string Theme { get; set; }
         public string DisplayDevice { get; set; }
         public string LastUpdateNotification { get; set; }
@@ -37,7 +38,7 @@ namespace ScreenLine
         public List<string> Collection { get; set; }
         public List<TextItem> Texts { get; set; }
 
-        public SavedState() { Images = new List<string>(); Collection = new List<string>(); Texts = new List<TextItem>(); Files = new List<string>(); RopeTexts = new List<string>(); Theme = "classic"; AutoHang = true; HoverPreview = true; RevealOnTopHover = true; CaptureModifiers = 3; CaptureKey = (uint)'S'; }
+        public SavedState() { Images = new List<string>(); Collection = new List<string>(); Texts = new List<TextItem>(); Files = new List<string>(); RopeTexts = new List<string>(); Theme = "classic"; AutoHang = true; HoverPreview = true; RevealOnTopHover = true; QuotaFollowRope = true; CaptureModifiers = 3; CaptureKey = (uint)'S'; }
     }
 
     internal sealed class StateStore
