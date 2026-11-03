@@ -44,6 +44,7 @@ namespace ScreenLine
         internal CaptureWindow Capture { get; private set; }
         internal Window ShortcutSettings { get; private set; }
         internal QuotaPanelWindow QuotaPanel { get; private set; }
+        internal static bool OpenQuotaOnStart;
         internal HookWindow Hook { get; private set; }
         readonly MenuItem regionMenu, windowMenu, fullScreenMenu;
         internal readonly List<ImageEditorWindow> Editors = new List<ImageEditorWindow>();
@@ -186,6 +187,7 @@ namespace ScreenLine
                 Hook.Show();
             }
             catch (Exception error) { Gallery.Store.Log(error); Notice("挂钩创建失败：" + error.Message); }
+            if (OpenQuotaOnStart) { OpenQuotaOnStart = false; ToggleQuotaPanel(); }
             if (automaticUpdates) updateTimer.Start();
         }
 
@@ -617,6 +619,7 @@ namespace ScreenLine
         public static void Main(string[] arguments)
         {
             if (Array.IndexOf(arguments, "--quit") >= 0) { WindowsNative.RequestExit(); return; }
+            if (Array.IndexOf(arguments, "--quota") >= 0) DesktopController.OpenQuotaOnStart = true;
             bool first;
             using (var instance = new Mutex(true, @"Local\TangHao.ScreenLine.Windows", out first))
             {

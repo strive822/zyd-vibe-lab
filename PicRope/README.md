@@ -12,6 +12,16 @@ Windows 10/11 · 免费开源 · 中文界面 · 图片本地处理。
 下载并安装 https://github.com/strive822/zyd-vibe-lab 里的 PicRope。请先读取 PicRope/INSTALL.md，取得完整独立目录并核验，确认 .NET Framework 4.8 环境，按官方 install.ps1 流程安装到 %LocalAppData%\Programs\PicRope，迁移已有 data 数据，验证程序可启动；不要覆盖用户已有的截图与设置。
 ```
 
+## 下载
+
+| 文件 | 用途 |
+| --- | --- |
+| [delivery/PicRope-installer.zip](delivery/PicRope-installer.zip) | 免编译的安装包（`app/` + `install.ps1` + `Install.cmd`） |
+| [delivery/INSTALLER-SHA256.txt](delivery/INSTALLER-SHA256.txt) | 安装包的 SHA-256 |
+| [delivery/PicRope.zip](delivery/PicRope.zip) | 源码快照，供自己构建或改代码 |
+
+两个包用途不同：装软件用安装包，改代码用源码包。详见 [INSTALL.md](INSTALL.md)。
+
 ## 和上游的差别
 
 - **三种截图入口**：托盘菜单分“矩形截图 / 窗口截图 / 全屏截图”。矩形是拖拽框选，窗口是点击窗口整窗截取，全屏一键拍整屏。
@@ -20,7 +30,7 @@ Windows 10/11 · 免费开源 · 中文界面 · 图片本地处理。
 - **悬浮挂钩才展开**：屏幕顶端中央常驻一个小木夹，只有鼠标悬浮到它上面，绳子才展开；移开就收起。不再整条顶边误触发。
 - **绳子上的图片可以调顺序**：在绳子上水平拖动图片卡片到新位置，顺序写入 `data/state.json`，重启后保持。
 - **图片篮子可移动**：拖动篮子标题栏即可换位置；篮子里的图片卡片改成和绳子一致的视觉（白底、圆角 12、柔和投影）。
-- **模型额度面板**：托盘“更多 → 模型额度”打开，显示 Codex（5 小时窗口与每周额度）、智谱 GLM Coding Plan（5 小时与每周用量）、DeepSeek（账户余额），WorkBuddy 暂无公开接口，面板里说明并给出打开应用的入口。Key 写在 `data/quotas.json`，面板每 5 分钟刷新一次，可在配置里改。
+- **模型额度面板**：托盘“更多 → 模型额度”打开（也可用 `PicRope.exe --quota` 直接打开），显示 Codex（5 小时窗口与每周额度）、智谱 GLM Coding Plan（5 小时与每周用量）、DeepSeek（账户余额），WorkBuddy 暂无公开接口，面板里说明并给出打开应用的入口。Key 写在 `data/quotas.json`，面板每 5 分钟刷新一次，可在配置里改。
 
 ## 数据与配置
 
