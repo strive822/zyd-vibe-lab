@@ -36,6 +36,7 @@ steps; the root README only points here. When documents conflict, this file wins
 
 - Any file change inside a project requires rebuilding its delivery trio; names, links and hashes must stay consistent everywhere. Root documents must match reality (project counts, table rows, links).
 - Bundled README.md and INSTALL.md must byte-match the published source at the same ref. Text packaged on Windows must be checked out with LF (see the `-text` patterns in .gitattributes); after pushing, verify with `python scripts/verify_published.py --ref <commit>`.
+- Publishing a meaningful version of a project also means creating its GitHub Release: tag `<project>-v<version>` at the released commit, attach the delivery trio as assets, and mirror the README entry in the notes. Release asset names must match the delivery filenames exactly (raw and asset URLs are case-sensitive).
 - Do not describe local-only files or guessed URLs as published downloads. Publish only after checking staged changes and tests. Do not claim native client discovery, real account success or device acceptance based on a unit test.
 - For repository maintenance run `python scripts/check_repository.py` plus the changed project's checks. Avoid modifying daily running instances or real accounts during automated checks.
 

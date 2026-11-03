@@ -33,6 +33,8 @@ https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/dca-calculator/INS
 https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/pi-task-notify/INSTALL.md
 ```
 
+需要固定版本时，使用各项目的 GitHub Release：`https://github.com/strive822/zyd-vibe-lab/releases/tag/<项目>-v<版本>`，每个 Release 附 `<项目>.zip`、`SHA256SUMS.txt`、`FILES.json`。Release 是不可变定格；日常入口与最新状态仍以各项目 INSTALL.md 为准。
+
 按当前宿主识别 Windows / PowerShell、WSL / Linux 或 macOS，并检查实际可用工具。Agent 自动完成已授权且必要的依赖准备；组织策略和系统权限提示仍使用正常流程，不绕过。
 
 下载放到本次专用临时目录。拒绝绝对路径、`..` 越界、符号链接逃逸和文件名冲突；解压前检查条目。已有同名目录先检查内容；不同或不完整内容保留，选新目录，更新则依用户授权先备份。验证提供的校验和；失败最多重试两次，不换未知来源。
