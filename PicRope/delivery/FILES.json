@@ -87,7 +87,7 @@
   "tests/ClipboardImageTests.ps1": "eb6eb8fc926ec7df4ea0de71095a4150f9ad63c7a060f2920caa521af691f03b",
   "tests/ClipboardWorkerTests.cs": "cfa6f1cef2b7204dd133facf5b3fd136e06a34f796a1f52008bdaacdac72016d",
   "tests/CoreTests.cs": "d7906edbb6b68ed5febe9f09afee717a8e97e8cf17c8aa259538fa7b7be8effd",
-  "tests/DesktopTests.cs": "e119d9861f5aa683327dac2b7c613c2a49f25cf022b852d0aea6058f0c9e742e",
+  "tests/DesktopTests.cs": "59bf140119ae908b8301655a356d76209cb45e93620b2cd703aaf5016419622f",
   "tests/EditorFileTests.cs": "4726f36810d280781e7b5fe65e65551eb65c7510fe3691bf338443b424b822fa",
   "tests/EditorResourceProbe.cs": "8f49e83a15975419ca1cdf7609be2d87fe7fac04e62e5830382584915b2c5777",
   "tests/EditorUiTests.py": "b58c90557815df41cfb0808b00d2f443127938be041fad5c7454cf2243808ecc",

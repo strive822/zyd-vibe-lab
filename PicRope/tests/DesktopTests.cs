@@ -2072,12 +2072,13 @@ namespace ScreenLine.Tests
             Point bottomRight = trayMenu.PointToScreen(new Point(trayMenu.ActualWidth, trayMenu.ActualHeight));
             Check(topLeft.X >= screen.Bounds.Left && topLeft.Y >= screen.Bounds.Top
                 && bottomRight.X <= screen.Bounds.Right + 1 && bottomRight.Y <= screen.Bounds.Bottom + 1, "屏幕右下角的托盘菜单完整显示，没有超出屏幕");
-            Check(trayMenu.MoreMenu.Items.OfType<MenuItem>().Count(x => x.IsEnabled) == 12
+            Check(trayMenu.MoreMenu.Items.OfType<MenuItem>().Count(x => x.IsEnabled) == 13
                 && trayMenu.MoreMenu.Items.OfType<MenuItem>().Any(item => item.Header as string == "矩形截图")
                 && trayMenu.MoreMenu.Items.OfType<MenuItem>().Any(item => item.Header as string == "窗口截图")
                 && trayMenu.MoreMenu.Items.OfType<MenuItem>().Any(item => item.Header as string == "全屏截图")
                 && trayMenu.MoreMenu.Items.OfType<MenuItem>().Any(item => item.Header as string == "模型额度")
-                && trayMenu.MoreMenu.Items.OfType<MenuItem>().Any(item => item.Header as string == "截图快捷键…"), "更多操作保留原入口并提供矩形/窗口/全屏截图、模型额度与快捷键设置");
+                && trayMenu.MoreMenu.Items.OfType<MenuItem>().Any(item => item.Header as string == "额度面板跟随绳子")
+                && trayMenu.MoreMenu.Items.OfType<MenuItem>().Any(item => item.Header as string == "截图快捷键…"), "更多操作保留原入口并提供矩形/窗口/全屏截图、模型额度、跟随开关与快捷键设置");
             Check(trayMenu.ScreenButton.IsVisible && trayMenu.ScreenMode.Text == "跟随鼠标", "显示屏幕入口直接呈现当前模式");
             await ClickMenu(trayMenu.ScreenButton);
             await Until(() => trayMenu.ScreenMenu.IsOpen && trayMenu.ScreenMenu.ActualHeight > 0);
