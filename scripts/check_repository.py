@@ -29,6 +29,11 @@ SECRET_PATTERNS = (
     r"https?://[^\s/@:]+:[^\s/@]+@",
 )
 
+# 上游安全测试自带的 user:pass@ 形状假样本 URL（非真实凭据），整文件豁免并注明理由。
+SECRET_SCAN_EXEMPT = {
+    "flyingmouse-format/tests/electron-security.test.js": "upstream security-test fixtures",
+}
+
 
 def digest(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
@@ -96,15 +101,21 @@ def check_file(path: Path, known: set[Path], errors: list[str]) -> list[str]:
         raise ValueError("missing file or unsupported symlink")
     data = path.read_bytes()
     checks = ["secret patterns"]
-    secret_check(data, label, errors)
+    if label not in SECRET_SCAN_EXEMPT:
+        secret_check(data, label, errors)
     if path.suffix == ".zip":
         zip_check(path, errors)
         return checks + ["ZIP CRC/paths", "package/source SHA-256"]
-    if path.suffix in {".png", ".gif"}:
-        signatures = {".png": (b"\x89PNG\r\n\x1a\n",), ".gif": (b"GIF87a", b"GIF89a")}
+    if path.suffix in {".png", ".gif", ".jpg", ".jpeg"}:
+        signatures = {".png": (b"\x89PNG\r\n\x1a\n",), ".gif": (b"GIF87a", b"GIF89a"),
+                      ".jpg": (b"\xff\xd8\xff",), ".jpeg": (b"\xff\xd8\xff",)}
         if not data.startswith(signatures[path.suffix]):
             errors.append(f"{label}: invalid image signature")
         return checks + ["image signature"]
+    if path.suffix in {".exe", ".bin"}:
+        if path.suffix == ".exe" and not data.startswith(b"MZ"):
+            errors.append(f"{label}: invalid PE signature")
+        return checks + ["binary blob"]
     if path.suffix == ".ico":
         if not data.startswith(b"\x00\x00\x01\x00"):
             errors.append(f"{label}: invalid ICO signature")
@@ -131,6 +142,7 @@ def check_file(path: Path, known: set[Path], errors: list[str]) -> list[str]:
         checks.append("SVG XML")
     elif path.suffix == ".md":
         text = re.sub(r"```.*?```", "", text, flags=re.DOTALL)
+        text = re.sub(r"`[^`\n]*`", "", text)
         for url in re.findall(r"\]\(([^)]+)\)", text):
             url = unquote(url.split(' "')[0].strip("<>").split("#")[0])
             if not url or re.match(r"[a-zA-Z][a-zA-Z0-9+.-]*:", url):

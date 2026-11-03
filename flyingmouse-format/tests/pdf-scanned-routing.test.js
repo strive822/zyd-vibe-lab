@@ -1,0 +1,316 @@
+const assert = require("assert/strict");
+const crypto = require("crypto");
+const fsp = require("fs/promises");
+const os = require("os");
+const path = require("path");
+const { test } = require("node:test");
+
+const { convertPdf, convertStructuredPdf } = require("../pdf");
+const { validateStructureManifest } = require("../pdf-structure-contract");
+const { validatePdfOfficeDocx } = require("../pdf-office-docx");
+const { validatePdfOfficeXlsx } = require("../pdf-office-xlsx");
+const { createScannedTablePdf } = require("./helpers/scanned-pdf-fixture");
+
+test("creates deterministic scanned PDF fixtures", async (t) => {
+  const scratch = await fsp.mkdtemp(path.join(os.tmpdir(), "fm-scanned-fixture-"));
+  t.after(() => fsp.rm(scratch, { recursive: true, force: true }));
+  const firstPath = await createScannedTablePdf(path.join(scratch, "first.pdf"));
+  await new Promise((resolve) => setTimeout(resolve, 1100));
+  const secondPath = await createScannedTablePdf(path.join(scratch, "second.pdf"));
+  const [first, second] = await Promise.all([fsp.readFile(firstPath), fsp.readFile(secondPath)]);
+  const sha256 = (value) => crypto.createHash("sha256").update(value).digest("hex");
+  assert.equal(sha256(first), sha256(second));
+});
+
+test("routes scanned DOCX through the structure converter", async (t) => {
+  const scratch = await fsp.mkdtemp(path.join(os.tmpdir(), "fm-scanned-route-"));
+  t.after(() => fsp.rm(scratch, { recursive: true, force: true }));
+  const inputPath = await createScannedTablePdf(path.join(scratch, "scan.pdf"));
+  const outputPath = path.join(scratch, "scan.docx");
+  const calls = [];
+  const classification = { kind: "scanned", pages: [{ pageNumber: 1, kind: "scanned" }] };
+  await convertPdf(inputPath, outputPath, "docx", {
+    classifyPdf: async () => classification,
+    convertStructuredPdf: async (args) => {
+      calls.push(args);
+      await fsp.writeFile(args.outputPath, "fake");
+    }
+  });
+  assert.equal(calls.length, 1, "expected one structured conversion call");
+  assert.equal(calls[0].inputPath, inputPath);
+  assert.equal(calls[0].outputPath, outputPath);
+  assert.equal(calls[0].target, "docx");
+  assert.deepEqual(calls[0].classification, classification);
+});
+
+function structuredManifest({ tables = [], blocks = [], tableLike = tables.length > 0 } = {}) {
+  return {
+    schemaVersion: 1,
+    engine: { name: "fixture", version: "1" },
+    pages: [{
+      pageNumber: 1, width: 100, height: 100, rotation: 0,
+      referenceImage: "page.png", tableLike, blocks, tables, warnings: []
+    }]
+  };
+}
+
+function acceptedTable() {
+  return {
+    id: "t1", rowCount: 2, columnCount: 2, bbox: [0, 0, 100, 50], confidence: 0.99,
+    cells: [
+      { row: 0, column: 0, rowSpan: 1, columnSpan: 1, bbox: [0, 0, 50, 25], text: "A", confidence: 0.99 },
+      { row: 0, column: 1, rowSpan: 1, columnSpan: 1, bbox: [50, 0, 100, 25], text: "B", confidence: 0.99 },
+      { row: 1, column: 0, rowSpan: 1, columnSpan: 1, bbox: [0, 25, 50, 50], text: "1", confidence: 0.99 },
+      { row: 1, column: 1, rowSpan: 1, columnSpan: 1, bbox: [50, 25, 100, 50], text: "2", confidence: 0.99 }
+    ]
+  };
+}
+
+for (const target of ["docx", "xlsx"]) {
+  test(`canceling a completed structured ${target} write preserves the destination`, async (t) => {
+    const scratch = await fsp.mkdtemp(path.join(os.tmpdir(), "fm-cancel-office-publish-"));
+    t.after(() => fsp.rm(scratch, { recursive: true, force: true }));
+    const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=", "base64");
+    await fsp.writeFile(path.join(scratch, "page.png"), png);
+    const inputPath = await createScannedTablePdf(path.join(scratch, "input.pdf"));
+    const original = await fsp.readFile(inputPath);
+    const outputPath = path.join(scratch, `existing.${target}`);
+    await fsp.writeFile(outputPath, "KEEP ORIGINAL OUTPUT");
+    const controller = new AbortController();
+    const name = target === "docx" ? "writePdfOfficeDocx" : "writePdfOfficeXlsx";
+    const writer = require(target === "docx" ? "../pdf-office-docx" : "../pdf-office-xlsx")[name];
+    const manifest = validateStructureManifest(structuredManifest({
+      tables: [acceptedTable()],
+      blocks: [{ type: "table", bbox: [0, 0, 100, 50], tableId: "t1", confidence: 0.99 }]
+    }), scratch);
+    await assert.rejects(convertStructuredPdf({ inputPath, outputPath, target, options: {
+      signal: controller.signal,
+      withStructuredPdf: async (_input, _options, consume) => consume(manifest, scratch),
+      // The public writer seam places cancellation after a real Office file is
+      // complete, before it can replace the user's existing destination.
+      [name]: async (args) => { const result = await writer(args); controller.abort(); return result; }
+    } }), (error) => error.code === "CONVERSION_CANCELED");
+    assert.equal(await fsp.readFile(outputPath, "utf8"), "KEEP ORIGINAL OUTPUT");
+    assert.deepEqual(await fsp.readFile(inputPath), original);
+    assert.equal((await fsp.readdir(scratch)).some(name => /\.attempt-|\.backup-/.test(name)), false);
+  });
+}
+
+test("composes scanned and mixed structured DOCX/XLSX writers", async (t) => {
+  const scratch = await fsp.mkdtemp(path.join(os.tmpdir(), "fm-structured-compose-"));
+  t.after(() => fsp.rm(scratch, { recursive: true, force: true }));
+  const manifest = structuredManifest({ tables: [acceptedTable()] });
+  const seen = [];
+  for (const target of ["docx", "xlsx"]) {
+    const outputPath = path.join(scratch, `out.${target}`);
+    await convertPdf("input.pdf", outputPath, target, {
+      classifyPdf: async () => ({ kind: target === "docx" ? "mixed" : "scanned", pages: [] }),
+      pdfTextPages: [],
+      withStructuredPdf: async (_input, _options, consume) => consume(Object.freeze(manifest), scratch),
+      [`writePdfOffice${target === "docx" ? "Docx" : "Xlsx"}`]: async ({ manifest: selected, outputPath: output }) => {
+        seen.push({ target, selected });
+        await fsp.writeFile(output, target);
+      }
+    });
+    assert.equal(await fsp.readFile(outputPath, "utf8"), target);
+  }
+  assert.deepEqual(seen.map((item) => item.target), ["docx", "xlsx"]);
+  assert.equal(manifest.pages[0].tables.length, 1, "composition must not mutate a frozen/source manifest");
+});
+
+test("structured XLSX rejects zero tables before output publication", async (t) => {
+  const scratch = await fsp.mkdtemp(path.join(os.tmpdir(), "fm-zero-table-"));
+  t.after(() => fsp.rm(scratch, { recursive: true, force: true }));
+  const outputPath = path.join(scratch, "out.xlsx");
+  let writerCalled = false;
+  await assert.rejects(convertStructuredPdf({
+    inputPath: "input.pdf", outputPath, target: "xlsx", options: {
+      withStructuredPdf: async (_input, _options, consume) => consume(structuredManifest(), scratch),
+      writePdfOfficeXlsx: async () => { writerCalled = true; }
+    }
+  }), (error) => error.code === "PDF_TABLE_NOT_DETECTED");
+  assert.equal(writerCalled, false);
+  assert.equal(await fsp.stat(outputPath).then(() => true, () => false), false);
+});
+
+test("structured XLSX rejects low-confidence table candidates before output publication", async (t) => {
+  const scratch = await fsp.mkdtemp(path.join(os.tmpdir(), "fm-low-table-"));
+  t.after(() => fsp.rm(scratch, { recursive: true, force: true }));
+  const outputPath = path.join(scratch, "out.xlsx");
+  const weak = acceptedTable();
+  weak.source = "pp-structure-v3";
+  weak.confidence = 0.2;
+  weak.cells = weak.cells.map((cell) => ({ ...cell, confidence: 0.2, text: "" }));
+  const manifest = structuredManifest({ tableLike: true });
+  manifest.pages[0].tableCandidates = [weak];
+  await assert.rejects(convertStructuredPdf({
+    inputPath: "input.pdf", outputPath, target: "xlsx", options: {
+      withStructuredPdf: async (_input, _options, consume) => consume(manifest, scratch),
+      writePdfOfficeXlsx: async () => { throw new Error("writer must not run"); }
+    }
+  }), (error) => error.code === "PDF_TABLE_OCR_LOW_QUALITY");
+  assert.equal(await fsp.stat(outputPath).then(() => true, () => false), false);
+});
+
+test("structured conversion preserves low-quality and invalid errors without creating nominal output", async (t) => {
+  const scratch = await fsp.mkdtemp(path.join(os.tmpdir(), "fm-structured-errors-"));
+  t.after(() => fsp.rm(scratch, { recursive: true, force: true }));
+  for (const code of ["PDF_TABLE_OCR_LOW_QUALITY", "PDF_STRUCTURE_SCHEMA_INVALID"]) {
+    const outputPath = path.join(scratch, `${code}.xlsx`);
+    const failure = Object.assign(new Error("private"), { code });
+    await assert.rejects(convertStructuredPdf({
+      inputPath: "input.pdf", outputPath, target: "xlsx", options: {
+        withStructuredPdf: async () => { throw failure; }
+      }
+    }), (error) => error.code === code);
+    assert.equal(await fsp.stat(outputPath).then(() => true, () => false), false);
+  }
+});
+
+// 2026-09-07：图片合成的 PDF（无文字层）转 Word 时 docstructure 引擎偶发崩溃
+// （实测 segfault exit 139，同参数重跑成功），界面只有一句「PDF 结构识别失败」。
+// 修复：docx 在 PDF_STRUCTURE_PARSE_FAILED 时回落纯 OCR 段落；xlsx 的
+// PDF_TABLE_NOT_DETECTED 换成含行动指引的文案；其余错误码语义不变。
+test("scanned DOCX falls back to OCR paragraphs when the structure engine fails", async (t) => {
+  const scratch = await fsp.mkdtemp(path.join(os.tmpdir(), "fm-structure-fallback-"));
+  t.after(() => fsp.rm(scratch, { recursive: true, force: true }));
+  const outputPath = path.join(scratch, "out.docx");
+  const classification = { kind: "scanned", pages: [{ pageNumber: 1, kind: "scanned" }] };
+  let fallbackCalls = 0;
+  await convertPdf("input.pdf", outputPath, "docx", {
+    classifyPdf: async () => classification,
+    convertStructuredPdf: async () => {
+      throw Object.assign(new Error("engine crashed"), { code: "PDF_STRUCTURE_PARSE_FAILED" });
+    },
+    convertScannedPdfToOcrDocx: async (_input, output, fallbackOptions) => {
+      fallbackCalls += 1;
+      // 结构化引擎失败后二次回落必须跳过表格重建（E2E 实证假表格线→整页乱码）
+      assert.equal(fallbackOptions?.skipTableRebuild, true);
+      await fsp.writeFile(output, "ocr-docx");
+    }
+  });
+  assert.equal(fallbackCalls, 1, "expected one OCR fallback call");
+  assert.equal(await fsp.readFile(outputPath, "utf8"), "ocr-docx");
+});
+
+test("scanned DOCX rethrows OCR fallback failure itself (no double fallback loop)", async (t) => {
+  const scratch = await fsp.mkdtemp(path.join(os.tmpdir(), "fm-structure-fallback-ocrfail-"));
+  t.after(() => fsp.rm(scratch, { recursive: true, force: true }));
+  const classification = { kind: "scanned", pages: [{ pageNumber: 1, kind: "scanned" }] };
+  await assert.rejects(convertPdf("input.pdf", path.join(scratch, "out.docx"), "docx", {
+    classifyPdf: async () => classification,
+    convertStructuredPdf: async () => {
+      throw Object.assign(new Error("engine crashed"), { code: "PDF_STRUCTURE_PARSE_FAILED" });
+    },
+    convertScannedPdfToOcrDocx: async () => {
+      throw Object.assign(new Error("ocr unavailable"), { code: "PDF_OCR_REQUIRED" });
+    }
+  }), (error) => error.code === "PDF_OCR_REQUIRED");
+});
+
+test("other structure error codes are not swallowed by the DOCX fallback", async (t) => {
+  const scratch = await fsp.mkdtemp(path.join(os.tmpdir(), "fm-structure-fallback-passthru-"));
+  t.after(() => fsp.rm(scratch, { recursive: true, force: true }));
+  const classification = { kind: "scanned", pages: [{ pageNumber: 1, kind: "scanned" }] };
+  let fallbackCalls = 0;
+  await assert.rejects(convertPdf("input.pdf", path.join(scratch, "out.docx"), "docx", {
+    classifyPdf: async () => classification,
+    convertStructuredPdf: async () => {
+      throw Object.assign(new Error("low quality"), { code: "PDF_TABLE_OCR_LOW_QUALITY" });
+    },
+    convertScannedPdfToOcrDocx: async () => { fallbackCalls += 1; }
+  }), (error) => error.code === "PDF_TABLE_OCR_LOW_QUALITY");
+  assert.equal(fallbackCalls, 0);
+});
+
+test("XLSX table-not-detected error tells image-PDF users to use the OCR path", async () => {
+  const failure = Object.assign(new Error("no table"), {
+    code: "PDF_TABLE_NOT_DETECTED",
+    messages: { zhCN: "未检测到可可靠编辑的表格，无法生成 Excel。", enUS: "old" }
+  });
+  await assert.rejects(convertPdf("input.pdf", "out.xlsx", "xlsx", {
+    classifyPdf: async () => ({ kind: "scanned", pages: [] }),
+    convertStructuredPdf: async () => { throw failure; }
+  }), (error) => {
+    assert.equal(error.code, "PDF_TABLE_NOT_DETECTED");
+    assert.ok(error.messages.zhCN.includes("PDF 转 Word"), "must point at the Word/OCR route");
+    assert.ok(error.messages.zhCN.includes("PDF 转 TXT"), "must point at the TXT/OCR route");
+    return true;
+  });
+});
+
+test("structured failures preserve a pre-existing destination byte-for-byte", async (t) => {
+  const scratch = await fsp.mkdtemp(path.join(os.tmpdir(), "fm-preserve-structured-"));
+  t.after(() => fsp.rm(scratch, { recursive: true, force: true }));
+  for (const failure of [
+    Object.assign(new Error("schema"), { code: "PDF_STRUCTURE_SCHEMA_INVALID" }),
+    Object.assign(new Error("quality"), { code: "PDF_TABLE_OCR_LOW_QUALITY" })
+  ]) {
+    const outputPath = path.join(scratch, `${failure.code}.xlsx`);
+    await fsp.writeFile(outputPath, "KEEP");
+    await assert.rejects(convertStructuredPdf({
+      inputPath: "input.pdf", outputPath, target: "xlsx", options: {
+        withStructuredPdf: async () => { throw failure; }
+      }
+    }), (error) => error.code === failure.code);
+    assert.equal(await fsp.readFile(outputPath, "utf8"), "KEEP");
+  }
+
+  for (const target of ["docx", "xlsx"]) {
+    const outputPath = path.join(scratch, `writer.${target}`);
+    await fsp.writeFile(outputPath, "KEEP");
+    const writer = async ({ outputPath: attemptPath }) => {
+      assert.notEqual(attemptPath, outputPath);
+      await fsp.writeFile(attemptPath, "PARTIAL");
+      throw new Error("writer failed");
+    };
+    await assert.rejects(convertStructuredPdf({
+      inputPath: "input.pdf", outputPath, target, options: {
+        withStructuredPdf: async (_input, _options, consume) => consume(
+          structuredManifest({ tables: [acceptedTable()] }), scratch),
+        writePdfOfficeDocx: writer,
+        pdfTextPages: [],
+        writePdfOfficeXlsx: writer
+      }
+    }));
+    assert.equal(await fsp.readFile(outputPath, "utf8"), "KEEP");
+  }
+});
+
+test("actual structured writers accept a deeply frozen validated manifest without mutation", async (t) => {
+  const scratch = await fsp.mkdtemp(path.join(os.tmpdir(), "fm-actual-office-compose-"));
+  t.after(() => fsp.rm(scratch, { recursive: true, force: true }));
+  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=", "base64");
+  await fsp.writeFile(path.join(scratch, "page.png"), png);
+  const input = structuredManifest({
+    tables: [acceptedTable()],
+    blocks: [
+      { type: "paragraph", bbox: [0, 55, 100, 65], text: "Editable paragraph", confidence: 0.99 },
+      { type: "table", bbox: [0, 0, 100, 50], tableId: "t1", confidence: 0.99 }
+    ]
+  });
+  const manifest = validateStructureManifest(input, scratch);
+  const before = JSON.stringify(manifest);
+
+  const docxPath = path.join(scratch, "actual.docx");
+  await convertStructuredPdf({
+    inputPath: "input.pdf", outputPath: docxPath, target: "docx", options: {
+      pdfTextPages: [],
+      withStructuredPdf: async (_input, _options, consume) => consume(manifest, scratch)
+    }
+  });
+  const docx = await validatePdfOfficeDocx(docxPath, { expectedReferenceImages: 1,
+    expectedTables: [{ rows: 2, columns: 2 }] });
+  assert.equal(docx.hasEditableContent, true);
+
+  const xlsxPath = path.join(scratch, "actual.xlsx");
+  await convertStructuredPdf({
+    inputPath: "input.pdf", outputPath: xlsxPath, target: "xlsx", options: {
+      withStructuredPdf: async (_input, _options, consume) => consume(manifest, scratch)
+    }
+  });
+  const xlsx = await validatePdfOfficeXlsx(xlsxPath, { manifest, assetRoot: scratch });
+  assert.ok(xlsx);
+  assert.equal(JSON.stringify(manifest), before);
+  assert.ok(Object.isFrozen(manifest.pages[0].tables[0].cells[0]));
+});

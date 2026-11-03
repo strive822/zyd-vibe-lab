@@ -1,0 +1,1908 @@
+const state = {
+  files: [],
+  fileInfos: [],
+  capabilities: null,
+  converted: null,
+  batchResults: [],
+  isConverting: false,
+  selectionVersion: 0,
+  progressValue: 0,
+  previewResult: null,
+  previewRequest: null,
+  previewOpener: null,
+  folderName: "",
+  settings: { schemaVersion: 2, targetBySource: {} }
+};
+
+// S1：设置持久化失败时置位——本次会话用内存偏好，界面显示非阻断警告。
+let settingsDegraded = false;
+
+/* --- 渲染进程日志：转发到主进程 debug.log --- */
+const logBridge = window.flyingMouseFormat || {};
+const settingsSync = window.FlyingMouseSettings.createSynchronizer({
+  get: () => state.settings,
+  set: (settings) => { state.settings = settings; },
+  save: (patch) => logBridge.updateSettings(patch)
+});
+
+function rendererLog(level, message, error) {
+  const detail = error ? `${message}\n${error.stack || error.message || error}` : message;
+  try {
+    if (typeof logBridge.log === "function") {
+      logBridge.log(level, detail).catch(() => {});
+    } else {
+      // 非桌面环境（纯浏览器预览）退化为 console
+      if (level === "error") console.error(detail);
+      else if (level === "warn") console.warn(detail);
+      else console.info(detail);
+    }
+  } catch {
+    // 日志转发失败不应影响功能
+  }
+}
+
+window.addEventListener("error", (event) => {
+  rendererLog("error", `未捕获的渲染进程错误: ${event.message || "unknown"}`, event.error);
+});
+
+window.addEventListener("unhandledrejection", (event) => {
+  rendererLog("error", "未处理的 Promise 拒绝", event.reason);
+});
+
+const fileInput = document.querySelector("#fileInput");
+const folderInput = document.querySelector("#folderInput");
+const chooseFolderButton = document.querySelector("#chooseFolderButton");
+const dropZone = document.querySelector("#dropZone");
+const fileStrip = document.querySelector("#fileStrip");
+const fileName = document.querySelector("#fileName");
+const fileMeta = document.querySelector("#fileMeta");
+const targetSelect = document.querySelector("#targetSelect");
+const textEncodingField = document.querySelector("#textEncodingField");
+const textEncoding = document.querySelector("#textEncoding");
+const pdfExcelHint = document.querySelector("#pdfExcelHint");
+const videoCodecField = document.querySelector("#videoCodecField");
+const videoCodec = document.querySelector("#videoCodec");
+const alphaBackgroundField = document.querySelector("#alphaBackgroundField");
+const alphaBackground = document.querySelector("#alphaBackground");
+const pdfPasswordField = document.querySelector("#pdfPasswordField");
+const pdfPassword = document.querySelector("#pdfPassword");
+const pdfActionField = document.querySelector("#pdfActionField");
+const pdfAction = document.querySelector("#pdfAction");
+const pdfSplitModeField = document.querySelector("#pdfSplitModeField");
+const pdfSplitMode = document.querySelector("#pdfSplitMode");
+const pdfGroupSizeField = document.querySelector("#pdfGroupSizeField");
+const pdfGroupSize = document.querySelector("#pdfGroupSize");
+const imagePdfModeField = document.querySelector("#imagePdfModeField");
+const imagePdfMode = document.querySelector("#imagePdfMode");
+const convertButton = document.querySelector("#convertButton");
+const clearButton = document.querySelector("#clearButton");
+const statusBox = document.querySelector("#statusBox");
+const downloadButton = document.querySelector("#downloadButton");
+const batchSaveButton = document.querySelector("#batchSaveButton");
+const previewButton = document.querySelector("#previewButton");
+const previewDrawer = document.querySelector("#previewDrawer");
+const previewBackdrop = document.querySelector("#previewBackdrop");
+const previewClose = document.querySelector("#previewClose");
+const previewTitle = document.querySelector("#previewTitle");
+const previewMeta = document.querySelector("#previewMeta");
+const previewContent = document.querySelector("#previewContent");
+const toolHealth = document.querySelector("#toolHealth");
+const formatTable = document.querySelector("#formatTable");
+const dropHint = document.querySelector("#dropHint");
+const batchList = document.querySelector("#batchList");
+const progressPanel = document.querySelector("#progressPanel");
+const progressLabel = document.querySelector("#progressLabel");
+const progressPercent = document.querySelector("#progressPercent");
+const progressTrack = document.querySelector(".progress-track");
+const progressFill = document.querySelector("#progressFill");
+const progressDetails = document.querySelector("#progressDetails");
+const progressElapsed = document.querySelector("#progressElapsed");
+const progressBatch = document.querySelector("#progressBatch");
+const mouseMascot = document.querySelector("#mouseMascot");
+const languageSelect = document.querySelector("#languageSelect");
+const themeSelect = document.querySelector("#themeSelect");
+const diagnosticsButton = document.querySelector("#diagnosticsButton");
+const agentInstallButton = document.querySelector("#agentInstallButton");
+const workflowSteps = [...document.querySelectorAll("[data-step]")];
+const {
+  STORAGE_KEY: LEGACY_TARGET_STORAGE_KEY,
+  readPreferences,
+  rememberTarget,
+  preferredTarget
+} = window.FlyingMouseConversionPreferences;
+const { LANGUAGE_STORAGE_KEY, createI18n } = window.FlyingMouseI18n;
+
+const messages = {
+  "zh-CN": {
+    "workspace.aria": "文件转换工作台", "brand.title": "鼠鼠帮你把文件转成需要的格式",
+    "brand.usage": "仅供个人免费使用，禁止商业售卖/转卖/套壳 · 仅支持普通音乐格式转换，不支持其他音乐平台的加密特殊格式 · 请支持正版音乐",
+    "language.label": "语言", "health.checking": "正在检测转换引擎", "health.failed": "检测失败",
+    "theme.label": "外观", "theme.system": "跟随系统", "theme.light": "浅色", "theme.dark": "深色",
+    "settings.degraded": "偏好设置暂时无法保存，本次仍可正常转换；重启后可能恢复默认设置。",
+    "diagnostics.export": "导出诊断", "diagnostics.saved": "诊断报告已保存到：{path}",
+    "diagnostics.canceled": "已取消导出诊断报告。", "diagnostics.failed": "导出诊断失败：{message}",
+    "agent.install": "接入 Agent", "agent.checking": "正在检索已安装 Agent 的 skill 目录…",
+    "agent.none": "没有发现现有的 Agent skill 目录。请先安装 Codex、Claude 或创建 ~/.agents/skills。",
+    "agent.canceled": "已取消接入 Agent。", "agent.installed": "已接入 {count} 个 Agent：{paths}",
+    "agent.partial": "已接入 {count} 个 Agent，另有 {failed} 个失败：{message}", "agent.failed": "接入 Agent 失败：{message}",
+    "preview.open": "预览", "preview.eyebrow": "转换结果", "preview.title": "文件预览",
+    "preview.close": "关闭预览", "preview.loading": "正在载入预览…", "preview.unsupported": "此格式暂不支持内嵌预览，可以保存后使用系统应用打开。",
+    "preview.tooLarge": "文本文件超过 2 MB，为避免界面卡顿，请保存后查看。", "preview.failed": "预览失败：{message}",
+    "workflow.aria": "转换流程", "workflow.select": "选择文件", "workflow.analyze": "识别格式",
+    "workflow.convert": "开始转换", "workflow.save": "保存结果", "upload.aria": "上传文件",
+    "upload.title": "把文件丢给鼠鼠", "upload.hint": "图片、文档、PDF、WPS、音视频都可以试", "upload.chooseFolder": "选择文件夹转 PDF",
+    "upload.limited": "PDF 表格可以转 Excel；Office/WPS 需要内置 LibreOffice",
+    "upload.markdownLimited": "Markdown 转 Word/PDF 暂不可用：文档引擎缺失或无法启动，请修复安装。",
+    "action.clear": "清空", "action.convert": "开始转换", "action.download": "下载转换后的文件",
+    "action.save": "保存", "action.saveAll": "保存全部",
+    "target.label": "目标格式",
+    "target.placeholder": "先选择文件", "target.analyzing": "正在识别", "target.none": "无共同目标格式",
+    "pdfExcel.hint": "适合电子版规则表格；扫描件、复杂表头和合并单元格可能不完整。",
+    "formats.experimental": "实验性/尚未完整验证的输入：{formats}",
+    "videoCodec.label": "视频编码", "videoCodec.h264": "H.264（兼容性最好，默认）",
+    "videoCodec.h265": "H.265（体积更小）", "videoCodec.av1": "AV1（压缩率最高）",
+    "alphaBackground.label": "透明背景色（带透明通道的视频转码时合成）",
+    "alphaBackground.white": "白色（默认）", "alphaBackground.black": "黑色",
+    "alphaBackground.green": "绿色（绿幕）", "alphaBackground.magenta": "洋红（绿幕抠像常用）",
+    "pdfPassword.label": "PDF 密码（加密/解密）", "pdfAction.label": "PDF 操作",
+    "pdfAction.merge": "合并为一个 PDF", "pdfAction.split": "拆分 PDF（输出 ZIP）", "pdfAction.encrypt": "加密 PDF", "pdfAction.decrypt": "解密 PDF",
+    "pdfSplitMode.label": "拆分方式", "pdfSplitMode.page": "逐页拆分（每页一个 PDF）", "pdfSplitMode.group": "每 N 页一组",
+    "pdfGroupSize.label": "每几页一组",
+    "imagePdfMode.label": "多图转 PDF", "imagePdfMode.merge": "合并为一个 PDF（默认）", "imagePdfMode.separate": "每张图片单独生成 PDF",
+    "settings.aria": "转换设置", "progress.label": "转换进度", "status.ready": "选择文件后会显示可用的转换格式。",
+    "textEncoding.label": "源文件编码", "textEncoding.auto": "自动（UTF-8 / UTF-16 BOM）",
+    "textEncoding.utf8": "UTF-8", "textEncoding.gb18030": "GBK / GB18030", "textEncoding.utf16le": "UTF-16LE", "textEncoding.utf16be": "UTF-16BE",
+    "textEncoding.hint": "自动仅识别 UTF-8 或带 BOM 的 UTF-16。GBK 文本请手动选择；批量文本使用同一编码。",
+    "formats.aria": "支持格式", "formats.title": "当前支持",
+    "formats.description": "文档转换会尽量保留排版；PDF 可导出页面图片，图片和扫描版 PDF 可 OCR 转 TXT。音频仅支持普通格式转换（MP3/WAV/FLAC/AAC/OGG 等），不支持其他音乐平台的加密特殊格式。",
+    "sponsor.aria": "支持鼠鼠", "sponsor.close": "收起", "sponsor.title": "请鼠鼠吃小鱼干 🐟",
+    "sponsor.description": "本软件永久免费。如果帮到了你，欢迎请鼠鼠吃根小鱼干～纯自愿。若有人收费售卖本软件，那一定是套壳圈钱的骗子，请勿上当。",
+    "sponsor.qrAlt": "微信收款码",
+    "feedback.label": "问题反馈", "feedback.hint": "如需帮助，请导出诊断报告并查看错误提示。",
+    "feedback.guide": "问题反馈：转换遇到问题，请导出诊断报告并查看错误提示，帮助信息详见软件说明。",
+    "tutorial.close": "关闭",
+    "tutorial.copyTemplate": "复制模板",
+    "tutorial.gotIt": "我知道了"
+  },
+  "en-US": {
+    "workspace.aria": "File conversion workspace", "brand.title": "Let Mouse convert files into the format you need",
+    "brand.usage": "Free for personal use; commercial sale, resale and rebranding are prohibited · Supports standard audio formats; encrypted music-service formats are unsupported · Please support licensed music",
+    "language.label": "Language", "health.checking": "Checking conversion engines", "health.failed": "Check failed",
+    "theme.label": "Appearance", "theme.system": "System", "theme.light": "Light", "theme.dark": "Dark",
+    "settings.degraded": "Preferences could not be saved this session. Converting still works; defaults may return after restart.",
+    "diagnostics.export": "Export diagnostics", "diagnostics.saved": "Diagnostics saved to: {path}",
+    "diagnostics.canceled": "Diagnostics export canceled.", "diagnostics.failed": "Diagnostics export failed: {message}",
+    "agent.install": "Connect to Agent", "agent.checking": "Looking for existing Agent skill directories…",
+    "agent.none": "No existing Agent skill directory was found. Install Codex or Claude, or create ~/.agents/skills first.",
+    "agent.canceled": "Agent connection canceled.", "agent.installed": "Connected to {count} Agent target(s): {paths}",
+    "agent.partial": "Connected to {count} target(s); {failed} failed: {message}", "agent.failed": "Agent connection failed: {message}",
+    "preview.open": "Preview", "preview.eyebrow": "Conversion result", "preview.title": "File preview",
+    "preview.close": "Close preview", "preview.loading": "Loading preview…", "preview.unsupported": "This format cannot be previewed here. Save it and open it with a system application.",
+    "preview.tooLarge": "This text file is larger than 2 MB. Save it to view without slowing the app.", "preview.failed": "Preview failed: {message}",
+    "workflow.aria": "Conversion workflow", "workflow.select": "Select files", "workflow.analyze": "Detect format",
+    "workflow.convert": "Convert", "workflow.save": "Save results", "upload.aria": "Upload files",
+    "upload.title": "Drop files to Mouse", "upload.hint": "Try images, documents, PDF, WPS, audio, or video", "upload.chooseFolder": "Choose folder → PDF",
+    "upload.limited": "PDF tables can be converted to Excel; Office/WPS needs bundled LibreOffice",
+    "upload.markdownLimited": "Markdown to Word/PDF is unavailable: the document engine is missing or cannot start. Repair the installation.",
+    "action.clear": "Clear", "action.convert": "Convert", "action.download": "Download converted file",
+    "action.save": "Save", "action.saveAll": "Save all",
+    "target.label": "Target format",
+    "target.placeholder": "Select files first", "target.analyzing": "Detecting", "target.none": "No common target format",
+    "pdfExcel.hint": "Best for digital PDFs with regular tables. Scans, complex headers, and merged cells may be incomplete.",
+    "formats.experimental": "Experimental/unverified inputs: {formats}",
+    "videoCodec.label": "Video codec", "videoCodec.h264": "H.264 (best compatibility, default)",
+    "videoCodec.h265": "H.265 (smaller size)", "videoCodec.av1": "AV1 (highest compression)",
+    "alphaBackground.label": "Transparent background (composited when transcoding videos with alpha)",
+    "alphaBackground.white": "White (default)", "alphaBackground.black": "Black",
+    "alphaBackground.green": "Green (green screen)", "alphaBackground.magenta": "Magenta (common for chroma key)",
+    "pdfPassword.label": "PDF password (encrypt/decrypt)", "pdfAction.label": "PDF action",
+    "pdfAction.merge": "Merge into one PDF", "pdfAction.split": "Split PDF (ZIP output)", "pdfAction.encrypt": "Encrypt PDF", "pdfAction.decrypt": "Decrypt PDF",
+    "pdfSplitMode.label": "Split mode", "pdfSplitMode.page": "Split into single pages", "pdfSplitMode.group": "Group every N pages",
+    "pdfGroupSize.label": "Pages per group",
+    "imagePdfMode.label": "Multiple images to PDF", "imagePdfMode.merge": "Merge into one PDF (default)", "imagePdfMode.separate": "One PDF per image",
+    "settings.aria": "Conversion settings", "progress.label": "Conversion progress", "status.ready": "Available target formats appear after you select files.",
+    "textEncoding.label": "Source text encoding", "textEncoding.auto": "Auto (UTF-8 / UTF-16 BOM)",
+    "textEncoding.utf8": "UTF-8", "textEncoding.gb18030": "GBK / GB18030", "textEncoding.utf16le": "UTF-16LE", "textEncoding.utf16be": "UTF-16BE",
+    "textEncoding.hint": "Auto accepts UTF-8 or UTF-16 with a BOM. Select GBK manually for GBK text. All text files in a batch use this encoding.",
+    "formats.aria": "Supported formats", "formats.title": "Supported now",
+    "formats.description": "Document conversion preserves layout where possible; PDFs can export page images, and images and scanned PDFs can be OCRed to TXT. Audio supports only ordinary formats (MP3/WAV/FLAC/AAC/OGG etc.); encrypted formats from music platforms are not supported.",
+    "sponsor.aria": "Support Mouse", "sponsor.close": "Close", "sponsor.title": "Buy Mouse a dried fish 🐟",
+    "sponsor.description": "This app is permanently free. If it helped you, you can buy Mouse a snack — completely optional. If anyone charges you for this app, it's a scam.",
+    "sponsor.qrAlt": "WeChat payment QR code",
+    "feedback.label": "Feedback", "feedback.hint": "For help, export the diagnostics report and check the error details.",
+    "feedback.guide": "Feedback: if a conversion fails, export the diagnostics report and check the error details. Help is described in the app documentation.",
+    "tutorial.close": "Close",
+    "tutorial.copyTemplate": "Copy template",
+    "tutorial.gotIt": "Got it"
+  }
+};
+
+const i18n = createI18n({ storage: localStorage, systemLanguage: navigator.language, messages });
+const t = (key, params) => i18n.t(key, params);
+
+function applyStaticTranslations() {
+  document.documentElement.lang = i18n.language;
+  languageSelect.value = i18n.language;
+  for (const element of document.querySelectorAll("[data-i18n]")) {
+    if ([statusBox, progressLabel, downloadButton, previewTitle].includes(element)) continue;
+    element.textContent = t(element.dataset.i18n);
+  }
+  for (const element of document.querySelectorAll("[data-i18n-aria]")) element.setAttribute("aria-label", t(element.dataset.i18nAria));
+  for (const element of document.querySelectorAll("[data-i18n-title]")) element.title = t(element.dataset.i18nTitle);
+  for (const element of document.querySelectorAll("[data-i18n-alt]")) element.alt = t(element.dataset.i18nAlt);
+}
+
+function renderHealth() {
+  if (!state.capabilities) return;
+  const enabled = i18n.language === "en-US" ? ["Images", "Text", "PDF", "ZIP"] : ["图片", "文本", "PDF", "ZIP"];
+  if (state.capabilities.tools.libreoffice) enabled.push("Office/WPS");
+  if (state.capabilities.tools.pandoc) enabled.push("Markdown → Word");
+  if (state.capabilities.tools.ffmpeg) enabled.push(i18n.language === "en-US" ? "Audio/Video" : "音视频");
+  toolHealth.textContent = i18n.language === "en-US" ? `${enabled.join(", ")} enabled` : `${enabled.join("、")} 已启用`;
+  if (state.capabilities.toolDetails?.pdfStructure?.profile === "lite") {
+    toolHealth.textContent += i18n.language === "en-US" ? " · Lite edition" : " · 轻量版";
+  }
+  const limitations = [];
+  const office = state.capabilities.toolDetails?.libreoffice;
+  if (office?.status === "pending") limitations.push(i18n.language === "en-US"
+    ? "Preparing the Office engine; image, text and subtitle conversion is available."
+    : "Office 引擎正在准备，图片、文本和字幕转换可以先使用。");
+  else if (!state.capabilities.tools.libreoffice) limitations.push(
+    office?.messages?.[i18n.language === "en-US" ? "enUS" : "zhCN"] || t("upload.limited"));
+  if (!state.capabilities.tools.pandoc) limitations.push(t("upload.markdownLimited"));
+  dropHint.textContent = limitations.length ? limitations.join(" ") : t("upload.hint");
+}
+
+function refreshLanguage() {
+  applyStaticTranslations();
+  for (const option of targetSelect.options) {
+    if (option.value) option.textContent = targetFormatLabel(option.value);
+  }
+  renderHealth();
+  if (state.capabilities) renderFormatTable();
+  if (state.statusMessage !== undefined) statusBox.textContent = displayMessage(state.statusMessage);
+  else setStatus(() => t("status.ready"));
+  renderProgressText();
+  downloadButton.textContent = state.converted ? `${t("action.save")} ${state.converted.fileName}` : t("action.download");
+  previewTitle.textContent = state.previewResult?.fileName || t("preview.title");
+  renderBatchList();
+  syncPdfExcelHint();
+}
+
+const mouseAssets = {
+  idle: "/assets/mouse-format/mouse-idle.png",
+  upload: "/assets/mouse-format/mouse-upload.png",
+  analyzing: "/assets/mouse-format/mouse-analyzing.png",
+  converting: "/assets/mouse-format/mouse-converting.png",
+  pdfPages: "/assets/mouse-format/mouse-pdf-pages.png",
+  ocr: "/assets/mouse-format/mouse-ocr.png",
+  batch: "/assets/mouse-format/mouse-batch.png",
+  success: "/assets/mouse-format/mouse-success.png",
+  error: "/assets/mouse-format/mouse-error.png"
+};
+
+const labels = {
+  image: "图片",
+  text: "文本",
+  subtitle: "字幕",
+  document: "Word/WPS 文档",
+  spreadsheet: "Excel/WPS 表格",
+  presentation: "PPT/WPS 演示",
+  pdf: "PDF",
+  audio: "音频",
+  video: "视频",
+  any: "任意文件",
+  unknown: "未知类型"
+};
+
+const statusLabels = {
+  pending: "等待",
+  converting: "转换中",
+  success: "完成",
+  error: "失败"
+};
+
+const englishLabels = {
+  image: "Image", text: "Text", subtitle: "Subtitle", document: "Word/WPS document", spreadsheet: "Excel/WPS spreadsheet",
+  presentation: "PPT/WPS presentation", pdf: "PDF", audio: "Audio", video: "Video", any: "Any file", unknown: "Unknown type"
+};
+const englishStatusLabels = { pending: "Waiting", converting: "Converting", success: "Complete", error: "Failed" };
+const categoryLabel = (key) => i18n.language === "en-US" ? (englishLabels[key] || englishLabels.unknown) : (labels[key] || labels.unknown);
+const batchStatusLabel = (key) => i18n.language === "en-US" ? (englishStatusLabels[key] || "Waiting") : (statusLabels[key] || statusLabels.pending);
+
+function extensionOf(name) {
+  const parts = String(name || "").split(".");
+  return parts.length > 1 ? parts.pop().toLowerCase() : "";
+}
+
+function formatSize(bytes) {
+  const units = ["B", "KB", "MB", "GB"];
+  let value = bytes;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  return `${value.toFixed(value >= 10 || unit === 0 ? 0 : 1)} ${units[unit]}`;
+}
+
+function setSelectPlaceholder(select, value, label) {
+  const option = document.createElement("option");
+  option.value = value;
+  option.textContent = label;
+  select.replaceChildren(option);
+}
+
+function createTextElement(tagName, className, text) {
+  const element = document.createElement(tagName);
+  if (className) element.className = className;
+  element.textContent = text;
+  return element;
+}
+
+function displayMessage(message) {
+  return typeof message === "function" ? message() : message;
+}
+
+function setStatus(message, type = "") {
+  state.statusMessage = message;
+  statusBox.textContent = displayMessage(message);
+  statusBox.className = `status-box ${type}`.trim();
+}
+
+function setMouseState(name) {
+  if (!mouseMascot) return;
+  mouseMascot.src = mouseAssets[name] || mouseAssets.idle;
+  mouseMascot.dataset.state = name;
+}
+
+function setWorkflowStep(step) {
+  for (const item of workflowSteps) {
+    item.classList.toggle("active", item.dataset.step === step);
+  }
+}
+
+function mouseStateForConversion(targetFormat) {
+  if (state.files.length > 1) return "batch";
+  if (targetFormat === "txt" && state.fileInfos.some((info) => info.category === "image" || info.category === "pdf")) return "ocr";
+  if ((targetFormat === "png" || targetFormat === "jpg") && state.fileInfos.some((info) => info.category === "pdf")) return "pdfPages";
+  return "converting";
+}
+
+function setProgress(value, label, type = "", detail = null, percentLabel = null) {
+  const safeValue = Number.isFinite(value) ? Math.max(0, Math.min(100, Math.floor(value))) : null;
+  state.progressValue = safeValue;
+  progressPanel.hidden = false;
+  progressPanel.className = `progress-panel ${type}`.trim();
+  state.progressMessage = label;
+  state.progressDetail = detail;
+  state.progressPercentMessage = percentLabel;
+  progressFill.style.width = `${safeValue || 0}%`;
+  if (safeValue === null) progressTrack.removeAttribute("aria-valuenow");
+  else progressTrack.setAttribute("aria-valuenow", String(safeValue));
+  renderProgressText();
+}
+
+function renderProgressText() {
+  progressLabel.textContent = state.progressMessage === undefined ? t("progress.label") : displayMessage(state.progressMessage);
+  progressDetails.textContent = state.progressDetail ? displayMessage(state.progressDetail) : "";
+  progressPercent.textContent = state.progressPercentMessage ? displayMessage(state.progressPercentMessage)
+    : state.progressValue === null ? "" : `${state.progressValue}%`;
+  progressTrack.setAttribute("aria-label", progressLabel.textContent);
+  progressTrack.setAttribute("aria-valuetext", [progressPercent.textContent, progressDetails.textContent].filter(Boolean).join(" · "));
+  renderProgressElapsed();
+}
+
+const progressStages = {
+  uploading: ["上传文件", "Uploading files"], preparing: ["准备转换", "Preparing conversion"],
+  queued: ["等待转换", "Waiting for conversion"], recognizing: ["识别内容", "Recognizing content"],
+  converting: ["转换文件", "Converting files"], merging: ["合并文件", "Merging files"],
+  validating: ["验证输出", "Validating output"], receiving: ["接收转换结果", "Receiving conversion result"]
+};
+const progressUnits = { bytes: ["字节", "bytes"], pages: ["页", "pages"], files: ["个文件", "files"], seconds: ["秒", "seconds"], chapters: ["章", "chapters"] };
+
+function setStageProgress(stage, completed = null, total = null, unit = null) {
+  const known = Number.isFinite(completed) && Number.isFinite(total) && total > 0 && completed >= 0 && completed <= total && Object.hasOwn(progressUnits, unit);
+  const stageComplete = known && completed === total;
+  const names = progressStages[stage] || progressStages.preparing;
+  setProgress(known ? (completed / total) * 100 : null,
+    () => i18n.language === "en-US" ? `Current stage progress · ${names[1]}` : `当前阶段进度 · ${names[0]}`, "",
+    () => {
+      if (!known) return i18n.language === "en-US" ? "The current stage percentage cannot be estimated." : "当前阶段无法估算百分比。";
+      const count = value => Number.isInteger(value) ? String(value) : value.toFixed(1);
+      const measured = `${count(completed)} / ${count(total)} ${progressUnits[unit][i18n.language === "en-US" ? 1 : 0]}`;
+      return measured + (stageComplete ? (i18n.language === "en-US" ? " · Waiting for subsequent processing or validation." : " · 等待后续处理或校验。") : "");
+    }, stageComplete ? () => i18n.language === "en-US" ? "Stage complete" : "阶段完成" : null);
+}
+
+function renderProgressElapsed() {
+  const run = state.progressRun;
+  if (!run) { progressElapsed.textContent = ""; progressBatch.textContent = ""; return; }
+  const elapsed = Math.max(0, (run.endedAt ?? performance.now()) - run.startedAt);
+  const tenths = Math.floor(elapsed / 100), seconds = Math.floor(tenths / 10);
+  const pad = value => String(value).padStart(2, "0");
+  const duration = `${seconds >= 3600 ? `${pad(Math.floor(seconds / 3600))}:` : ""}${pad(Math.floor(seconds / 60) % 60)}:${pad(seconds % 60)}.${tenths % 10}`;
+  progressElapsed.textContent = i18n.language === "en-US"
+    ? `${run.endedAt === null ? "Elapsed this run" : "Total duration"}: ${duration}`
+    : `${run.endedAt === null ? "本次已耗时" : "本次总耗时"}：${duration}`;
+  progressElapsed.title = i18n.language === "en-US"
+    ? "From starting conversion through upload, waiting, conversion and output validation. Saving time is excluded."
+    : "从开始转换计时，包含上传、排队、转换和输出校验，不包含保存文件的时间。";
+  const finished = state.batchResults.filter(item => item.status === "success" || item.status === "error").length;
+  const failed = state.batchResults.filter(item => item.status === "error").length;
+  progressBatch.textContent = i18n.language === "en-US"
+    ? `Files processed: ${finished} / ${run.totalFiles} · ${failed} failed`
+    : `已处理文件：${finished} / ${run.totalFiles} · 失败 ${failed} 个`;
+}
+
+function stopProgressRequest(request = state.progressRequest) {
+  if (!request) return;
+  request.closed = true;
+  request.controller.abort();
+  if (request.timer !== null) clearTimeout(request.timer);
+  if (state.progressRequest === request) state.progressRequest = null;
+}
+
+function beginConversionProgress(totalFiles) {
+  finishConversionProgress();
+  const run = { startedAt: performance.now(), endedAt: null, totalFiles, timer: null };
+  state.progressRun = run;
+  run.timer = setInterval(() => { if (state.progressRun === run) renderProgressElapsed(); }, 250);
+}
+
+function finishConversionProgress() {
+  stopProgressRequest();
+  const run = state.progressRun;
+  if (!run) return;
+  if (run.timer !== null) clearInterval(run.timer);
+  run.timer = null;
+  if (run.endedAt === null) run.endedAt = performance.now();
+  renderProgressElapsed();
+}
+
+// POST owns the result. Polling only describes its current stage; stale or
+// unavailable progress must never complete, fail or mutate another request.
+async function postConversionWithProgress(url, form) {
+  stopProgressRequest();
+  const run = state.progressRun;
+  const request = { id: crypto.randomUUID(), controller: new AbortController(), timer: null, closed: false };
+  state.progressRequest = request;
+  const current = () => !request.closed && state.progressRequest === request && state.progressRun === run;
+  const poll = async () => {
+    try {
+      const response = await fetch(`/api/conversion-progress/${request.id}`, { cache: "no-store", signal: request.controller.signal });
+      if (response.ok && current()) {
+        const snapshot = await response.json();
+        if (current() && snapshot?.id === request.id) {
+          if (snapshot.status === "running" && Object.hasOwn(progressStages, snapshot.stage)) {
+            setStageProgress(snapshot.stage, snapshot.completed, snapshot.total, snapshot.unit);
+          } else if (snapshot.status === "succeeded" || snapshot.status === "failed") {
+            setStageProgress("receiving");
+          }
+        }
+      }
+    } catch { /* A missing progress response is not a failed conversion. */ }
+    finally { if (current()) request.timer = setTimeout(poll, 500); }
+  };
+  try {
+    setStageProgress("uploading");
+    const responsePromise = fetch(url, { method: "POST", body: form, headers: { "X-FlyingMouse-Progress-Id": request.id } });
+    void poll();
+    const response = await responsePromise;
+    const result = await parseResponse(response);
+    if (!response.ok) throw responseError(result, response.status);
+    return result;
+  } finally { stopProgressRequest(request); }
+}
+
+function resetProgress() {
+  finishConversionProgress();
+  state.progressRun = null;
+  state.progressValue = 0;
+  state.progressMessage = undefined;
+  state.progressDetail = null;
+  state.progressPercentMessage = null;
+  progressPanel.hidden = true;
+  progressPanel.className = "progress-panel";
+  progressLabel.textContent = t("progress.label");
+  progressPercent.textContent = "0%";
+  progressFill.style.width = "0%";
+  progressTrack.setAttribute("aria-valuenow", "0");
+  renderProgressText();
+}
+
+window.addEventListener("pagehide", () => finishConversionProgress());
+
+function resetDownload() {
+  discardResults([state.converted, ...state.batchResults.map(item => item.result)]);
+  state.converted = null;
+  state.batchResults = [];
+  downloadButton.hidden = true;
+  downloadButton.removeAttribute("href");
+  downloadButton.removeAttribute("download");
+  batchSaveButton.hidden = true;
+  previewButton.hidden = true;
+  closePreview();
+}
+
+function resultId(result) {
+  return /^\/downloads\/([0-9a-f-]{36})$/i.exec(result?.downloadUrl || "")?.[1];
+}
+
+function resultUseState() {
+  return state.resultUses ||= new Map();
+}
+
+function discardResults(results) {
+  const uses = resultUseState();
+  const ids = [];
+  for (const id of new Set(results.map(resultId).filter(Boolean))) {
+    const use = uses.get(id);
+    if (use?.count) use.discarded = true;
+    else ids.push(id);
+  }
+  // Chunk large queues; the service accepts only exact registered IDs.
+  for (let index = 0; index < ids.length; index += 1000) {
+    void fetch("/api/downloads/release", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: ids.slice(index, index + 1000) })
+    }).then(response => { if (!response.ok) throw new Error(`HTTP ${response.status}`); })
+      .catch(error => rendererLog("warn", "Unable to release discarded conversion results", error));
+  }
+}
+
+function retainResults(results) {
+  const uses = resultUseState();
+  const ids = [...new Set(results.map(resultId).filter(Boolean))];
+  for (const id of ids) {
+    const use = uses.get(id) || { count: 0, discarded: false };
+    use.count += 1;
+    uses.set(id, use);
+  }
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    const discarded = [];
+    for (const id of ids) {
+      const use = uses.get(id);
+      if (--use.count) continue;
+      uses.delete(id);
+      if (use.discarded) discarded.push({ downloadUrl: `/downloads/${id}` });
+    }
+    discardResults(discarded);
+  };
+}
+
+function clearFile() {
+  if (state.isConverting) return;
+  state.selectionVersion += 1;
+  state.files = [];
+  state.fileInfos = [];
+  state.isConverting = false;
+  fileInput.value = "";
+  fileStrip.hidden = true;
+  batchList.hidden = true;
+  batchList.replaceChildren();
+  setSelectPlaceholder(targetSelect, "", t("target.placeholder"));
+  if (textEncoding) textEncoding.value = "auto";
+  syncTextEncodingField();
+  syncPdfExcelHint();
+  targetSelect.disabled = true;
+  convertButton.disabled = true;
+  resetDownload();
+  resetProgress();
+  setMouseState("upload");
+  setStatus(() => t("status.ready"));
+  setWorkflowStep("select");
+}
+
+let capabilityRefreshTimer;
+let officeTargetsNeedRefresh = false;
+async function fetchCapabilities() {
+  clearTimeout(capabilityRefreshTimer);
+  const wasPreparing = state.capabilities?.toolDetails?.libreoffice?.status === "pending";
+  const response = await fetch("/api/capabilities");
+  if (!response.ok) throw new Error(i18n.language === "en-US" ? "Unable to read conversion capabilities." : "无法读取转换能力。");
+  state.capabilities = await response.json();
+  if (wasPreparing && state.capabilities.toolDetails?.libreoffice?.status !== "pending") officeTargetsNeedRefresh = true;
+
+  toolHealth.classList.add("ok");
+
+  renderFormatTable();
+  renderHealth();
+  syncPdfExcelHint();
+  if (state.capabilities.toolDetails?.libreoffice?.status === "pending") {
+    capabilityRefreshTimer = setTimeout(() => fetchCapabilities().catch(() => {
+      capabilityRefreshTimer = setTimeout(() => fetchCapabilities().catch(console.warn), 5000);
+    }), 2000);
+  } else if (officeTargetsNeedRefresh && state.isConverting) {
+    capabilityRefreshTimer = setTimeout(() => fetchCapabilities().catch(console.warn), 2000);
+  } else if (officeTargetsNeedRefresh && state.files.length) {
+    // Only add newly available targets; never reset results, selected files or
+    // the current target when asynchronous Office preparation finishes.
+    const files = [...state.files];
+    const infos = await Promise.all(files.map(loadTargets));
+    if (state.isConverting) {
+      capabilityRefreshTimer = setTimeout(() => fetchCapabilities().catch(console.warn), 2000);
+      return;
+    }
+    if (files.length !== state.files.length || files.some((file, index) => state.files[index] !== file)) return;
+    state.fileInfos = infos;
+    officeTargetsNeedRefresh = false;
+    const targets = commonTargetsFrom(infos);
+    if (!targetSelect.value) targetSelect.replaceChildren();
+    for (const target of targets) {
+      if ([...targetSelect.options].some(option => option.value === target)) continue;
+      const option = document.createElement("option");
+      option.value = target;
+      option.textContent = targetFormatLabel(target);
+      targetSelect.append(option);
+    }
+    targetSelect.disabled = !targets.length;
+    convertButton.disabled = !targets.length;
+  }
+}
+
+function renderFormatTable() {
+  const groups = state.capabilities?.groups || {};
+  const pairSeparator = i18n.language === "en-US" ? ": " : "：";
+  const items = [
+    ["image", groups.image],
+    ["text", groups.text],
+    ["subtitle", groups.subtitle],
+    ["document", groups.document],
+    ["spreadsheet", groups.spreadsheet],
+    ["presentation", groups.presentation],
+    ["pdf", groups.pdf],
+    ["audio", groups.audio],
+    ["video", groups.video],
+    ["any", groups.any]
+  ].filter(([, group]) => group);
+
+  const entries = items.map(([key, group]) => {
+    const article = document.createElement("article");
+    article.className = "format-item";
+    article.append(
+      createTextElement("h3", "", categoryLabel(key)),
+      createTextElement("p", "", `${i18n.language === "en-US" ? "Input" : "输入"}${pairSeparator}${group.inputs.join(", ")}`),
+      createTextElement("p", "", `${i18n.language === "en-US" ? "Output" : "输出"}${pairSeparator}${group.targets.join(", ")}`)
+    );
+    if (Array.isArray(group.experimentalInputs) && group.experimentalInputs.length) {
+      article.append(createTextElement("p", "format-note", t("formats.experimental", {
+        formats: group.experimentalInputs.join(", ")
+      })));
+    }
+    return article;
+  });
+  formatTable.replaceChildren(...entries);
+}
+
+async function loadTargets(file) {
+  // 空白页占位条目：不调后端，直接返回图片→PDF 能力（仅用于图片合并 PDF）
+  if (file?.isBlankPage) {
+    return { extension: "", category: "image", targets: ["pdf"], experimental: false };
+  }
+  const extension = extensionOf(file.name);
+  const response = await fetch("/api/targets", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ extension })
+  });
+
+  if (!response.ok) throw new Error("无法判断目标格式。");
+  return response.json();
+}
+
+function targetFormatLabel(target) {
+  if (target === "docx") return i18n.language === "en-US" ? "Word (DOCX)" : "Word（DOCX）";
+  if (target === "xlsx" && state.fileInfos.length && state.fileInfos.every(info => info.category === "pdf")) {
+    return i18n.language === "en-US" ? "Excel (smart table extraction)" : "Excel（智能表格提取）";
+  }
+  return target.toUpperCase();
+}
+
+function commonTargetsFrom(infos) {
+  if (!infos.length) return [];
+  const [first, ...rest] = infos;
+  const common = new Set(first.targets);
+  for (const info of rest) {
+    for (const target of [...common]) {
+      if (!info.targets.includes(target)) common.delete(target);
+    }
+  }
+  return [...common];
+}
+
+function summarizeFiles(files) {
+  const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
+  if (files.length === 1) {
+    return {
+      name: files[0].name,
+      meta: `${formatSize(files[0].size)} · ${files[0].type || (i18n.language === "en-US" ? "Unknown MIME" : "未知 MIME")}`
+    };
+  }
+  return {
+    name: i18n.language === "en-US" ? `${files.length} files selected` : `已选择 ${files.length} 个文件`,
+    meta: i18n.language === "en-US" ? `${formatSize(totalBytes)} total · Converted one by one` : `总大小 ${formatSize(totalBytes)} · 将按队列逐个转换`
+  };
+}
+
+function renderBatchList() {
+  if (!state.files.length) {
+    batchList.hidden = true;
+    batchList.replaceChildren();
+    return;
+  }
+
+  batchList.hidden = false;
+  const entries = state.files.map((file, index) => {
+    const result = state.batchResults[index] || { status: "pending", detail: "等待转换" };
+    const article = document.createElement("article");
+    article.className = `batch-item ${result.status}`;
+
+    const main = document.createElement("div");
+    main.className = "batch-main";
+    main.append(
+      createTextElement("p", "batch-name", file.isBlankPage ? (i18n.language === "en-US" ? "Blank page" : "空白页") : file.name),
+      createTextElement("p", "batch-detail", result.detail || batchStatusLabel(result.status))
+    );
+    if (Number.isFinite(result.elapsedMs)) {
+      const seconds = (Math.max(0, result.elapsedMs) / 1000).toFixed(1);
+      main.append(createTextElement("p", "batch-detail", i18n.language === "en-US" ? `Duration: ${seconds} s` : `耗时：${seconds} 秒`));
+    }
+
+    const actions = document.createElement("div");
+    actions.className = "batch-actions";
+    if (canReorderImages()) {
+      const upButton = createTextElement("button", "mini-button", i18n.language === "en-US" ? "↑" : "↑");
+      upButton.type = "button";
+      upButton.dataset.move = String(index);
+      upButton.dataset.direction = "up";
+      upButton.disabled = index === 0;
+      upButton.title = i18n.language === "en-US" ? "Move up (earlier in PDF)" : "上移（在 PDF 中更靠前）";
+      const downButton = createTextElement("button", "mini-button", "↓");
+      downButton.type = "button";
+      downButton.dataset.move = String(index);
+      downButton.dataset.direction = "down";
+      downButton.disabled = index === state.files.length - 1;
+      downButton.title = i18n.language === "en-US" ? "Move down (later in PDF)" : "下移（在 PDF 中更靠后）";
+      actions.append(upButton, downButton);
+      // 插入空白页：在该条目后面插入一页纯白 A4 页（图片合并 PDF 专用）
+      const blankButton = createTextElement("button", "mini-button", i18n.language === "en-US" ? "□+" : "□+");
+      blankButton.type = "button";
+      blankButton.dataset.insertBlank = String(index);
+      blankButton.title = i18n.language === "en-US" ? "Insert blank page after this item" : "在此项后插入空白页";
+      actions.append(blankButton);
+      // 空白页条目支持删除
+      if (file.isBlankPage) {
+        const removeBlank = createTextElement("button", "mini-button", "✕");
+        removeBlank.type = "button";
+        removeBlank.dataset.removeBlank = String(index);
+        removeBlank.title = i18n.language === "en-US" ? "Remove blank page" : "删除空白页";
+        actions.append(removeBlank);
+      }
+    }
+    actions.append(createTextElement("span", "batch-status", batchStatusLabel(result.status)));
+    if (result.status === "success" && result.result) {
+      const resultPreviewButton = createTextElement("button", "mini-button", t("preview.open"));
+      resultPreviewButton.type = "button";
+      resultPreviewButton.dataset.previewIndex = String(index);
+      actions.append(resultPreviewButton);
+      const saveButton = createTextElement("button", "mini-button", t("action.save"));
+      saveButton.type = "button";
+      saveButton.dataset.saveIndex = String(index);
+      actions.append(saveButton);
+    }
+
+    article.append(main, actions);
+    return article;
+  });
+  batchList.replaceChildren(...entries);
+}
+
+// 多张图片合并 PDF 时允许调整顺序（PDF 页序 = 队列顺序）
+function canReorderImages() {
+  return isMergedImagePdfConversion(targetSelect.value)
+    && !state.isConverting
+    && state.batchResults.every((result) => result.status !== "success");
+}
+
+function moveFileInQueue(index, direction) {
+  if (!canReorderImages()) return;
+  const target = direction === "up" ? index - 1 : index + 1;
+  if (target < 0 || target >= state.files.length) return;
+  const swap = (array) => {
+    const tmp = array[index];
+    array[index] = array[target];
+    array[target] = tmp;
+  };
+  swap(state.files);
+  swap(state.fileInfos);
+  swap(state.batchResults);
+  renderBatchList();
+}
+
+function setBatchResult(index, patch) {
+  state.batchResults[index] = {
+    ...(state.batchResults[index] || { status: "pending", detail: "等待转换" }),
+    ...patch
+  };
+  renderBatchList();
+}
+
+function usesTextEncoding(file, targetFormat) {
+  return targetFormat === "epub" && /^(txt|md|markdown|html|htm|json|log|xml|yaml|yml|csv|tsv)$/.test(extensionOf(file?.name));
+}
+
+function syncTextEncodingField() {
+  if (textEncodingField) textEncodingField.hidden = !state.files.some(file => usesTextEncoding(file, targetSelect.value));
+}
+
+function syncVideoCodecField() {
+  syncTextEncodingField();
+  if (!videoCodecField || !videoCodec) return;
+  videoCodecField.hidden = !["mp4", "mov", "mkv"].includes(targetSelect.value);
+  syncAlphaBackgroundField();
+}
+
+function syncAlphaBackgroundField() {
+  if (!alphaBackgroundField || !alphaBackground) return;
+  // 透明背景色只对视频目标有意义（webm 也走 alpha 合成，一并显示）。
+  alphaBackgroundField.hidden = !["mp4", "mov", "mkv", "webm"].includes(targetSelect.value);
+}
+
+// 多图转 PDF 的合并/单独选项：仅在「多张图片 + 目标 PDF」时显示。
+// 单独模式 = 每张图各出一个 PDF，直接落回单文件逐个转换队列。
+// 空白页占位条目只在合并模式有意义（单独模式没有可插入的页面流），有空白页时强制合并。
+function syncImagePdfModeField() {
+  if (!imagePdfModeField) return;
+  const isMultiImagePdf = targetSelect.value === "pdf"
+    && state.files.length > 1
+    && state.fileInfos.length === state.files.length
+    && state.fileInfos.every((info) => info.category === "image");
+  const hasBlankPage = isMultiImagePdf && state.files.some((file) => file?.isBlankPage);
+  if (hasBlankPage && imagePdfMode?.value === "separate") {
+    imagePdfMode.value = "merge";
+    setStatus(() => i18n.language === "en-US"
+      ? "Blank pages are only available in merge mode. Switched back to merge."
+      : "空白页仅在合并模式可用，已切回合并为一个 PDF。", "");
+  }
+  if (imagePdfMode) {
+    const separateOption = imagePdfMode.querySelector('option[value="separate"]');
+    if (separateOption) separateOption.disabled = hasBlankPage;
+  }
+  imagePdfModeField.hidden = !isMultiImagePdf;
+}
+
+function syncPdfActionFields() {
+  if (!pdfPasswordField || !pdfActionField) return;
+  const isPdfToPdf = targetSelect.value === "pdf"
+    && state.files.length > 0
+    && state.fileInfos.length === state.files.length
+    && state.fileInfos.every((info) => info.category === "pdf");
+  const mergeOption = pdfAction?.querySelector('option[value="merge"]');
+  if (mergeOption) {
+    mergeOption.hidden = !isPdfToPdf || state.files.length < 2;
+    mergeOption.disabled = mergeOption.hidden;
+  }
+  if (pdfAction?.value === "merge" && state.files.length < 2) pdfAction.value = "";
+  const action = pdfAction ? pdfAction.value : "";
+  pdfActionField.hidden = !isPdfToPdf;
+  // 密码框：仅加密/解密时显示
+  pdfPasswordField.hidden = !(isPdfToPdf && (action === "encrypt" || action === "decrypt"));
+  // 拆分方式：仅拆分时显示
+  const isSplit = isPdfToPdf && !action;
+  if (pdfSplitModeField) pdfSplitModeField.hidden = !isSplit;
+  // 每 N 页：拆分 + group 时显示
+  const isGroup = isSplit && pdfSplitMode && pdfSplitMode.value === "group";
+  if (pdfGroupSizeField) pdfGroupSizeField.hidden = !isGroup;
+}
+
+function syncPdfExcelHint() {
+  if (!pdfExcelHint) return;
+  pdfExcelHint.hidden = !(targetSelect.value === "xlsx"
+    && state.fileInfos.length > 0
+    && state.fileInfos.every((info) => info.category === "pdf"));
+  if (!pdfExcelHint.hidden) {
+    const structure = state.capabilities?.toolDetails?.pdfStructure;
+    const limits = structure?.limits;
+    if (structure?.profile === "lite") {
+      pdfExcelHint.textContent = i18n.language === "en-US"
+        ? "Lite supports native PDF tables. Advanced scanned-table recognition requires the full edition; text OCR, Word and Markdown remain available."
+        : "轻量版支持文字型 PDF 表格；扫描表格结构识别需要完整版。文字 OCR、Word 和 Markdown 转换仍可使用。";
+      return;
+    }
+    pdfExcelHint.textContent = i18n.language === "en-US"
+      ? `Table recognition depends on scan clarity. ${structure?.enabled === false ? 'The scanned-table engine is unavailable; repair the installation. ' : ''}${limits ? `Structured recognition accepts up to ${limits.maxPages} pages, with up to ${limits.maxBatchPages} pages and ${Math.round(limits.maxTotalPixels / 1e6)} million rendered pixels per batch; larger PDFs are processed in batches.` : ''}`
+      : `表格识别效果取决于扫描清晰度。${structure?.enabled === false ? '扫描表格引擎不可用，请修复安装。' : ''}${limits ? `结构识别最多 ${limits.maxPages} 页，每批最多 ${limits.maxBatchPages} 页、${Math.round(limits.maxTotalPixels / 1e6)} 百万渲染像素；较大 PDF 自动分批处理。` : ''}`;
+  }
+}
+
+async function acceptFiles(fileList, options = {}) {
+  if (state.isConverting) return;
+  const files = [...fileList].filter((file) => file && file.size >= 0);
+  if (!files.length) return;
+  const maxBatchBytes = state.capabilities?.limits?.maxBatchBytes || Number.MAX_SAFE_INTEGER;
+  const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
+  if (!Number.isSafeInteger(totalBytes) || totalBytes > maxBatchBytes) {
+    setStatus(() => i18n.language === "en-US"
+      ? "This batch is too large for this computer. Convert the files in smaller batches."
+      : "本批文件总大小超出当前电脑可处理范围，请分批转换。", "error");
+    setMouseState("error");
+    fileInput.value = "";
+    return;
+  }
+
+  const selectionVersion = ++state.selectionVersion;
+  state.files = files;
+  state.fileInfos = [];
+  if (textEncoding) textEncoding.value = "auto";
+  if (textEncodingField) textEncodingField.hidden = true;
+  // 文件夹名：来自 <input webkitdirectory> 或拖入文件夹时 File.webkitRelativePath
+  // 的第一个路径段（如 "相册2026/001.jpg" -> "相册2026"），用于图片合并 PDF 命名。
+  const firstRel = files.find((file) => file.webkitRelativePath);
+  const folderName = firstRel ? firstRel.webkitRelativePath.split("/")[0] : "";
+  state.folderName = folderName && folderName !== firstRel.webkitRelativePath ? folderName : (options.folderName || "");
+  resetDownload();
+  state.batchResults = files.map(() => ({ status: "pending", detail: "等待转换" }));
+  resetProgress();
+  setMouseState(files.length > 1 ? "batch" : "analyzing");
+  setWorkflowStep("analyze");
+
+  const summary = summarizeFiles(files);
+  fileName.textContent = summary.name;
+  fileMeta.textContent = summary.meta;
+  fileStrip.hidden = false;
+  renderBatchList();
+
+  targetSelect.disabled = true;
+  convertButton.disabled = true;
+  setSelectPlaceholder(targetSelect, "", t("target.analyzing"));
+  setStatus(() => i18n.language === "en-US"
+    ? (files.length === 1 ? "Analyzing the file and available target formats..." : `Finding common targets for ${files.length} files...`)
+    : (files.length === 1 ? "正在分析文件类型和可用转换格式..." : `正在分析 ${files.length} 个文件的共同转换格式...`));
+
+  try {
+    const infos = await Promise.all(files.map(loadTargets));
+    if (state.selectionVersion !== selectionVersion || state.isConverting) return;
+    state.fileInfos = infos;
+    // A new selection gets an explicit operation; later format/action edits preserve it.
+    if (pdfAction) pdfAction.value = files.length > 1 && infos.every(info => info.category === "pdf") ? "merge" : "";
+    const targets = commonTargetsFrom(infos);
+    targetSelect.replaceChildren();
+
+    if (!targets.length) {
+      setSelectPlaceholder(targetSelect, "", t("target.none"));
+      setStatus(files.length === 1
+        ? (i18n.language === "en-US" ? "No target format is available for this file." : "这个文件当前没有可用转换格式。")
+        : (i18n.language === "en-US" ? "These files have no common target format. Batch files of the same type or select fewer files." : "这些文件没有共同的目标格式。请分成同类型文件批量转换，或减少选择的文件。"),
+      "error");
+      syncVideoCodecField();
+      syncPdfActionFields();
+      syncImagePdfModeField();
+      setMouseState("error");
+      return;
+    }
+
+    for (const target of targets) {
+      const option = document.createElement("option");
+      option.value = target;
+      option.textContent = targetFormatLabel(target);
+      targetSelect.append(option);
+    }
+
+    const rememberedTarget = preferredTarget(state.settings.targetBySource, files.map((file) => extensionOf(file.name)), targets);
+    if (rememberedTarget) targetSelect.value = rememberedTarget;
+
+    targetSelect.disabled = false;
+    convertButton.disabled = false;
+    syncVideoCodecField();
+    syncPdfActionFields();
+    syncImagePdfModeField();
+    syncPdfExcelHint();
+    setMouseState(files.length > 1 ? "batch" : "idle");
+    if (files.length === 1) {
+      const info = infos[0];
+      setStatus(() => i18n.language === "en-US"
+        ? `Detected ${categoryLabel(info.category)}. Available targets: ${targets.map((target) => target.toUpperCase()).join(", ")}.`
+        : `识别为${categoryLabel(info.category)}文件，可转换为：${targets.map((target) => target.toUpperCase()).join("、")}。`);
+    } else {
+      setStatus(() => i18n.language === "en-US"
+        ? `Selected ${files.length} files. Common targets: ${targets.map((target) => target.toUpperCase()).join(", ")}.`
+        : `已选择 ${files.length} 个文件，共同可转换为：${targets.map((target) => target.toUpperCase()).join("、")}。`);
+    }
+    setWorkflowStep("convert");
+  } catch (error) {
+    if (state.selectionVersion !== selectionVersion || state.isConverting) return;
+    setStatus(() => i18n.language === "en-US" ? `Detection failed: ${error.message}` : `识别失败：${error.message}`, "error");
+    setWorkflowStep("analyze");
+    setMouseState("error");
+  }
+}
+
+async function parseResponse(response) {
+  const text = await response.text();
+  if (!text) return {};
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { error: text };
+  }
+}
+
+function responseErrorMessage(result, status) {
+  const localized = i18n.language === "en-US" ? result?.messages?.enUS : result?.messages?.zhCN;
+  return localized || result?.error || (i18n.language === "en-US" ? `Server returned ${status}` : `服务器返回 ${status}`);
+}
+
+function responseError(result, status) {
+  const errorCode = result?.errorCode ? String(result.errorCode) : "";
+  const message = responseErrorMessage(result, status);
+  const error = new Error(errorCode ? `${message} [${errorCode}]` : message);
+  error.errorCode = errorCode;
+  return error;
+}
+
+function localizedWarnings(result) {
+  return (Array.isArray(result?.warnings) ? result.warnings : []).map((warning) => {
+    const localized = i18n.language === "en-US" ? warning?.messages?.enUS : warning?.messages?.zhCN;
+    return localized || warning?.code || "";
+  }).filter(Boolean);
+}
+
+async function convertOneFile(file, targetFormat, options) {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("targetFormat", targetFormat);
+  if (usesTextEncoding(file, targetFormat)) form.append("textEncoding", options.textEncoding || "auto");
+  if (["mp4", "mov", "mkv"].includes(targetFormat)) {
+    form.append("videoCodec", options.videoCodec);
+  }
+  if (["mp4", "mov", "mkv", "webm"].includes(targetFormat)) {
+    form.append("alphaBackground", options.alphaBackground);
+  }
+  if (targetFormat === "pdf" && options.isPdf) {
+    form.append("pdfAction", options.pdfAction);
+    if (options.password) form.append("password", options.password);
+    if (options.splitMode) form.append("splitMode", options.splitMode);
+    if (options.groupSize) form.append("groupSize", options.groupSize);
+  }
+
+  return postConversionWithProgress("/api/convert", form);
+}
+
+function isMergedImagePdfConversion(targetFormat) {
+  // 单独模式（每张图各出一个 PDF）不合并，落回单文件逐个转换队列。
+  if (imagePdfMode?.value === "separate") return false;
+  return targetFormat === "pdf"
+    && state.files.length > 1
+    && state.fileInfos.length === state.files.length
+    && state.fileInfos.every((info) => info.category === "image");
+}
+
+async function convertImagesToPdf(files, folderName) {
+  const form = new FormData();
+  // blanks 语义：空白页在「排除空白页后的上传文件流」中的绝对位置。
+  // 前端队列可能含空白页占位，这里按队列顺序把真实文件依次编号，
+  // 空白页记录它前面已出现的真实文件个数（即插入到该序号之后）。
+  const blankAfter = [];
+  let realCount = 0;
+  files.forEach((file, index) => {
+    if (file?.isBlankPage) {
+      blankAfter.push(realCount);
+      return;
+    }
+    form.append("files", file);
+    realCount += 1;
+  });
+  if (folderName) form.append("folderName", folderName);
+  // blanks=0,3 表示：在上传文件流的第 0 个（最前）和第 3 个文件之后插入空白页
+  if (blankAfter.length) form.append("blanks", blankAfter.join(","));
+
+  return postConversionWithProgress("/api/convert-images-to-pdf", form);
+}
+
+async function convertMergedImagesToPdf(files, folderName) {
+  files.forEach((_file, index) => {
+    setBatchResult(index, { status: "converting", detail: "正在合并到 PDF" });
+  });
+  setStageProgress("preparing");
+
+  try {
+    const result = await convertImagesToPdf(files, folderName);
+    state.batchResults = files.map((_file, index) => ({
+      status: "success",
+      detail: index === 0 ? result.fileName : `已合并到 ${result.fileName}`,
+      result: index === 0 ? result : null
+    }));
+    renderBatchList();
+    state.converted = result;
+    downloadButton.href = result.downloadUrl;
+    downloadButton.download = result.fileName;
+    downloadButton.textContent = `${t("action.save")} ${result.fileName}`;
+    downloadButton.hidden = false;
+    previewButton.hidden = false;
+    batchSaveButton.hidden = true;
+    setProgress(100, () => i18n.language === "en-US" ? "Merge complete" : "合并完成", "success");
+    setStatus(() => i18n.language === "en-US" ? `Images merged into ${result.fileName}.` : `图片已合并为：${result.fileName}。`, "success");
+    setMouseState("success");
+    setWorkflowStep("save");
+  } catch (error) {
+    state.batchResults = files.map(() => ({
+      status: "error",
+      detail: error.message || "合并 PDF 失败"
+    }));
+    renderBatchList();
+    setProgress(null, () => i18n.language === "en-US" ? "Merge failed" : "合并失败", "error");
+    setStatus(() => i18n.language === "en-US" ? `PDF merge failed: ${error.message || "Unknown error"}` : `合并 PDF 失败：${error.message || "未知错误"}`, "error");
+    setMouseState("error");
+  } finally {
+    setConversionBusy(false);
+  }
+}
+
+function isMergedPdfConversion(targetFormat) {
+  return targetFormat === "pdf"
+    && pdfAction?.value === "merge"
+    && state.files.length > 1
+    && state.fileInfos.length === state.files.length
+    && state.fileInfos.every((info) => info.category === "pdf");
+}
+
+function isSplitPdfConversion(targetFormat) {
+  return targetFormat === "pdf"
+    && !pdfAction?.value
+    && state.files.length === 1
+    && state.fileInfos.length === 1
+    && state.fileInfos[0].category === "pdf";
+}
+
+async function convertPdfsToMerged(files) {
+  const form = new FormData();
+  for (const file of files) {
+    form.append("files", file);
+  }
+
+  return postConversionWithProgress("/api/merge-pdfs", form);
+}
+
+async function convertMergedPdfs(files) {
+  files.forEach((_file, index) => {
+    setBatchResult(index, { status: "converting", detail: "正在合并到 PDF" });
+  });
+  setStageProgress("preparing");
+
+  try {
+    const result = await convertPdfsToMerged(files);
+    state.batchResults = files.map((_file, index) => ({
+      status: "success",
+      detail: index === 0 ? result.fileName : `已合并到 ${result.fileName}`,
+      result: index === 0 ? result : null
+    }));
+    renderBatchList();
+    state.converted = result;
+    downloadButton.href = result.downloadUrl;
+    downloadButton.download = result.fileName;
+    downloadButton.textContent = `${t("action.save")} ${result.fileName}`;
+    downloadButton.hidden = false;
+    previewButton.hidden = false;
+    batchSaveButton.hidden = true;
+    setProgress(100, () => i18n.language === "en-US" ? "Merge complete" : "合并完成", "success");
+    setStatus(() => i18n.language === "en-US" ? `PDF files merged into ${result.fileName}.` : `PDF 已合并为：${result.fileName}。`, "success");
+    setMouseState("success");
+    setWorkflowStep("save");
+  } catch (error) {
+    state.batchResults = files.map(() => ({
+      status: "error",
+      detail: error.message || "合并 PDF 失败"
+    }));
+    renderBatchList();
+    setProgress(null, () => i18n.language === "en-US" ? "Merge failed" : "合并失败", "error");
+    setStatus(() => i18n.language === "en-US" ? `PDF merge failed: ${error.message || "Unknown error"}` : `合并 PDF 失败：${error.message || "未知错误"}`, "error");
+    setMouseState("error");
+  } finally {
+    setConversionBusy(false);
+  }
+}
+
+function setConversionBusy(busy) {
+  state.isConverting = busy;
+  // Freeze every selection path, including hidden inputs and native keyboard
+  // activation. A clear action is not a backend conversion cancellation.
+  for (const control of [fileInput, folderInput, dropZone, chooseFolderButton, clearButton,
+    videoCodec, alphaBackground, pdfPassword, pdfAction, pdfSplitMode, pdfGroupSize, imagePdfMode, textEncoding]) {
+    if (control) control.disabled = busy;
+  }
+  convertButton.disabled = busy || !state.files.length || !targetSelect.value;
+  targetSelect.disabled = busy || !state.files.length;
+  dropZone.setAttribute("aria-disabled", String(busy));
+}
+
+async function convertCurrentFiles() {
+  if (!state.files.length || !targetSelect.value || state.isConverting) return;
+
+  if (state.files.some(file => file?.isBlankPage)) {
+    syncImagePdfModeField();
+    if (!isMergedImagePdfConversion(targetSelect.value)) {
+      setStatus(() => i18n.language === "en-US"
+        ? "Blank pages can only be included when merging images into one PDF. Remove the blank pages or choose PDF merge."
+        : "空白页只能用于图片合并 PDF。请移除空白页，或选择合并为一个 PDF。", "error");
+      return;
+    }
+  }
+
+  const targetFormat = targetSelect.value;
+  const files = [...state.files];
+  const options = {
+    textEncoding: textEncoding?.value || "auto",
+    isPdf: state.fileInfos.every((info) => info.category === "pdf"),
+    videoCodec: videoCodec?.value || "h264", alphaBackground: alphaBackground?.value || "white",
+    pdfAction: pdfAction?.value || "", password: pdfPassword?.value || "",
+    splitMode: pdfSplitMode?.value || "", groupSize: pdfGroupSize?.value || ""
+  };
+  state.selectionVersion += 1;
+  try {
+    setConversionBusy(true);
+    beginConversionProgress(files.length);
+    resetDownload();
+    state.batchResults = files.map(() => ({ status: "pending", detail: "等待转换" }));
+    renderBatchList();
+    setMouseState(mouseStateForConversion(targetFormat));
+    setStageProgress("preparing");
+    setWorkflowStep("convert");
+    setStatus(() => i18n.language === "en-US"
+      ? (state.files.length === 1 ? "Converting. PDF, Office/WPS, or video files may take longer..." : `Converting ${state.files.length} files...`)
+      : (state.files.length === 1 ? "正在转换，请稍等。PDF、Office/WPS 或视频文件可能需要更久..." : `正在批量转换 ${state.files.length} 个文件，请稍等...`));
+
+    if (isMergedImagePdfConversion(targetFormat)) {
+      await convertMergedImagesToPdf(files, state.folderName);
+      return;
+    }
+
+    if (isMergedPdfConversion(targetFormat)) {
+      await convertMergedPdfs(files);
+      return;
+    }
+
+    if (isSplitPdfConversion(targetFormat)) {
+      setStatus(() => i18n.language === "en-US" ? "Splitting the PDF into individual pages..." : "正在把 PDF 拆分为单页文件...");
+    }
+
+    let successCount = 0;
+    let failCount = 0;
+    for (let index = 0; index < files.length; index += 1) {
+      const file = files[index];
+      setBatchResult(index, { status: "converting", detail: i18n.language === "en-US" ? `Converting to ${targetFormat.toUpperCase()}` : `正在转换为 ${targetFormat.toUpperCase()}` });
+      setStageProgress("preparing");
+
+      const fileStartedAt = performance.now();
+      try {
+        const result = await convertOneFile(file, targetFormat, options);
+        successCount += 1;
+        let detail = result.fileName;
+        const warnings = localizedWarnings(result);
+        if (warnings.length) detail += ` — ${warnings.join("；")}`;
+        setBatchResult(index, { status: "success", detail, result, elapsedMs: performance.now() - fileStartedAt });
+      } catch (error) {
+        failCount += 1;
+        rendererLog("warn", `转换失败: "${file.name || "未知文件"}" -> ${targetFormat}: ${error.message || error}`);
+        setBatchResult(index, { status: "error", detail: error.message || (i18n.language === "en-US" ? "Unknown error" : "未知错误"), elapsedMs: performance.now() - fileStartedAt });
+      }
+    }
+
+    const completed = successCount + failCount;
+    const type = failCount ? "error" : "success";
+    setProgress(files.length === 1 && failCount ? null : 100, () => i18n.language === "en-US"
+      ? (failCount ? `Processed ${completed}/${files.length}; ${failCount} failed` : "Conversion complete")
+      : (failCount ? `已处理 ${completed}/${files.length}，失败 ${failCount} 个` : "转换完成"), type);
+
+    state.batchResults = [...state.batchResults];
+    const successful = state.batchResults.filter((item) => item.status === "success" && item.result);
+    state.converted = successful.length === 1 ? successful[0].result : null;
+
+    if (successful.length === 1) {
+      downloadButton.href = successful[0].result.downloadUrl;
+      downloadButton.download = successful[0].result.fileName;
+      downloadButton.textContent = `${t("action.save")} ${successful[0].result.fileName}`;
+      downloadButton.hidden = false;
+      previewButton.hidden = false;
+    }
+
+    batchSaveButton.hidden = successful.length < 2;
+    setMouseState(failCount ? "error" : "success");
+    if (successful.length) {
+      setWorkflowStep("save");
+    }
+    setStatus(() => i18n.language === "en-US"
+      ? (failCount ? `Batch complete: ${successCount} succeeded, ${failCount} failed. Details appear beside each file. ${t("feedback.hint")}` : `Batch complete: ${successCount} succeeded.`)
+      : (failCount ? `批量转换完成：成功 ${successCount} 个，失败 ${failCount} 个。失败原因已显示在对应文件旁边。${t("feedback.hint")}` : `批量转换完成：成功 ${successCount} 个。`),
+    failCount ? (successCount ? "" : "error") : "success");
+  } finally {
+    try { finishConversionProgress(); } finally { setConversionBusy(false); }
+  }
+}
+
+async function saveResult(result) {
+  if (!result) return;
+
+  if (window.flyingMouseFormat?.saveConvertedFile) {
+    const release = retainResults([result]);
+    try {
+      setStatus(() => i18n.language === "en-US" ? `Choose where to save ${result.fileName}...` : `请选择 ${result.fileName} 的保存位置...`);
+      const saved = await window.flyingMouseFormat.saveConvertedFile({
+        downloadUrl: result.downloadUrl,
+        fileName: result.fileName,
+        assets: Array.isArray(result.assets) ? result.assets : undefined
+      });
+      if (saved?.canceled) {
+        setStatus(() => i18n.language === "en-US" ? `Converted: ${result.fileName}. Not saved yet.` : `转换完成：${result.fileName}。尚未保存。`, "success");
+        return;
+      }
+      setStatus(() => i18n.language === "en-US" ? `Saved to: ${saved.filePath}` : `已保存到：${saved.filePath}`, "success");
+    } finally { release(); }
+    return;
+  }
+
+  // A browser download provides no reliable completion callback to the page.
+  // Keep its source for this session; native saves release their use above.
+  retainResults([result]);
+  const link = document.createElement("a");
+  link.href = result.downloadUrl;
+  link.download = result.fileName;
+  link.click();
+}
+
+function previewFallback(result, message) {
+  const wrapper = document.createElement("div");
+  wrapper.className = "preview-fallback";
+  wrapper.append(
+    createTextElement("p", "preview-fallback-name", result.fileName),
+    createTextElement("p", "", message),
+    createTextElement("p", "preview-fallback-meta", `${result.mimeType || "application/octet-stream"} · ${formatSize(result.previewSize || 0)}`)
+  );
+  previewContent.replaceChildren(wrapper);
+}
+
+async function renderPreview(result, request) {
+  previewTitle.textContent = result.fileName || t("preview.title");
+  previewMeta.textContent = `${result.mimeType || "application/octet-stream"} · ${formatSize(result.previewSize || 0)}`;
+  previewContent.replaceChildren(createTextElement("p", "preview-loading", t("preview.loading")));
+  const previewKind = result.previewKind;
+  if (!result.previewUrl || previewKind === "unsupported") {
+    previewFallback(result, t("preview.unsupported"));
+    return;
+  }
+  if (previewKind === "image") {
+    const image = document.createElement("img");
+    image.className = "preview-image";
+    image.alt = result.fileName;
+    image.src = result.previewUrl;
+    previewContent.replaceChildren(image);
+    return;
+  }
+  if (previewKind === "pdf") {
+    const frame = document.createElement("iframe");
+    frame.className = "preview-frame";
+    frame.title = result.fileName;
+    frame.src = result.previewUrl;
+    previewContent.replaceChildren(frame);
+    return;
+  }
+  if (previewKind === "audio" || previewKind === "video") {
+    const media = document.createElement(previewKind);
+    media.className = `preview-${previewKind}`;
+    media.controls = true;
+    media.preload = "metadata";
+    media.src = result.previewUrl;
+    previewContent.replaceChildren(media);
+    return;
+  }
+  if (previewKind === "text") {
+    if ((result.previewSize || 0) > 2 * 1024 * 1024) {
+      previewFallback(result, t("preview.tooLarge"));
+      return;
+    }
+    const response = await fetch(result.previewUrl, { signal: request.controller.signal });
+    if (state.previewRequest !== request) return;
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const text = await response.text();
+    if (state.previewRequest !== request) return;
+    const pre = document.createElement("pre");
+    pre.className = "preview-text";
+    pre.textContent = text;
+    previewContent.replaceChildren(pre);
+    return;
+  }
+  previewFallback(result, t("preview.unsupported"));
+}
+
+async function openPreview(result, opener) {
+  if (!result) return;
+  state.previewRequest?.controller.abort();
+  const request = { controller: new AbortController() };
+  state.previewRequest = request;
+  state.previewResult = result;
+  state.previewOpener = opener || document.activeElement;
+  previewDrawer.hidden = false;
+  previewBackdrop.hidden = false;
+  if (!state.previewInert) {
+    state.previewInert = [...document.body.children]
+      .filter(element => element !== previewDrawer && element !== previewBackdrop && element.tagName !== "SCRIPT")
+      .map(element => ({ element, inert: element.inert }));
+    for (const { element } of state.previewInert) element.inert = true;
+  }
+  document.body.classList.add("preview-open");
+  previewClose.focus();
+  try {
+    await renderPreview(result, request);
+  } catch (error) {
+    if (state.previewRequest !== request || request.controller.signal.aborted) return;
+    previewFallback(result, t("preview.failed", { message: error.message || "unknown" }));
+  }
+}
+
+function closePreview() {
+  state.previewRequest?.controller.abort();
+  state.previewRequest = null;
+  if (!previewDrawer || previewDrawer.hidden) return;
+  previewDrawer.hidden = true;
+  previewBackdrop.hidden = true;
+  previewContent.replaceChildren();
+  document.body.classList.remove("preview-open");
+  for (const { element, inert } of state.previewInert || []) element.inert = inert;
+  state.previewInert = null;
+  const opener = state.previewOpener;
+  state.previewResult = null;
+  state.previewOpener = null;
+  if (opener && document.contains(opener)) opener.focus();
+}
+
+async function saveConvertedFile(event) {
+  if (!state.converted) return;
+  event.preventDefault();
+
+  try {
+    await saveResult(state.converted);
+  } catch (error) {
+    setStatus(() => i18n.language === "en-US" ? `Save failed: ${error.message || "Unknown error"}` : `保存失败：${error.message || "未知错误"}`, "error");
+  }
+}
+
+async function saveAllConvertedFiles() {
+  const results = state.batchResults
+    .filter((item) => item.status === "success" && item.result)
+    .map((item) => item.result);
+  if (!results.length) return;
+
+  const release = retainResults(results);
+  let browserDownloadStarted = false;
+  try {
+    if (window.flyingMouseFormat?.saveConvertedFiles) {
+      setStatus(() => i18n.language === "en-US" ? `Choose a folder for ${results.length} files...` : `请选择 ${results.length} 个文件的保存文件夹...`);
+      const saved = await window.flyingMouseFormat.saveConvertedFiles({ files: results });
+      if (saved?.canceled) {
+        setStatus(() => i18n.language === "en-US" ? `${results.length} files converted. Not saved yet.` : `已转换 ${results.length} 个文件，尚未保存。`, "success");
+        return;
+      }
+      const failList = Array.isArray(saved?.failed) ? saved.failed : [];
+      if (failList.length) {
+        const names = failList.map((f) => f.name).join("、");
+        setStatus(() => i18n.language === "en-US"
+          ? `Saved ${saved.savedCount}; ${failList.length} failed (${names}). ${failList[0].reason}`
+          : `已保存 ${saved.savedCount} 个，失败 ${failList.length} 个（${names}）。${failList[0].reason}`, "error");
+      } else {
+        setStatus(() => i18n.language === "en-US" ? `Saved ${saved.savedCount} files to: ${saved.directory}` : `已保存 ${saved.savedCount} 个文件到：${saved.directory}`, "success");
+      }
+      return;
+    }
+
+    for (const result of results) {
+      browserDownloadStarted = true;
+      const link = document.createElement("a");
+      link.href = result.downloadUrl;
+      link.download = result.fileName;
+      link.click();
+    }
+  } catch (error) {
+    setStatus(() => i18n.language === "en-US" ? `Save all failed: ${error.message || "Unknown error"}` : `保存全部失败：${error.message || "未知错误"}`, "error");
+  } finally {
+    if (!browserDownloadStarted) release();
+  }
+}
+
+dropZone.addEventListener("click", () => { if (!state.isConverting) fileInput.click(); });
+
+dropZone.addEventListener("dragover", (event) => {
+  event.preventDefault();
+  if (state.isConverting) return;
+  dropZone.classList.add("dragging");
+  setMouseState("upload");
+});
+
+dropZone.addEventListener("dragleave", () => {
+  dropZone.classList.remove("dragging");
+  if (state.isConverting) return;
+  setMouseState(state.files.length > 1 ? "batch" : state.files.length ? "idle" : "upload");
+});
+
+dropZone.addEventListener("drop", async (event) => {
+  event.preventDefault();
+  dropZone.classList.remove("dragging");
+  if (state.isConverting) return;
+  const selectionVersion = ++state.selectionVersion;
+  // 支持拖入文件夹：遍历 items 用 webkitGetAsEntry 递归收集文件，
+  // 并把文件夹名记录到 state.folderName（用于图片合并 PDF 命名）。
+  const items = [...(event.dataTransfer?.items || [])];
+  const entries = items.map((item) => item.webkitGetAsEntry && item.webkitGetAsEntry()).filter(Boolean);
+  const hasDirectory = entries.some((entry) => entry?.isDirectory);
+  if (hasDirectory) {
+    const collected = [];
+    let firstDirName = "";
+    for (const entry of entries) {
+      await collectEntryFiles(entry, collected, (dirName) => { firstDirName = firstDirName || dirName; });
+    }
+    if (collected.length) {
+      if (state.isConverting || state.selectionVersion !== selectionVersion) return;
+      acceptFiles(collected, { folderName: firstDirName });
+      return;
+    }
+  }
+  if (state.isConverting || state.selectionVersion !== selectionVersion) return;
+  acceptFiles(event.dataTransfer.files);
+});
+
+// 递归收集文件夹/文件条目（webkitGetAsEntry），onDirName 回调首个目录名。
+async function collectEntryFiles(entry, collected, onDirName) {
+  if (!entry) return;
+  if (entry.isFile) {
+    const file = await new Promise((resolve) => entry.file(resolve));
+    if (file) collected.push(file);
+    return;
+  }
+  if (entry.isDirectory) {
+    if (onDirName) onDirName(entry.name);
+    const reader = entry.createReader();
+    let batch = await new Promise((resolve) => reader.readEntries(resolve));
+    // readEntries 可能分批返回，循环读到空
+    while (batch && batch.length) {
+      for (const child of batch) await collectEntryFiles(child, collected, onDirName);
+      batch = await new Promise((resolve) => reader.readEntries(resolve));
+    }
+  }
+}
+
+fileInput.addEventListener("change", () => {
+  acceptFiles(fileInput.files);
+});
+
+// 选择文件夹：webkitdirectory input 的每个 File 带 webkitRelativePath
+// （如 "相册2026/001.jpg"），acceptFiles 用第一个路径段做文件夹名。
+chooseFolderButton.addEventListener("click", () => { if (!state.isConverting) folderInput.click(); });
+folderInput.addEventListener("change", () => {
+  if (folderInput.files?.length) {
+    acceptFiles(folderInput.files);
+    folderInput.value = "";
+  }
+});
+
+batchList.addEventListener("click", async (event) => {
+  const moveButton = event.target.closest("[data-move]");
+  if (moveButton) {
+    moveFileInQueue(Number(moveButton.dataset.move), moveButton.dataset.direction);
+    return;
+  }
+  const blankInsert = event.target.closest("[data-insert-blank]");
+  if (blankInsert) {
+    insertBlankPage(Number(blankInsert.dataset.insertBlank));
+    return;
+  }
+  const blankRemove = event.target.closest("[data-remove-blank]");
+  if (blankRemove) {
+    removeBlankPage(Number(blankRemove.dataset.removeBlank));
+    return;
+  }
+  const previewAction = event.target.closest("[data-preview-index]");
+  if (previewAction) {
+    const result = state.batchResults[Number(previewAction.dataset.previewIndex)]?.result;
+    await openPreview(result, previewAction);
+    return;
+  }
+  const button = event.target.closest("[data-save-index]");
+  if (!button) return;
+  const index = Number(button.dataset.saveIndex);
+  const result = state.batchResults[index]?.result;
+  try {
+    await saveResult(result);
+  } catch (error) {
+    setStatus(`保存失败：${error.message || "未知错误"}`, "error");
+  }
+});
+
+// 在队列 index 之后插入一页空白页（仅图片合并 PDF 时可用）
+function refreshImagePdfQueue() {
+  const previousTarget = targetSelect.value;
+  const targets = commonTargetsFrom(state.fileInfos);
+  targetSelect.replaceChildren();
+  for (const target of targets) {
+    const option = document.createElement("option");
+    option.value = target;
+    option.textContent = targetFormatLabel(target);
+    targetSelect.append(option);
+  }
+  if (targets.includes(previousTarget)) targetSelect.value = previousTarget;
+  const summary = summarizeFiles(state.files);
+  fileName.textContent = summary.name;
+  fileMeta.textContent = summary.meta;
+  targetSelect.disabled = !targets.length;
+  convertButton.disabled = !targets.length;
+  syncImagePdfModeField();
+  syncVideoCodecField();
+  syncPdfActionFields();
+  syncPdfExcelHint();
+  const blankCount = state.files.filter(file => file?.isBlankPage).length;
+  const imageCount = state.files.length - blankCount;
+  if (blankCount) {
+    fileName.textContent = i18n.language === "en-US"
+      ? `${imageCount} images · ${blankCount} blank pages (${state.files.length} pages total)`
+      : `${imageCount} 张图片 · ${blankCount} 个空白页（共 ${state.files.length} 页）`;
+    fileMeta.textContent = i18n.language === "en-US"
+      ? `${formatSize(state.files.reduce((sum, file) => sum + file.size, 0))} · Merge in queue order`
+      : `${formatSize(state.files.reduce((sum, file) => sum + file.size, 0))} · 按队列顺序合并`;
+    setStatus(() => i18n.language === "en-US"
+      ? `${imageCount} images and ${blankCount} blank pages will merge into a ${state.files.length}-page PDF.`
+      : `${imageCount} 张图片和 ${blankCount} 个空白页，将合并为 ${state.files.length} 页 PDF。`);
+  } else {
+    setStatus(() => i18n.language === "en-US"
+      ? `Selected ${imageCount} images. Available targets: ${targets.map(target => target.toUpperCase()).join(", ")}.`
+      : `已选择 ${imageCount} 张图片，可转换为：${targets.map(target => target.toUpperCase()).join("、")}。`);
+  }
+  renderBatchList();
+}
+
+function insertBlankPage(index) {
+  if (!canReorderImages()) return;
+  const blankPage = { isBlankPage: true, name: "空白页", size: 0 };
+  const at = Math.min(index + 1, state.files.length);
+  state.files.splice(at, 0, blankPage);
+  state.fileInfos.splice(at, 0, { extension: "", category: "image", targets: ["pdf"], experimental: false });
+  state.batchResults.splice(at, 0, { status: "pending", detail: "等待转换" });
+  refreshImagePdfQueue();
+}
+
+function removeBlankPage(index) {
+  if (!canReorderImages()) return;
+  if (!state.files[index]?.isBlankPage) return;
+  state.files.splice(index, 1);
+  state.fileInfos.splice(index, 1);
+  state.batchResults.splice(index, 1);
+  refreshImagePdfQueue();
+}
+
+clearButton.addEventListener("click", clearFile);
+convertButton.addEventListener("click", convertCurrentFiles);
+// P2（2026-09-10 复核）：设置写盘失败不得再打断用户操作。旧回调直接
+// await updateSettings 并拿返回值覆盖 state.settings——IPC 一抛错，语言切换
+// 后面的 refreshLanguage() 被跳过、默认格式更新丢失内存值。统一策略与 S1 启动
+// 降级一致：先更新内存设置 + 界面，再尽力持久化；失败只影响「下次是否记得」。
+async function persistSettings(patch) {
+  if (typeof logBridge.updateSettings !== "function") return;
+  try {
+    await settingsSync.persist(patch);
+  } catch (error) {
+    rendererLog("warn", "设置持久化失败，本次继续使用内存偏好", error);
+    if (!settingsDegraded) {
+      settingsDegraded = true;
+      setStatus(() => t("settings.degraded"), "warn");
+    }
+  }
+}
+themeSelect.addEventListener("change", async () => {
+  const theme = window.FlyingMouseTheme.select(themeSelect.value);
+  state.settings = { ...state.settings, theme };
+  await persistSettings({ theme });
+});
+languageSelect.addEventListener("change", async () => {
+  i18n.setLanguage(languageSelect.value, { persist: false });
+  if (i18n.language === "zh-CN" || i18n.language === "en-US") {
+    state.settings = { ...state.settings, language: i18n.language };
+  }
+  refreshLanguage();
+  await persistSettings({ language: i18n.language });
+});
+targetSelect.addEventListener("change", async () => {
+  syncVideoCodecField();
+  syncPdfActionFields();
+  syncImagePdfModeField();
+  syncPdfExcelHint();
+  renderBatchList();
+  const targetBySource = rememberTarget(
+    state.settings.targetBySource,
+    state.files.map((file) => extensionOf(file.name)),
+    targetSelect.value
+  );
+  state.settings = { ...state.settings, targetBySource };
+  await persistSettings({ targetBySource });
+});
+downloadButton.addEventListener("click", saveConvertedFile);
+batchSaveButton.addEventListener("click", saveAllConvertedFiles);
+if (pdfAction) pdfAction.addEventListener("change", syncPdfActionFields);
+if (pdfSplitMode) pdfSplitMode.addEventListener("change", syncPdfActionFields);
+if (imagePdfMode) imagePdfMode.addEventListener("change", () => {
+  syncImagePdfModeField();
+  renderBatchList();
+});
+previewButton.addEventListener("click", () => openPreview(state.converted, previewButton));
+previewClose.addEventListener("click", closePreview);
+previewBackdrop.addEventListener("click", closePreview);
+document.addEventListener("keydown", (event) => {
+  if (!previewDrawer.hidden && event.key === "Tab") {
+    const controls = [...previewDrawer.querySelectorAll('button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), audio[controls], video[controls], iframe, [tabindex]:not([tabindex="-1"])')]
+      .filter(element => !element.hidden && element.getClientRects().length);
+    const first = controls[0] || previewClose;
+    const last = controls[controls.length - 1] || previewClose;
+    if (!previewDrawer.contains(document.activeElement) || (event.shiftKey ? document.activeElement === first : document.activeElement === last)) {
+      event.preventDefault();
+      (event.shiftKey ? last : first).focus();
+    }
+  }
+  if (event.key === "Escape" && !previewDrawer.hidden) closePreview();
+});
+document.addEventListener("focusin", (event) => {
+  if (!previewDrawer.hidden && !previewDrawer.contains(event.target)) previewClose.focus();
+});
+agentInstallButton.addEventListener("click", async () => {
+  if (typeof logBridge.inspectAgentSkillTargets !== "function" || typeof logBridge.installAgentSkill !== "function") return;
+  agentInstallButton.disabled = true;
+  setStatus(() => t("agent.checking"));
+  try {
+    const inspected = await logBridge.inspectAgentSkillTargets();
+    if (!inspected?.targets?.length) {
+      setStatus(() => t("agent.none"));
+      return;
+    }
+    const result = await logBridge.installAgentSkill({ targetIds: inspected.targets.map((item) => item.id) });
+    if (result?.canceled) {
+      setStatus(() => t("agent.canceled"));
+    } else if (result.failed?.length) {
+      setStatus(() => t("agent.partial", {
+        count: result.installed.length,
+        failed: result.failed.length,
+        message: result.failed.map((item) => item.error).join("；")
+      }), result.installed.length ? "success" : "error");
+    } else {
+      setStatus(() => t("agent.installed", {
+        count: result.installed.length,
+        paths: result.installed.map((item) => item.path).join("；")
+      }), "success");
+    }
+  } catch (error) {
+    setStatus(() => t("agent.failed", { message: error.message || "unknown" }), "error");
+  } finally {
+    agentInstallButton.disabled = false;
+  }
+});
+diagnosticsButton.addEventListener("click", async () => {
+  if (typeof logBridge.exportDiagnostics !== "function") return;
+  diagnosticsButton.disabled = true;
+  try {
+    const result = await logBridge.exportDiagnostics();
+    setStatus(result?.canceled
+      ? t("diagnostics.canceled")
+      : t("diagnostics.saved", { path: result.filePath }), result?.canceled ? "" : "success");
+  } catch (error) {
+    setStatus(() => t("diagnostics.failed", { message: error.message || "unknown" }), "error");
+    rendererLog("error", "导出诊断失败", error);
+  } finally {
+    diagnosticsButton.disabled = false;
+  }
+});
+
+async function initializeDurableSettings() {
+  const legacy = {
+    targetBySource: readPreferences(localStorage),
+    language: (() => {
+      try { return localStorage.getItem(LANGUAGE_STORAGE_KEY); } catch { return null; }
+    })()
+  };
+  if (typeof logBridge.migrateLegacySettings === "function") {
+    // S1（2026-09-10 商店版 0.6.4 实证）：设置持久化失败（EXDEV/EACCES/ENOSPC 等）
+    // 只影响「记住偏好」，不是引擎故障。此前异常直接冒泡打断 initializeApp，
+    // 能力检测/版本显示全部跳过、界面误报「检测失败」。现在降级为内存设置
+    // （state.settings 已有安全默认值），保留旧 localStorage 不删（下次启动仍可迁移），
+    // 转换功能照常，仅提示一次非阻断警告。
+    try {
+      settingsSync.restore(await logBridge.migrateLegacySettings(legacy));
+      try {
+        localStorage.removeItem(LEGACY_TARGET_STORAGE_KEY);
+        localStorage.removeItem(LANGUAGE_STORAGE_KEY);
+      } catch {
+        // A blocked origin store must not prevent startup after main settings load.
+      }
+    } catch (error) {
+      rendererLog("warn", "设置迁移失败，本次使用内存偏好", error);
+      // P2 补充（09-10 复核）：内存降级要带上已从 localStorage 读到的旧语言偏好，
+      // 否则迁移失败反而把用户语言丢回系统语言。
+      settingsSync.restore({
+        schemaVersion: 2,
+        targetBySource: legacy.targetBySource,
+        ...(legacy.language === "zh-CN" || legacy.language === "en-US"
+          ? { language: legacy.language }
+          : {})
+      });
+      settingsDegraded = true;
+    }
+  } else if (typeof logBridge.getSettings === "function") {
+    try {
+      settingsSync.restore(await logBridge.getSettings());
+    } catch (error) {
+      rendererLog("warn", "设置读取失败，本次使用内存偏好", error);
+      settingsSync.restore({
+        schemaVersion: 2,
+        targetBySource: legacy.targetBySource,
+        ...(legacy.language === "zh-CN" || legacy.language === "en-US"
+          ? { language: legacy.language }
+          : {})
+      });
+      settingsDegraded = true;
+    }
+  } else {
+    state.settings.targetBySource = legacy.targetBySource;
+  }
+  i18n.setLanguage(state.settings.language || navigator.language, { persist: false });
+  window.FlyingMouseTheme.restore(state.settings.theme);
+}
+
+async function initializeApp() {
+  await initializeDurableSettings();
+  applyStaticTranslations();
+  setMouseState("upload");
+  setWorkflowStep("select");
+  await fetchCapabilities();
+  initializeVersionLabel();
+  if (settingsDegraded) {
+    setStatus(() => t("settings.degraded"), "warn");
+  }
+}
+
+// ---- 版本号显示 ----
+const appVersionEl = document.querySelector("#appVersion");
+
+function initializeVersionLabel() {
+  if (!window.flyingMouseFormat) return;
+  window.flyingMouseFormat.getAppVersion()
+    .then((version) => {
+      if (version) appVersionEl.textContent = `v${version}`;
+    })
+    .catch(() => {});
+}
+
+initializeApp().catch((error) => {
+  setMouseState("error");
+  toolHealth.textContent = t("health.failed");
+  setStatus(error.message, "error");
+  rendererLog("error", "能力检测失败", error);
+}).finally(() => {
+  // Both a usable interface and a visible capability error complete rendering.
+  // A missing script/preload or a stuck initialization is detected by main.
+  logBridge.rendererReady?.().catch(error => rendererLog("warn", "界面就绪通知失败", error));
+});
+
+// 打赏组件（微信收款码，纯自愿）
+const sponsorToggle = document.querySelector("#sponsorToggle");
+const sponsorPanel = document.querySelector("#sponsorPanel");
+const sponsorClose = document.querySelector("#sponsorClose");
+const sponsorWidget = document.querySelector("#sponsorWidget");
+
+function setSponsorOpen(open) {
+  sponsorPanel.hidden = !open;
+  sponsorToggle.setAttribute("aria-expanded", String(open));
+}
+
+if (sponsorToggle && sponsorPanel && sponsorClose && sponsorWidget) {
+  sponsorToggle.addEventListener("click", () => setSponsorOpen(sponsorPanel.hidden));
+  sponsorClose.addEventListener("click", () => setSponsorOpen(false));
+  document.addEventListener("click", (event) => {
+    if (!sponsorPanel.hidden && !sponsorWidget.contains(event.target)) setSponsorOpen(false);
+  });
+}

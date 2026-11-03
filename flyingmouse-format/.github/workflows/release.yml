@@ -1,0 +1,277 @@
+name: Release validation
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release/tag name (e.g. v0.6.1) — used when dispatching manually"
+        required: false
+        default: "v0.6.1"
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  validate-and-build:
+    runs-on: windows-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Cache fixed conversion engines
+        uses: actions/cache@v4
+        with:
+          path: output/ci-engines-v1.tar.zst
+          key: ci-engines-v1-${{ hashFiles('ci-engines-v1.json') }}
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Restore locked Markdown engine
+        run: npm run restore:pandoc
+
+      - name: Restore fixed conversion engines
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: .\scripts\restore-ci-engines.ps1
+
+      - name: Validate locked document structure engine
+        shell: powershell
+        run: node scripts/lock-docstructure-engine.js --verify --root bin/docstructure --lock docstructure-engine-lock.json
+
+      - name: Probe document structure engine
+        shell: bash
+        run: |
+          # 引擎 MODEL_MISSING 启动探针退出码 20，JSON 写到 stderr。
+          # runner 的 bash 默认 -e（set -e）——引擎退出码非 0 会直接终止脚本，
+          # 需先 set +e 捕获退出码再判断（powershell/cmd 方式另有 stderr 问题，均弃用）。
+          set +e
+          output=$(./bin/docstructure/docstructure-engine.exe 2>&1)
+          code=$?
+          set -e
+          echo "engine probe exit=$code"
+          echo "$output" | grep -q '"code":"MODEL_MISSING"' || { echo "missing MODEL_MISSING marker: $output"; exit 1; }
+          test "$code" -eq 20 || { echo "unexpected exit code: $code"; exit 1; }
+
+      - name: Stage locked Thai OCR data for Windows tests
+        shell: powershell
+        run: |
+          $source = 'node_modules\@tesseract.js-data\tha\4.0.0_best_int\tha.traineddata.gz'
+          $destination = 'bin\tessdata\tha.traineddata.gz'
+          if (-not (Test-Path -LiteralPath $source -PathType Leaf)) { throw 'Locked Thai OCR data is missing.' }
+          Copy-Item -LiteralPath $source -Destination $destination -Force
+          $sourceHash = (Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash
+          $destinationHash = (Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash
+          if ($sourceHash -ne $destinationHash) { throw 'Thai OCR data copy failed hash validation.' }
+
+      - name: Syntax checks
+        run: |
+          node --check server.js
+          node --check pdf-table-extractor.js
+          node --check pdf-table-runtime.js
+          node --check public/app.js
+
+      - name: Validate APPX verification gates
+        run: python -m unittest discover -s tests -p check_appx_test.py
+
+      - name: Full real conversion suite
+        run: npm test
+
+      - name: Production dependency audit
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Build Windows 10 and 11 installer
+        run: npm run dist
+
+      - name: Build isolated Windows 7 installer
+        run: npm run dist:win7
+
+      - name: Inspect installer PE metadata
+        shell: powershell
+        run: |
+          $standard = Get-ChildItem -LiteralPath dist -Filter '*Setup-*-x64.exe' | Where-Object { $_.Name -notmatch 'win7' } | Select-Object -First 1
+          $win7 = Get-ChildItem -LiteralPath dist -Filter '*Setup-*-win7-x64.exe' | Select-Object -First 1
+          if (-not $standard -or -not $win7) { throw 'Expected installers were not produced.' }
+          node scripts/inspect-pe.js $standard.FullName
+          node scripts/inspect-pe.js $win7.FullName
+
+      - name: Upload validated installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: flyingmouse-format-${{ github.ref_name }}
+          path: |
+            dist/*Setup-*-x64.exe
+            dist/*Setup-*-win7-x64.exe
+            dist/latest.yml
+            dist/*.blockmap
+          if-no-files-found: error
+
+  validate-and-build-macos:
+    name: macOS ${{ matrix.arch }} validated DMG
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-26
+          - arch: x64
+            runner: macos-26-intel
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Assert native runner architecture
+        run: test "$(node -p 'process.arch')" = "${{ matrix.arch }}"
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Restore locked Markdown engine
+        run: npm run restore:pandoc
+
+      - name: Restore SHA-pinned native engines
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          brew install zstd
+          key="darwin-${{ matrix.arch }}"
+          asset="$(node -p "require('./ci-engines-v1.json').assets['$key'].assetName")"
+          root="$PWD/bin/engines/$key"
+          mkdir -p output "$root"
+          gh release download ci-engines-v1 --repo "${{ github.repository }}" --pattern "$asset" --dir output
+          zstd -dc "output/$asset" | tar -xf - -C "$root"
+          node scripts/validate-ci-engines.js --platform darwin --arch "${{ matrix.arch }}" --root "$root" --bundle "output/$asset"
+          file "$root/runtime/bin/ffmpeg" "$root/runtime/bin/pdftoppm" "$root/libreoffice/LibreOffice.app/Contents/MacOS/soffice"
+
+      - name: Run macOS full conversions and real engine probes
+        env:
+          FLYINGMOUSE_FFMPEG_PATH: bin/engines/darwin-${{ matrix.arch }}/runtime/bin/ffmpeg
+          FLYINGMOUSE_LIBREOFFICE_PATH: bin/engines/darwin-${{ matrix.arch }}/libreoffice/LibreOffice.app/Contents/MacOS/soffice
+          FLYINGMOUSE_PDFTOPPM_PATH: bin/engines/darwin-${{ matrix.arch }}/runtime/bin/pdftoppm
+          FLYINGMOUSE_TESSDATA_PATH: bin/engines/darwin-${{ matrix.arch }}/tessdata
+        run: |
+          npm test
+          "$FLYINGMOUSE_FFMPEG_PATH" -version
+          "$FLYINGMOUSE_PDFTOPPM_PATH" -v
+          "$FLYINGMOUSE_LIBREOFFICE_PATH" -env:UserInstallation="file://$RUNNER_TEMP/flyingmouse-office-profile" --headless --version
+
+      - name: Production dependency audit
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Build unsigned macOS DMG
+        run: npm run dist:mac:${{ matrix.arch }}
+
+      - name: Mount and inspect DMG
+        shell: bash
+        run: |
+          set -euo pipefail
+          dmg="$(find dist -maxdepth 1 -name "FlyingMouse Format-Setup-*-mac-${{ matrix.arch }}.dmg" -print -quit)"
+          test -n "$dmg"
+          attach="$(hdiutil attach -readonly -nobrowse "$dmg")"
+          mount="$(printf '%s\n' "$attach" | awk '/\/Volumes\// { sub(/^.*\/Volumes\//, "/Volumes/"); print; exit }')"
+          test -n "$mount"
+          cleanup() {
+            # runner 偶发 Resource busy 导致 detach 失败（v0.4.0/v0.4.1 实证，exit 16）。
+            # 卸载只是清理动作：-force + 重试，最终失败仅告警，不影响已验证的产物。
+            for attempt in 1 2 3 4 5; do
+              if hdiutil detach -force "$mount" >/dev/null 2>&1; then
+                return 0
+              fi
+              sleep 3
+            done
+            echo "warning: could not detach $mount (Resource busy, ignoring)" >&2
+            return 0
+          }
+          trap cleanup EXIT
+          app="$(find "$mount" -maxdepth 1 -name '*.app' -print -quit)"
+          test -n "$app"
+          file "$app/Contents/MacOS/FlyingMouse Format"
+          file "$app/Contents/Resources/engines/darwin-${{ matrix.arch }}/runtime/bin/ffmpeg"
+          file "$app/Contents/Resources/engines/darwin-${{ matrix.arch }}/runtime/bin/pdftoppm"
+          if ! codesign --verify --deep "$app"; then
+            signature="$(codesign -dv "$app" 2>&1 || true)"
+            printf '%s\n' "$signature"
+            printf '%s\n' "$signature" | grep -Eq 'Signature=adhoc|code object is not signed at all'
+          fi
+          "$app/Contents/MacOS/FlyingMouse Format" >"$RUNNER_TEMP/flyingmouse-smoke.log" 2>&1 &
+          pid=$!
+          sleep 12
+          kill -0 "$pid"
+          kill "$pid"
+          wait "$pid" || true
+
+      - name: Upload validated DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: flyingmouse-format-${{ github.ref_name }}-mac-${{ matrix.arch }}
+          path: dist/FlyingMouse Format-Setup-*-mac-${{ matrix.arch }}.dmg
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub Release
+    needs: [validate-and-build, validate-and-build-macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout release notes
+        uses: actions/checkout@v4
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Create release and upload assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="${{ inputs.release_tag || github.ref_name }}"
+          # 标准版 x64 exe/blockmap 重命名为连字符，匹配 latest.yml 的 url
+          # （空格会被 GitHub 显示成点，electron-updater 按 url 下载会 404）
+          cd release-assets
+          # 把所有资产名里的空格统一换成连字符（exe/blockmap/dmg/win7），
+          # 否则 GitHub 资产上传会因文件名含空格返回 400（v0.6.5 发布事故根因），
+          # 且 electron-updater 按 latest.yml 的 url 下载也会 404。
+          for f in *; do
+            [ -e "$f" ] || continue
+            n="$(basename "$f" | tr ' ' '-')"
+            [ "$(basename "$f")" = "$n" ] || mv "$f" "$n"
+          done
+          cd ..
+          # 版本号去点生成 release notes 文件名（v0.5.1 → release-notes-051.md）。
+          # 注意：不能对整个路径做 ${var//./}——会连 .md 扩展名的点一起删掉，
+          # 导致文件不存在而回退到 RELEASE.md（v0.5.1 发布事故根因）。
+          VER="${TAG#v}"
+          VER="${VER//./}"
+          NOTES="docs/release-notes-${VER}.md"
+          [ -f "$NOTES" ] || NOTES="docs/RELEASE.md"
+          # release 已存在（如手动预上传资产）时跳过 create，仅补传/覆盖资产
+          if gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            echo "release $TAG already exists; uploading assets only"
+          else
+            gh release create "$TAG" --repo "${{ github.repository }}" \
+              --title "FlyingMouse Format $TAG" \
+              --notes-file "$NOTES" --draft
+          fi
+          gh release upload "$TAG" release-assets/* --repo "${{ github.repository }}" --clobber
+          gh release edit "$TAG" --draft=false --latest

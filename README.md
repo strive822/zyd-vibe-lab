@@ -2,7 +2,7 @@
 
 zhongyudi 的个人项目仓库：各项目独立下载、安装、运行和维护；原工具箱已拆为四个独立目录。
 
-> 原 github-toolbox 已拆为四个独立项目；全部 8 个项目都有自己的 Agent 入口、独立下载包和 SHA-256。
+> 原 github-toolbox 已拆为四个独立项目；全部 9 个项目都有自己的 Agent 入口、独立下载包和 SHA-256。
 
 ## 直接让 Agent 帮你使用
 
@@ -56,6 +56,12 @@ zhongyudi 的个人项目仓库：各项目独立下载、安装、运行和维�
 下载并安装 https://github.com/strive822/zyd-vibe-lab 里的 pi-task-notify。请先读取该项目 INSTALL.md，按说明用 pi install npm:pi-task-notify 安装（或下载源码用 pi -e 试用），重启 Pi 后运行 /notify-test 验证 4 条样例通知，并向我报告每一步的真实结果；不要改动我已有的 Pi 配置。
 ```
 
+**飞鼠格式（离线格式转换器）：**
+
+```text
+下载并使用 https://github.com/strive822/zyd-vibe-lab 里的 flyingmouse-format。请先读取该项目 INSTALL.md，取得完整独立目录并核对 SHA-256；只要软件本体就改用上游官方安装包核验安装，要让 Agent 驱动转换就按上游 agent-skill 说明接入 CLI；保留许可证与署名，不用于商业用途。
+```
+
 简短说“安装这个仓库里的论文工作流”也可使用论文入口。未指定项目时，Agent 应先确认项目。
 
 ## 项目与下载
@@ -70,6 +76,7 @@ zhongyudi 的个人项目仓库：各项目独立下载、安装、运行和维�
 | [rea](rea/README.md) | 独立的个人使用配置与固定下载版本 | [Agent 入口](rea/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/rea/delivery/rea.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/rea/delivery/SHA256SUMS.txt) |
 | [pi-task-notify](pi-task-notify/README.md) | Pi 编码代理任务通知：完成/出错/等确认/心跳，失焦才打扰，Windows 实测 | [安装与验证](pi-task-notify/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/pi-task-notify/delivery/pi-task-notify.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/pi-task-notify/delivery/SHA256SUMS.txt) |
 | [today-todo](today-todo/README.md) | 电脑与手机局域网共用的今日清单，零依赖 Node 服务 + 原生前端 | [下载与启动](today-todo/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/today-todo/delivery/today-todo.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/today-todo/delivery/SHA256SUMS.txt) |
+| [flyingmouse-format](flyingmouse-format/README.md) | 飞鼠格式离线文件转换器 0.7.10 源码快照：图片/Office/PDF/音视频互转 + OCR，含上游 Agent CLI 技能 | [下载与使用](flyingmouse-format/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/flyingmouse-format/delivery/flyingmouse-format.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/flyingmouse-format/delivery/SHA256SUMS.txt) |
 
 论文工作流不保证毕业或检测分数；计算器只计算，不执行交易。
 

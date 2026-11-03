@@ -1,0 +1,145 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: windows-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Cache fixed conversion engines
+        uses: actions/cache@v4
+        with:
+          path: output/ci-engines-v1.tar.zst
+          key: ci-engines-v1-${{ hashFiles('ci-engines-v1.json') }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Restore locked Markdown engine
+        run: npm run restore:pandoc
+
+      # conversion.test.js 等真实转换测试需要 bin/ 引擎（ffmpeg/poppler/tessdata/
+      # LibreOffice/docstructure），gitignore 不入库——与发布门禁（release.yml）一致，
+      # 从 ci-engines-v1 Release 恢复后再跑全量测试，否则引擎测试 ENOENT 假失败。
+      - name: Restore fixed conversion engines
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: .\scripts\restore-ci-engines.ps1
+
+      - name: Validate locked document structure engine
+        shell: powershell
+        run: node scripts/lock-docstructure-engine.js --verify --root bin/docstructure --lock docstructure-engine-lock.json
+
+      - name: Probe document structure engine
+        shell: bash
+        run: |
+          # 引擎 MODEL_MISSING 启动探针退出码 20，JSON 写到 stderr。
+          # runner 的 bash 默认 -e（set -e）——引擎退出码非 0 会直接终止脚本，
+          # 需先 set +e 捕获退出码再判断（powershell/cmd 方式另有 stderr 问题，均弃用）。
+          set +e
+          output=$(./bin/docstructure/docstructure-engine.exe 2>&1)
+          code=$?
+          set -e
+          echo "engine probe exit=$code"
+          echo "$output" | grep -q '"code":"MODEL_MISSING"' || { echo "missing MODEL_MISSING marker: $output"; exit 1; }
+          test "$code" -eq 20 || { echo "unexpected exit code: $code"; exit 1; }
+
+      - name: Stage locked Thai OCR data for Windows tests
+        shell: powershell
+        run: |
+          $source = 'node_modules\@tesseract.js-data\tha\4.0.0_best_int\tha.traineddata.gz'
+          $destination = 'bin\tessdata\tha.traineddata.gz'
+          if (-not (Test-Path -LiteralPath $source -PathType Leaf)) { throw 'Locked Thai OCR data is missing.' }
+          Copy-Item -LiteralPath $source -Destination $destination -Force
+          $sourceHash = (Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash
+          $destinationHash = (Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash
+          if ($sourceHash -ne $destinationHash) { throw 'Thai OCR data copy failed hash validation.' }
+
+      - name: Syntax check
+        run: |
+          node --check server.js
+          node --check electron-main.js
+          node --check electron-security.js
+          node --check preload.js
+          node --check public/app.js
+
+      - name: Validate APPX verification gates
+        run: python -m unittest discover -s tests -p check_appx_test.py
+
+      - name: Run test suite
+        run: npm test
+
+      - name: Production dependency audit
+        run: npm audit --omit=dev --audit-level=high
+
+  macos-test:
+    name: macOS ${{ matrix.arch }} engine and code gates
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-26
+          - arch: x64
+            runner: macos-26-intel
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Assert native runner architecture
+        run: test "$(node -p 'process.arch')" = "${{ matrix.arch }}"
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Restore locked Markdown engine
+        run: npm run restore:pandoc
+
+      - name: Restore SHA-pinned native engines
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          brew install zstd
+          key="darwin-${{ matrix.arch }}"
+          asset="$(node -p "require('./ci-engines-v1.json').assets['$key'].assetName")"
+          root="$PWD/bin/engines/$key"
+          mkdir -p output "$root"
+          gh release download ci-engines-v1 --repo "${{ github.repository }}" --pattern "$asset" --dir output
+          zstd -dc "output/$asset" | tar -xf - -C "$root"
+          node scripts/validate-ci-engines.js --platform darwin --arch "${{ matrix.arch }}" --root "$root" --bundle "output/$asset"
+          file "$root/runtime/bin/ffmpeg" "$root/runtime/bin/pdftoppm" "$root/libreoffice/LibreOffice.app/Contents/MacOS/soffice"
+
+      - name: Run macOS full conversion suite and engine probes
+        env:
+          FLYINGMOUSE_FFMPEG_PATH: bin/engines/darwin-${{ matrix.arch }}/runtime/bin/ffmpeg
+          FLYINGMOUSE_LIBREOFFICE_PATH: bin/engines/darwin-${{ matrix.arch }}/libreoffice/LibreOffice.app/Contents/MacOS/soffice
+          FLYINGMOUSE_PDFTOPPM_PATH: bin/engines/darwin-${{ matrix.arch }}/runtime/bin/pdftoppm
+          FLYINGMOUSE_TESSDATA_PATH: bin/engines/darwin-${{ matrix.arch }}/tessdata
+        run: |
+          npm test
+          "$FLYINGMOUSE_FFMPEG_PATH" -version
+          "$FLYINGMOUSE_PDFTOPPM_PATH" -v
+          "$FLYINGMOUSE_LIBREOFFICE_PATH" -env:UserInstallation="file://$RUNNER_TEMP/flyingmouse-office-profile" --headless --version
+
+      - name: Production dependency audit
+        run: npm audit --omit=dev --audit-level=high

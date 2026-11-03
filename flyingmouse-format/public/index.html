@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>FlyingMouse Format</title>
+    <link rel="icon" href="/assets/mouse-format/mouse-idle.png">
+    <script src="/theme.js"></script>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <main class="shell">
+      <section class="workspace" data-i18n-aria="workspace.aria" aria-label="文件转换工作台">
+        <div class="topbar">
+          <div class="brand-lockup">
+            <img class="brand-mouse" src="/assets/mouse-format/mouse-idle.png" alt="" aria-hidden="true">
+            <div>
+              <p class="eyebrow">FlyingMouse Format <span class="app-version" id="appVersion"></span></p>
+              <div class="brand-title-row">
+                <h1 data-i18n="brand.title">鼠鼠帮你把文件转成需要的格式</h1>
+                <p class="feedback-line" data-i18n="feedback.guide">问题反馈：转换遇到问题，请导出诊断报告并查看错误提示，帮助信息详见软件说明。</p>
+              </div>
+              <p class="author-line" data-i18n="brand.usage">仅供个人免费使用，禁止商业售卖/转卖/套壳 · 仅支持普通音乐格式转换，不支持其他音乐平台的加密特殊格式 · 请支持正版音乐</p>
+            </div>
+          </div>
+          <div class="topbar-actions">
+            <label class="language-field theme-field">
+              <span data-i18n="theme.label">外观</span>
+              <select id="themeSelect" data-i18n-aria="theme.label" aria-label="外观">
+                <option value="system" data-i18n="theme.system">跟随系统</option>
+                <option value="light" data-i18n="theme.light">浅色</option>
+                <option value="dark" data-i18n="theme.dark">深色</option>
+              </select>
+            </label>
+            <button class="ghost-button diagnostics-button" id="agentInstallButton" type="button" data-i18n="agent.install">接入 Agent</button>
+            <button class="ghost-button diagnostics-button" id="diagnosticsButton" type="button" data-i18n="diagnostics.export">导出诊断</button>
+            <label class="language-field">
+              <span data-i18n="language.label">语言</span>
+              <select id="languageSelect" aria-label="语言 / Language">
+                <option value="zh-CN">中文</option>
+                <option value="en-US">English</option>
+              </select>
+            </label>
+            <div class="health" id="toolHealth" data-i18n="health.checking">正在检测转换引擎</div>
+          </div>
+        </div>
+
+        <nav class="workflow-steps" id="workflowSteps" data-i18n-aria="workflow.aria" aria-label="转换流程">
+          <span class="workflow-step active" data-step="select" data-i18n="workflow.select">选择文件</span>
+          <span class="workflow-step" data-step="analyze" data-i18n="workflow.analyze">识别格式</span>
+          <span class="workflow-step" data-step="convert" data-i18n="workflow.convert">开始转换</span>
+          <span class="workflow-step" data-step="save" data-i18n="workflow.save">保存结果</span>
+        </nav>
+
+        <div class="converter-grid">
+          <section class="drop-panel" data-i18n-aria="upload.aria" aria-label="上传文件">
+            <input id="fileInput" type="file" class="sr-only" multiple>
+            <input id="folderInput" type="file" class="sr-only" webkitdirectory>
+            <button class="drop-zone" id="dropZone" type="button">
+              <span class="mouse-stage" aria-hidden="true">
+                <img class="mouse-mascot" id="mouseMascot" src="/assets/mouse-format/mouse-upload.png" alt="">
+              </span>
+              <span class="drop-main" data-i18n="upload.title">把文件丢给鼠鼠</span>
+              <span class="drop-sub" id="dropHint" data-i18n="upload.hint">图片、文档、PDF、WPS、音视频都可以试</span>
+              <span class="drop-folder-line">
+                <button class="ghost-button" id="chooseFolderButton" type="button" data-i18n="upload.chooseFolder">选择文件夹转 PDF</button>
+              </span>
+            </button>
+
+            <div class="file-strip" id="fileStrip" hidden>
+              <div>
+                <p class="file-name" id="fileName"></p>
+                <p class="file-meta" id="fileMeta"></p>
+              </div>
+              <button class="ghost-button" id="clearButton" type="button" data-i18n="action.clear">清空</button>
+            </div>
+            <div class="batch-list" id="batchList" hidden></div>
+          </section>
+
+          <aside class="controls" data-i18n-aria="settings.aria" aria-label="转换设置">
+            <label class="field">
+              <span data-i18n="target.label">目标格式</span>
+              <select id="targetSelect" disabled>
+                <option value="" data-i18n="target.placeholder">先选择文件</option>
+              </select>
+            </label>
+            <p class="format-hint" id="pdfExcelHint" data-i18n="pdfExcel.hint" hidden>适合电子版规则表格；扫描件、复杂表头和合并单元格可能不完整。</p>
+
+            <div class="field" id="textEncodingField" hidden>
+              <label for="textEncoding" data-i18n="textEncoding.label">源文件编码</label>
+              <select id="textEncoding" aria-describedby="textEncodingHint">
+                <option value="auto" selected data-i18n="textEncoding.auto">自动（UTF-8 / UTF-16 BOM）</option>
+                <option value="utf-8" data-i18n="textEncoding.utf8">UTF-8</option>
+                <option value="gb18030" data-i18n="textEncoding.gb18030">GBK / GB18030</option>
+                <option value="utf-16le" data-i18n="textEncoding.utf16le">UTF-16LE</option>
+                <option value="utf-16be" data-i18n="textEncoding.utf16be">UTF-16BE</option>
+              </select>
+              <p class="field-help" id="textEncodingHint" data-i18n="textEncoding.hint">自动仅识别 UTF-8 或带 BOM 的 UTF-16。GBK 文本请手动选择；批量文本使用同一编码。</p>
+            </div>
+
+            <label class="field" id="videoCodecField" hidden>
+              <span data-i18n="videoCodec.label">视频编码</span>
+              <select id="videoCodec">
+                <option value="h264" selected data-i18n="videoCodec.h264">H.264（兼容性最好，默认）</option>
+                <option value="h265" data-i18n="videoCodec.h265">H.265（体积更小）</option>
+                <option value="av1" data-i18n="videoCodec.av1">AV1（压缩率最高）</option>
+              </select>
+            </label>
+
+            <label class="field" id="alphaBackgroundField" hidden>
+              <span data-i18n="alphaBackground.label">透明背景色（带透明通道的视频转码时合成）</span>
+              <select id="alphaBackground">
+                <option value="white" selected data-i18n="alphaBackground.white">白色（默认）</option>
+                <option value="black" data-i18n="alphaBackground.black">黑色</option>
+                <option value="0x00ff00" data-i18n="alphaBackground.green">绿色（绿幕）</option>
+                <option value="0xff00ff" data-i18n="alphaBackground.magenta">洋红（绿幕抠像常用）</option>
+              </select>
+            </label>
+
+            <label class="field" id="pdfPasswordField" hidden>
+              <span data-i18n="pdfPassword.label">PDF 密码（加密/解密）</span>
+              <input id="pdfPassword" type="password" autocomplete="off">
+            </label>
+            <label class="field" id="pdfActionField" hidden>
+              <span data-i18n="pdfAction.label">PDF 操作</span>
+              <select id="pdfAction">
+                <option value="merge" data-i18n="pdfAction.merge" hidden disabled>合并为一个 PDF</option>
+                <option value="" data-i18n="pdfAction.split" selected>拆分 PDF（输出 ZIP）</option>
+                <option value="encrypt" data-i18n="pdfAction.encrypt">加密 PDF</option>
+                <option value="decrypt" data-i18n="pdfAction.decrypt">解密 PDF</option>
+              </select>
+            </label>
+            <label class="field" id="pdfSplitModeField" hidden>
+              <span data-i18n="pdfSplitMode.label">拆分方式</span>
+              <select id="pdfSplitMode">
+                <option value="page" data-i18n="pdfSplitMode.page">逐页拆分（每页一个 PDF）</option>
+                <option value="group" data-i18n="pdfSplitMode.group">每 N 页一组</option>
+              </select>
+            </label>
+            <label class="field" id="pdfGroupSizeField" hidden>
+              <span data-i18n="pdfGroupSize.label">每几页一组</span>
+              <input id="pdfGroupSize" type="number" min="2" max="999" value="2" inputmode="numeric">
+            </label>
+
+            <label class="field" id="imagePdfModeField" hidden>
+              <span data-i18n="imagePdfMode.label">多图转 PDF</span>
+              <select id="imagePdfMode">
+                <option value="merge" selected data-i18n="imagePdfMode.merge">合并为一个 PDF（默认）</option>
+                <option value="separate" data-i18n="imagePdfMode.separate">每张图片单独生成 PDF</option>
+              </select>
+            </label>
+
+            <button class="primary-button" id="convertButton" type="button" disabled data-i18n="action.convert">开始转换</button>
+
+            <div class="progress-panel" id="progressPanel" hidden>
+              <div class="progress-header">
+                <span id="progressLabel" data-i18n="progress.label">转换进度</span>
+                <span id="progressPercent">0%</span>
+              </div>
+              <div class="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" data-i18n-aria="progress.label" aria-label="转换进度">
+                <div class="progress-fill" id="progressFill"></div>
+              </div>
+              <div class="progress-details" id="progressDetails"></div>
+              <div class="progress-summary">
+                <span id="progressBatch"></span>
+                <span id="progressElapsed" role="timer" aria-live="off"></span>
+              </div>
+            </div>
+
+            <div class="status-box" id="statusBox" role="status" data-i18n="status.ready">选择文件后会显示可用的转换格式。</div>
+            <button class="ghost-button preview-button" id="previewButton" type="button" hidden data-i18n="preview.open">预览</button>
+            <a class="download-button" id="downloadButton" hidden data-i18n="action.download">下载转换后的文件</a>
+            <button class="download-button" id="batchSaveButton" type="button" hidden data-i18n="action.saveAll">保存全部</button>
+          </aside>
+        </div>
+
+        <section class="matrix" data-i18n-aria="formats.aria" aria-label="支持格式">
+          <div class="matrix-header">
+            <h2 data-i18n="formats.title">当前支持</h2>
+            <p data-i18n="formats.description">文档转换会尽量保留排版；PDF 可导出页面图片，图片和扫描版 PDF 可 OCR 转 TXT。</p>
+          </div>
+          <div class="format-table" id="formatTable"></div>
+        </section>
+      </section>
+    </main>
+
+    <div class="preview-backdrop" id="previewBackdrop" hidden></div>
+    <aside class="preview-drawer" id="previewDrawer" hidden aria-labelledby="previewTitle" aria-modal="true" role="dialog">
+      <div class="preview-header">
+        <div>
+          <p class="eyebrow" data-i18n="preview.eyebrow">转换结果</p>
+          <h2 id="previewTitle" data-i18n="preview.title">文件预览</h2>
+          <p class="preview-meta" id="previewMeta"></p>
+        </div>
+        <button class="ghost-button preview-close" id="previewClose" type="button" data-i18n-aria="preview.close" aria-label="关闭预览">×</button>
+      </div>
+      <div class="preview-content" id="previewContent"></div>
+    </aside>
+
+    <aside class="sponsor-widget" id="sponsorWidget" data-i18n-aria="sponsor.aria" aria-label="支持鼠鼠">
+      <button class="sponsor-toggle" id="sponsorToggle" type="button" data-i18n-title="sponsor.aria" title="支持鼠鼠" aria-expanded="false">
+        <img class="sponsor-mouse" src="/assets/mouse-format/mouse-idle.png" alt="🐭">
+      </button>
+      <div class="sponsor-panel" id="sponsorPanel" hidden>
+        <button class="sponsor-close" id="sponsorClose" type="button" data-i18n-aria="sponsor.close" aria-label="收起">×</button>
+        <p class="sponsor-title" data-i18n="sponsor.title">请鼠鼠吃小鱼干 🐟</p>
+        <p class="sponsor-sub" data-i18n="sponsor.description">如果飞鼠格式帮到了你，欢迎请鼠鼠吃根小鱼干～纯自愿，软件永远免费</p>
+        <img class="sponsor-qr" src="/assets/sponsor-qr.jpg" data-i18n-alt="sponsor.qrAlt" alt="微信收款码">
+      </div>
+    </aside>
+
+    <script src="/i18n.js"></script>
+    <script src="/conversion-preferences.js"></script>
+    <script src="/settings-sync.js"></script>
+    <script src="/app.js"></script>
+  </body>
+</html>

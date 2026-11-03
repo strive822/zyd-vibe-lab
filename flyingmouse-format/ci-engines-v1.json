@@ -1,0 +1,62 @@
+{
+  "version": "ci-engines-v1",
+  "repository": "LaoFeng-mouse/flyingmouse-format",
+  "releaseTag": "ci-engines-v1",
+  "assets": {
+    "win32-x64": {
+      "available": true,
+      "parts": [
+        {
+          "assetName": "ci-engines-v1-win32-core.tar.zst",
+          "sha256": "d4f13034e719760790d75569b2dd9696facb88b15b8322f28d2aa4c3dbe6a835",
+          "requiredFiles": [
+            "ffmpeg/ffmpeg.exe",
+            "poppler/Library/bin/pdftoppm.exe",
+            "libreoffice/LibreOfficePortable/App/libreoffice/program/soffice.com",
+            "tessdata/eng.traineddata.gz",
+            "tessdata/chi_sim.traineddata.gz",
+            "dcraw/dcraw.exe",
+            "docengine/docengine.exe",
+            "avs3/avs3RM0Decoder.exe",
+            "qpdf/extracted/qpdf-12.4.0-msvc64/bin/qpdf.exe"
+          ]
+        },
+        {
+          "assetName": "ci-engines-v1-win32-docstructure-1.0.1.tar.zst",
+          "sha256": "f159fd0b0698e5b5d81a47ca7a7d8fbc73775b4c2a13bcc916c0a3024e98dd35",
+          "requiredFiles": [
+            "docstructure/docstructure-engine.exe",
+            "docstructure/models/layout_detection/inference.pdiparams",
+            "docstructure/models/text_recognition/inference.pdiparams"
+          ]
+        }
+      ]
+    },
+    "darwin-arm64": {
+      "available": true,
+      "assetName": "ci-engines-v1-darwin-arm64.tar.zst",
+      "sha256": "ffb5ae5d4131afae557eafc0b1dd6d2406cbdc4fd513c905a345371805e8e8b2",
+      "requiredFiles": [
+        "runtime/bin/ffmpeg",
+        "libreoffice/LibreOffice.app/Contents/MacOS/soffice",
+        "runtime/bin/pdftoppm",
+        "tessdata/eng.traineddata.gz",
+        "tessdata/chi_sim.traineddata.gz",
+        "tessdata/tha.traineddata.gz"
+      ]
+    },
+    "darwin-x64": {
+      "available": true,
+      "assetName": "ci-engines-v1-darwin-x64.tar.zst",
+      "sha256": "6932c576bdc64952e0e68e8e746420d84d634998fe40d9b7564ebd7423626998",
+      "requiredFiles": [
+        "runtime/bin/ffmpeg",
+        "libreoffice/LibreOffice.app/Contents/MacOS/soffice",
+        "runtime/bin/pdftoppm",
+        "tessdata/eng.traineddata.gz",
+        "tessdata/chi_sim.traineddata.gz",
+        "tessdata/tha.traineddata.gz"
+      ]
+    }
+  }
+}
