@@ -53,7 +53,7 @@ zhongyudi 的个人项目仓库：各项目独立下载、安装、运行和维�
 **Pi 任务通知（任务完成/出错/等确认/心跳系统通知）：**
 
 ```text
-下载并安装 https://github.com/strive822/zyd-vibe-lab 里的 pi-task-notify。请先读取该项目 INSTALL.md，按说明用 pi install npm:pi-task-notify 安装（或下载源码用 pi -e 试用），重启 Pi 后运行 /notify-test 验证 4 条样例通知，并向我报告每一步的真实结果；不要改动我已有的 Pi 配置。
+下载并安装 https://github.com/strive822/zyd-vibe-lab 里的 pi-task-notify。请先读取该项目 INSTALL.md，按说明从 GitHub Release 下载 pi-task-notify.zip 并校验 SHA256，解压后用 pi -e 试用、确认后再 pi install <路径> 持久安装，重启 Pi 后运行 /notify-test 验证 4 条样例通知，并向我报告每一步的真实结果；不要改动我已有的 Pi 配置。
 ```
 
 **飞鼠格式（离线格式转换器）：**
@@ -74,7 +74,7 @@ zhongyudi 的个人项目仓库：各项目独立下载、安装、运行和维�
 | [yt-dlp](yt-dlp/README.md) | 独立的个人使用配置与固定下载版本 | [Agent 入口](yt-dlp/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/yt-dlp/delivery/yt-dlp.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/yt-dlp/delivery/SHA256SUMS.txt) |
 | [Windows-MCP](windows-mcp/README.md) | 独立的个人使用配置与固定下载版本 | [Agent 入口](windows-mcp/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/windows-mcp/delivery/windows-mcp.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/windows-mcp/delivery/SHA256SUMS.txt) |
 | [rea](rea/README.md) | 独立的个人使用配置与固定下载版本 | [Agent 入口](rea/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/rea/delivery/rea.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/rea/delivery/SHA256SUMS.txt) |
-| [pi-task-notify](pi-task-notify/README.md) | Pi 编码代理任务通知：完成/出错/等确认/心跳，失焦才打扰，Windows 实测 | [安装与验证](pi-task-notify/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/pi-task-notify/delivery/pi-task-notify.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/pi-task-notify/delivery/SHA256SUMS.txt) |
+| [pi-task-notify](pi-task-notify/README.md) | Pi 编码代理任务通知：完成/出错/等确认/心跳，三档模式 /notify 可切，Windows 实测 | [安装与验证](pi-task-notify/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/pi-task-notify/delivery/pi-task-notify.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/pi-task-notify/delivery/SHA256SUMS.txt) |
 | [today-todo](today-todo/README.md) | 电脑与手机局域网共用的今日清单，零依赖 Node 服务 + 原生前端 | [下载与启动](today-todo/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/today-todo/delivery/today-todo.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/today-todo/delivery/SHA256SUMS.txt) |
 | [flyingmouse-format](flyingmouse-format/README.md) | 飞鼠格式离线文件转换器 0.7.10 源码快照：图片/Office/PDF/音视频互转 + OCR，含上游 Agent CLI 技能 | [下载与使用](flyingmouse-format/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/flyingmouse-format/delivery/flyingmouse-format.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/flyingmouse-format/delivery/SHA256SUMS.txt) |
 

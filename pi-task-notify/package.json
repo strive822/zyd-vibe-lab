@@ -1,7 +1,7 @@
 {
   "name": "pi-task-notify",
-  "version": "0.1.0",
-  "description": "System notifications when the Pi coding agent needs you: task complete, run errors, waiting for your confirmation, and long-task heartbeat. Unfocused-window aware, tiered sounds, zero-config.",
+  "version": "0.2.0",
+  "description": "System notifications when the Pi coding agent needs you: task complete, run errors, waiting for your confirmation, and long-task heartbeat. Selectable mode (always / unfocused-only / off) via /notify, tiered sounds, zero-config.",
   "keywords": [
     "pi-package",
     "pi",

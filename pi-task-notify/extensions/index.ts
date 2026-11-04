@@ -11,9 +11,14 @@
  * failures and provider retries (Pi recovers on its own), and pi-subagents
  * child sessions (the parent session reports; children would be duplicates).
  *
- * Notifications fire only when the terminal is not in the foreground
- * (best-effort per platform; fail-open: if focus cannot be determined,
- * notify anyway). Linux has no reliable focus check and always notifies.
+ * Notifications are governed by a single mode, selectable via the /notify
+ * command or the config file:
+ *   - "always": notify regardless of terminal focus
+ *   - "focus":  notify only when the terminal is not in the foreground
+ *               (best-effort per platform; fail-open: if focus cannot be
+ *               determined, notify anyway). Linux has no reliable focus check
+ *               and treats "focus" like "always".
+ *   - "off":    no notifications at all, /notify-test included.
  *
  * Platform support:
  *   - Windows: WinRT toast via PowerShell (default sound; errors use the
@@ -39,30 +44,45 @@ interface NotifyOn {
 	heartbeat: boolean;
 }
 
+/** Notification mode: always = ignore focus; focus = only when unfocused; off = silent. */
+type FocusMode = "always" | "focus" | "off";
+
 interface NotifyConfig {
 	enabled: boolean;
+	mode: FocusMode;
 	/** Minutes between heartbeat notifications while a run is active. 0 disables. */
 	heartbeatMinutes: number;
 	/** Max characters of the error excerpt shown in the error toast. */
 	errorSummaryLength: number;
-	/** Only notify when the terminal is not in the foreground (best effort). */
-	focusAware: boolean;
 	notifyOn: NotifyOn;
 }
 
 const DEFAULT_CONFIG: NotifyConfig = {
 	enabled: true,
+	mode: "focus",
 	heartbeatMinutes: 10,
 	errorSummaryLength: 100,
-	focusAware: true,
 	notifyOn: { complete: true, error: true, waiting: true, heartbeat: true },
+};
+
+const MODE_LABELS: Record<FocusMode, string> = {
+	always: "总是通知（不管聚不聚焦）",
+	focus: "失焦才通知（切走窗口才提醒）",
+	off: "关闭（完全静默）",
 };
 
 const CONFIG_PATH = path.join(os.homedir(), ".pi", "agent", "pi-task-notify.json");
 
+/** The mode that actually governs sending: the legacy enabled=false master switch maps to off. */
+function effectiveMode(cfg: NotifyConfig): FocusMode {
+	return cfg.enabled ? cfg.mode : "off";
+}
+
 /**
  * Fresh read on every notification so config changes apply without /reload.
  * Unknown files fall back to defaults; invalid values keep their default.
+ * Pre-0.2 fields stay recognized: focusAware:false maps to "always", and
+ * enabled:false maps to "off". An explicit "mode" wins over focusAware.
  */
 function loadConfig(): NotifyConfig {
 	const cfg: NotifyConfig = structuredClone(DEFAULT_CONFIG);
@@ -75,13 +95,18 @@ function loadConfig(): NotifyConfig {
 	if (typeof raw !== "object" || raw === null) return cfg;
 	const obj = raw as Record<string, unknown>;
 	if (typeof obj.enabled === "boolean") cfg.enabled = obj.enabled;
+	if (obj.mode === "always" || obj.mode === "focus" || obj.mode === "off") {
+		cfg.mode = obj.mode;
+	} else if (typeof obj.focusAware === "boolean") {
+		cfg.mode = obj.focusAware ? "focus" : "always"; // pre-0.2 configs
+	}
+	if (!cfg.enabled) cfg.mode = "off"; // legacy master switch
 	if (typeof obj.heartbeatMinutes === "number" && obj.heartbeatMinutes >= 0) {
 		cfg.heartbeatMinutes = Math.min(obj.heartbeatMinutes, 24 * 60);
 	}
 	if (typeof obj.errorSummaryLength === "number" && obj.errorSummaryLength > 0) {
 		cfg.errorSummaryLength = Math.min(Math.floor(obj.errorSummaryLength), 500);
 	}
-	if (typeof obj.focusAware === "boolean") cfg.focusAware = obj.focusAware;
 	if (typeof obj.notifyOn === "object" && obj.notifyOn !== null) {
 		const on = obj.notifyOn as Record<string, unknown>;
 		for (const key of Object.keys(cfg.notifyOn) as Array<keyof NotifyOn>) {
@@ -89,6 +114,23 @@ function loadConfig(): NotifyConfig {
 		}
 	}
 	return cfg;
+}
+
+/** Persist a mode choice from /notify, preserving every other config field. */
+function saveMode(mode: FocusMode): void {
+	let obj: Record<string, unknown> = {};
+	try {
+		const parsed: unknown = JSON.parse(fs.readFileSync(CONFIG_PATH, "utf8"));
+		if (typeof parsed === "object" && parsed !== null) {
+			obj = { ...(parsed as Record<string, unknown>) };
+		}
+	} catch {
+		obj = {}; // missing or unreadable file -> start fresh
+	}
+	obj.mode = mode;
+	obj.enabled = true; // the mode now owns the off state
+	fs.mkdirSync(path.dirname(CONFIG_PATH), { recursive: true });
+	fs.writeFileSync(CONFIG_PATH, `${JSON.stringify(obj, null, 2)}\n`);
 }
 
 // ---------------------------------------------------------------------------
@@ -210,7 +252,7 @@ async function notifyWindows(opts: NotifyOptions): Promise<void> {
 	const tag = (opts.tag ?? TOAST_TAG).slice(0, 16);
 	const group = path.basename(process.cwd()).slice(0, 16);
 	const full =
-		`$usingFocusCheck = '${opts.respectFocus && loadConfig().focusAware ? 1 : 0}'\n` +
+		`$usingFocusCheck = '${opts.respectFocus ? 1 : 0}'\n` +
 		`$toastTag = '${tag}'\n` +
 		`$toastGroup = '${group}'\n` +
 		`$appLabel = '${PROJECT_LABEL.replace(/'/g, "''")}'\n` +
@@ -231,7 +273,7 @@ async function notifyMac(opts: NotifyOptions): Promise<void> {
 	const soundPart = opts.sound === "reminder" ? "sound name \"Sosumi\"" : "";
 	const appleScript =
 		`on run argv\ndisplay notification (item 2 of argv) with title (item 1 of argv) subtitle (item 3 of argv) ${soundPart}\nend run`;
-	const checkFocus = opts.respectFocus && loadConfig().focusAware;
+	const checkFocus = opts.respectFocus;
 	const script = [
 		`TITLE=${shellQuote(opts.title)}`,
 		`BODY=${shellQuote(opts.body)}`,
@@ -272,13 +314,15 @@ async function notifyLinux(opts: NotifyOptions): Promise<void> {
 
 function sendNotification(opts: NotifyOptions): void {
 	const cfg = loadConfig();
-	if (!cfg.enabled) return;
+	if (effectiveMode(cfg) === "off") return;
+	// "focus" mode gates on foreground state; "always" disables the gate.
+	const respectFocus = opts.respectFocus && cfg.mode === "focus";
 	switch (process.platform) {
 		case "win32":
-			void notifyWindows(opts);
+			void notifyWindows({ ...opts, respectFocus });
 			break;
 		case "darwin":
-			void notifyMac(opts);
+			void notifyMac({ ...opts, respectFocus });
 			break;
 		case "linux":
 			void notifyLinux(opts);
@@ -298,6 +342,9 @@ export default function (pi: ExtensionAPI) {
 	let lastErrorText: string | undefined;
 	let lastOutcome: "completed" | "aborted" | "error" | undefined;
 	let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+	// True while /notify's own select dialog is open: the user typed that command,
+	// so they are by definition at the keyboard and "waiting" would be noise.
+	let selfPromptActive = false;
 
 	function notifyKind(kind: NotifyKind, opts?: { respectFocus?: boolean; tag?: string; bodyOverride?: string; titleOverride?: string }): void {
 		const titles = {
@@ -414,6 +461,7 @@ export default function (pi: ExtensionAPI) {
 	});
 
 	pi.on("ui_prompt_start", (event) => {
+		if (selfPromptActive) return; // our own /notify dialog
 		if (isSubagentSession()) return;
 		const cfg = loadConfig();
 		if (!cfg.enabled || !cfg.notifyOn.waiting) return;
@@ -431,12 +479,48 @@ export default function (pi: ExtensionAPI) {
 		});
 	});
 
+	pi.registerCommand("notify", {
+		description: "Pick a notification mode: always / only when unfocused / off",
+		handler: async (_args, ctx) => {
+			if (!ctx.hasUI) return;
+			const current = effectiveMode(loadConfig());
+			const order: FocusMode[] = ["always", "focus", "off"];
+			const options = order.map((mode) =>
+				mode === current ? `${MODE_LABELS[mode]}（当前）` : MODE_LABELS[mode],
+			);
+			const choice = await (async () => {
+				selfPromptActive = true;
+				try {
+					return await ctx.ui.select("通知模式", options);
+				} finally {
+					selfPromptActive = false;
+				}
+			})();
+			if (!choice) return;
+			const picked = order[options.indexOf(choice)];
+			if (picked === current) {
+				ctx.ui.notify(`通知模式未变：${MODE_LABELS[picked]}`, "info");
+				return;
+			}
+			try {
+				saveMode(picked);
+			} catch (error) {
+				ctx.ui.notify(
+					`写入配置失败：${error instanceof Error ? error.message : String(error)}`,
+					"error",
+				);
+				return;
+			}
+			ctx.ui.notify(`通知模式已改为：${MODE_LABELS[picked]}（立即生效，无需重启）`, "info");
+		},
+	});
+
 	pi.registerCommand("notify-test", {
 		description: "Send sample notifications (complete / error / waiting / heartbeat) to verify pi-task-notify",
 		handler: async (_args, ctx) => {
 			const cfg = loadConfig();
-			if (!cfg.enabled) {
-				ctx.ui.notify("pi-task-notify 已在配置中禁用（enabled: false）", "warning");
+			if (effectiveMode(cfg) === "off") {
+				ctx.ui.notify("通知已关闭。运行 /notify 重新选择通知模式。", "warning");
 				return;
 			}
 			ctx.ui.notify("正在发送 4 条样例通知（约每秒 1 条，切到别的窗口观察）…", "info");
