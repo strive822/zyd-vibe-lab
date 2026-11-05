@@ -25,4 +25,4 @@ cargo build --locked --release --bin daozai --target x86_64-pc-windows-msvc
 ./scripts/check-runtime.ps1 -Executable ./target/x86_64-pc-windows-msvc/release/daozai.exe
 ```
 
-Rust stable、MSVC C++ 构建工具及 Windows SDK 用于源码构建；使用成品包不需要 Rust。测试必须单线程，真实账号相关 ignored 测试默认不运行。验证记录与边界见 [版本交付记录](docs/RELEASE-0.6.50-personal.md)。较早 Z 标版曾在 Windows 11 本机安装并重启验收；本轮 r3 的进度与原生验证以交付记录为准。Windows 10、其他真实 DPI/多屏及八家真实额度服务实连没有新增验收结论。
+Rust stable、MSVC C++ 构建工具及 Windows SDK 用于源码构建；使用成品包不需要 Rust。测试必须单线程，真实账号相关 ignored 测试默认不运行。验证记录与边界见 [版本交付记录](docs/RELEASE-0.6.50-personal.md)。本轮 r3 已在 Windows 11 本机替换并从既有用户配置启动；原生拖动、开关保存和外部文本复制已验证，其他边界见交付记录。Windows 10、其他真实 DPI/多屏及八家真实额度服务实连没有新增验收结论。
