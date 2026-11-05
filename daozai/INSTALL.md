@@ -4,7 +4,7 @@
 
 ## 1. 获取完整目录
 
-从 https://github.com/strive822/zyd-vibe-lab/releases/tag/daozai-v0.6.50 下载 `daozai.zip`、`SHA256SUMS.txt`、`FILES.json`。也可从仓库 `daozai/delivery/` 取得同名三件套。将下载保存至新的任务目录，核对 `Get-FileHash -Algorithm SHA256 .\daozai.zip` 与清单一致，再安全解压到新目录。ZIP 顶层是 `daozai/`，每个文件的 SHA-256 见 `FILES.json`；拒绝越界路径、符号链接和大小写冲突。不要覆盖已有目录。
+从 https://github.com/strive822/zyd-vibe-lab/releases/tag/daozai-v0.6.50-r1 下载 `daozai.zip`、`SHA256SUMS.txt`、`FILES.json`。也可从仓库 `daozai/delivery/` 取得同名三件套。将下载保存至新的任务目录，核对 `Get-FileHash -Algorithm SHA256 .\daozai.zip` 与清单一致，再安全解压到新目录。ZIP 顶层是 `daozai/`，每个文件的 SHA-256 见 `FILES.json`；拒绝越界路径、符号链接和大小写冲突。不要覆盖已有目录。
 
 需要固定源码而非独立包时，可克隆仓库后取本目录。下载完成不等于安装或运行。
 

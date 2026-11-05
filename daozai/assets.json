@@ -252,5 +252,6 @@
     "vendor/imap-proto/src/parser/rfc4551.rs",
     "vendor/imap-proto/src/parser/rfc5464.rs",
     "vendor/imap-proto/src/types.rs"
-  ]
+  ],
+  "delivery_revision": "r1"
 }

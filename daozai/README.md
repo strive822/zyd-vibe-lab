@@ -10,7 +10,7 @@ Windows 10/11 x64 顶部信息岛，基于 [Renly1994/xiaotang-daozai](https://g
 
 ## 下载与使用
 
-- [固定版本 Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/daozai-v0.6.50)：`daozai.zip`、`SHA256SUMS.txt` 和 `FILES.json` 是完整源码与成品独立包；Windows 安装器、便携包与 `SHA256SUMS-windows.txt` 也作为附件提供。
+- [固定版本 Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/daozai-v0.6.50-r1)：`daozai.zip`、`SHA256SUMS.txt` 和 `FILES.json` 是完整源码与成品独立包；Windows 安装器、便携包与 `SHA256SUMS-windows.txt` 也作为附件提供。r1 修正源码恢复脚本的 Windows 路径别名判断，应用本体仍为 0.6.50。
 - [当前独立包](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/daozai/delivery/daozai.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/daozai/delivery/SHA256SUMS.txt)
 - 完整步骤见 [INSTALL.md](INSTALL.md)，源码与许可见 [THIRD_PARTY.md](THIRD_PARTY.md)。
 

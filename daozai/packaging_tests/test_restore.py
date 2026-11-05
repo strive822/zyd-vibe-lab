@@ -62,3 +62,15 @@ class SnapshotRestoreTests(unittest.TestCase):
             with patch.object(module, "ROOT", source), self.assertRaises(ValueError):
                 module.restore(target)
             self.assertFalse(target.exists())
+
+    def test_source_alias_cannot_hide_a_nested_destination(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "source"
+            source.mkdir()
+            (source / "assets.json").write_text(json.dumps({
+                "artifacts": [], "source_files": ["assets.json"]}))
+            target = source / "nested"
+            with patch.object(module, "ROOT", source / ".." / "source"), self.assertRaises(ValueError):
+                module.restore(target)
+            self.assertFalse(target.exists())
