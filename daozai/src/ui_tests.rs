@@ -3557,7 +3557,7 @@ fn island_drag_keeps_first_frame_motion_and_starts_at_three_points(){
 }
 
 #[test]
-fn right_hold_center_requires_opt_in_one_second_and_a_new_press(){
+fn right_hold_center_requires_opt_in_half_second_and_a_new_press(){
     let _g=ENV_LOCK.lock().unwrap_or_else(|e|e.into_inner());
     let mut h=H::new();h.app.settings.island_x=Some(90.0);h.frame(vec![]);
     assert!(!h.app.settings.right_hold_center,"旧配置默认不开启新手势");
@@ -3567,9 +3567,9 @@ fn right_hold_center_requires_opt_in_one_second_and_a_new_press(){
     assert_eq!(h.app.settings.island_x,Some(90.0));h.frame(vec![right(false)]);
     h.app.settings.right_hold_center=true;h.app.settings.save();
     assert!(crate::model::Settings::load().right_hold_center);
-    h.frame(vec![right(true)]);h.hover(point,0.8);
-    assert_eq!(h.app.settings.island_x,Some(90.0),"未满一秒不触发");
-    h.hover(point,0.25);assert_eq!(h.app.settings.island_x,None);assert_eq!(crate::model::Settings::load().island_x,None);
+    h.frame(vec![right(true)]);h.hover(point,0.45);
+    assert_eq!(h.app.settings.island_x,Some(90.0),"未满 0.5 秒不触发");
+    h.hover(point,0.1);assert_eq!(h.app.settings.island_x,None);assert_eq!(crate::model::Settings::load().island_x,None);
     h.app.settings.island_x=Some(50.0);h.hover(point,1.1);
     assert_eq!(h.app.settings.island_x,Some(50.0),"一次按住只触发一次");
     h.frame(vec![right(false)]);h.frame(vec![right(true)]);h.hover(point,0.3);h.frame(vec![right(false)]);h.hover(point,1.0);

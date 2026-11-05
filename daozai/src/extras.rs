@@ -1070,7 +1070,7 @@ impl App {
                                 if moved {ui.label(egui::RichText::new(format!("已{}移 {:.0} 点",if offset>0.0{"右"}else{"左"},offset.abs())).size(12.0).color(ui.visuals().weak_text_color()));}
                                 response
                             });
-                            setting_row(ui,"右键长按 1 秒居中","",&mut self.settings.right_hold_center);
+                            setting_row(ui,"右键长按 0.5 秒居中","",&mut self.settings.right_hold_center);
                             ui.separator();
                             ui.horizontal(|ui|{
                                 ui.add_sized([56.0,30.0],egui::Label::new("时间制式"));

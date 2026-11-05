@@ -1674,7 +1674,7 @@ impl App {
         }
         if pressed {self.center_hold=Some((self.t,false));}
         if let Some((at,false))=self.center_hold {
-            if self.t-at>=1.0 {
+            if self.t-at>=0.5 {
                 self.center_hold=Some((at,true));
                 self.island_drag=None;
                 self.settings.island_x=None;

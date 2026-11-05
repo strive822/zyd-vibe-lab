@@ -239,12 +239,12 @@
     "vendor/imap-proto/src/parser/rfc5464.rs",
     "vendor/imap-proto/src/types.rs"
   ],
-  "delivery_revision": "r3",
+  "delivery_revision": "r4",
   "publishedArtifacts": [
     {
-      "url": "https://github.com/strive822/zyd-vibe-lab/releases/download/daozai-v0.6.50-r3/Daozai-Setup-v0.6.50-x64.exe",
-      "bytes": 5649888,
-      "sha256": "0a0b865cdc234ccbf013aa330bc46dcf555c371cb41cfddfa82185180b453ebf"
+      "url": "https://github.com/strive822/zyd-vibe-lab/releases/download/daozai-v0.6.50-r4/Daozai-Setup-v0.6.50-x64.exe",
+      "bytes": 5651613,
+      "sha256": "1189c919c8767f9997e48f2b3c7ee8f32fce6537e93eaf39b2cebd2f54510230"
     }
   ]
 }

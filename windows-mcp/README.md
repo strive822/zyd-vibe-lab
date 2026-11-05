@@ -1,5 +1,7 @@
 # Windows-MCP
 
+让支持 MCP 的 Agent 调用 Windows 桌面与文件操作。本目录维护服务准备脚本、配置和固定上游源码下载锁，接入步骤见 INSTALL.md。
+
 ## 直接让 Agent 帮你使用
 
 把下面这段话复制给具备联网、文件读写和运行能力的 Agent。

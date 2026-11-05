@@ -10,11 +10,11 @@ Windows 10/11 x64 顶部信息岛，基于 [Renly1994/xiaotang-daozai](https://g
 
 ## 下载与使用
 
-[固定 Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/daozai-v0.6.50-r3) 提供复制提示与拖动改进个人版安装器与 SHA256SUMS.txt。使用步骤见 [INSTALL.md](INSTALL.md)；源码、许可与开发记录保存在仓库。
+[固定 Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/daozai-v0.6.50-r4) 提供 0.5 秒长按居中个人版安装器与 SHA256SUMS.txt。使用步骤见 [INSTALL.md](INSTALL.md)；源码、许可与开发记录保存在仓库。
 
-包含音乐/歌词、专注、饮水、待办、日历、邮件、暂存站及八种 AI 额度来源。此次修正版支持整岛拖动与位置保存、顶栏饮水百分比/未完成待办数/日期或星期，并使用 GLM 开放平台的斜线 Z 标识。新增任何软件复制文字、图片或文件时的“已复制”系统提示；拖动展开顶栏不再有隐藏热区，快速起拖保留第一段位移；常规设置可开启“右键长按 1 秒居中”（默认关闭）。图标排序在设置内进行；文件穿透沿用先拖文件再按 `·` 的行为。
+包含音乐/歌词、专注、饮水、待办、日历、邮件、暂存站及八种 AI 额度来源。此次修正版支持整岛拖动与位置保存、顶栏饮水百分比/未完成待办数/日期或星期，并使用 GLM 开放平台的斜线 Z 标识。新增任何软件复制文字、图片或文件时的“已复制”系统提示；拖动展开顶栏不再有隐藏热区，快速起拖保留第一段位移；常规设置可开启“右键长按 0.5 秒居中”（默认关闭）。图标排序在设置内进行；文件穿透沿用先拖文件再按 `·` 的行为。
 
-安装包仍为 0.6.50；本个人版 EXE SHA-256 是 `8413E272C96E47264156132BF44667C6CBC660A259D0848D6CDFE501A0887CD9`，请用哈希区分同版本的上游包和较早个人构建。程序内“检查更新”只提示上游版本，不会自动覆盖个人版。
+安装包仍为 0.6.50；本个人版 EXE SHA-256 是 `1C9F0EB1A85926EE87A24AB299A3D87B9411A9FE5F7965733549DD17BD110D5A`，请用哈希区分同版本的上游包和较早个人构建。程序内“检查更新”只提示上游版本，不会自动覆盖个人版。
 
 ## 验证与维护
 
@@ -25,4 +25,4 @@ cargo build --locked --release --bin daozai --target x86_64-pc-windows-msvc
 ./scripts/check-runtime.ps1 -Executable ./target/x86_64-pc-windows-msvc/release/daozai.exe
 ```
 
-Rust stable、MSVC C++ 构建工具及 Windows SDK 用于源码构建；使用成品包不需要 Rust。测试必须单线程，真实账号相关 ignored 测试默认不运行。验证记录与边界见 [版本交付记录](docs/RELEASE-0.6.50-personal.md)。本轮 r3 已在 Windows 11 本机替换并从既有用户配置启动；原生拖动、开关保存和外部文本复制已验证，其他边界见交付记录。Windows 10、其他真实 DPI/多屏及八家真实额度服务实连没有新增验收结论。
+Rust stable、MSVC C++ 构建工具及 Windows SDK 用于源码构建；使用成品包不需要 Rust。测试必须单线程，真实账号相关 ignored 测试默认不运行。验证记录与边界见 [版本交付记录](docs/RELEASE-0.6.50-personal.md)。本轮 r4 已在 Windows 11 本机替换并从既有用户配置启动；0.5 秒边界已通过自动回归，已有原生交互验收及其他边界见交付记录。Windows 10、其他真实 DPI/多屏及八家真实额度服务实连没有新增验收结论。
