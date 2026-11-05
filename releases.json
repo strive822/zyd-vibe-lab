@@ -87,18 +87,18 @@
     },
     "libretv": {
       "version": "2.21.1",
-      "tag": "libretv-v2.21.1-r1",
+      "tag": "libretv-v2.21.1-r2",
       "kind": "web-launcher",
       "assets": [
         {
           "name": "libretv-windows.zip",
-          "bytes": 18872648,
-          "sha256": "1c6191fa04268d97bd852ae1f3c827f685effc67c68373916aa0d644c94ed01c"
+          "bytes": 18872601,
+          "sha256": "fbbae4f048674b4b4b40e6f18cdfff72c1e5c3749af020f3796844565b6fc0c8"
         },
         {
           "name": "SHA256SUMS.txt",
           "bytes": 86,
-          "sha256": "c6829fff2ec00e101ce86d95819880022a5183d6086345c5746a36b17457c23d"
+          "sha256": "7ac3f43d529dc5bbc7f0efd421ff8078cce7c3ad9dce556251e75c25343dd74a"
         }
       ]
     },

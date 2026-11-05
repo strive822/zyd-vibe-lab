@@ -22,4 +22,4 @@
 
 ## 成品下载
 
-[固定 Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/libretv-v2.21.1-r1)：网页生产运行包，附 SHA256SUMS.txt。完整步骤见 [INSTALL.md](INSTALL.md)。仓库内保留源码，不保存构建包或依赖缓存。
+[固定 Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/libretv-v2.21.1-r2)：网页生产运行包，附 SHA256SUMS.txt。完整步骤见 [INSTALL.md](INSTALL.md)。仓库内保留源码，不保存构建包或依赖缓存。
