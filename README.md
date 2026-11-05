@@ -2,7 +2,7 @@
 
 zhongyudi 的个人项目仓库：各项目独立下载、安装、运行和维护；原工具箱已拆为四个独立目录。
 
-> 原 github-toolbox 已拆为四个独立项目；全部 9 个项目都有自己的 Agent 入口、独立下载包和 SHA-256。
+> 原 github-toolbox 已拆为四个独立项目；全部 10 个项目都有自己的 Agent 入口、独立下载包和 SHA-256。
 
 ## 直接让 Agent 帮你使用
 
@@ -62,12 +62,19 @@ zhongyudi 的个人项目仓库：各项目独立下载、安装、运行和维�
 下载并使用 https://github.com/strive822/zyd-vibe-lab 里的 flyingmouse-format。请先读取该项目 INSTALL.md，取得完整独立目录并核对 SHA-256；只要软件本体就改用上游官方安装包核验安装，要让 Agent 驱动转换就按上游 agent-skill 说明接入 CLI；保留许可证与署名，不用于商业用途。
 ```
 
+**岛仔（Windows 顶部信息岛个人版）：**
+
+```text
+下载并使用 https://github.com/strive822/zyd-vibe-lab 里的 daozai。请先读取该项目 INSTALL.md，下载完整独立包并核验 SHA-256；根据我的要求准备源码或安装 Windows 个人版，保留已有账号、设置和文件，安装替换前先备份并确认。不要连接或上传我的真实账号数据。
+```
+
 简短说“安装这个仓库里的论文工作流”也可使用论文入口。未指定项目时，Agent 应先确认项目。
 
 ## 项目与下载
 
 | 项目 | 用途 | Agent 入口 | 下载方式 |
 | --- | --- | --- | --- |
+| [岛仔 Daozai](daozai/README.md) | Windows 顶部信息岛个人版：音乐、专注、暂存、日程与八家 AI 额度，含 GLM Z 标修正 | [安装与验证](daozai/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/daozai/delivery/daozai.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/daozai/delivery/SHA256SUMS.txt) |
 | [graduation-thesis-workflow](graduation-thesis-workflow/README.md) | 本科论文需求访谈、真实文献与证据、写作审查；包含 Humanizer | [安装技能](graduation-thesis-workflow/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/graduation-thesis-workflow/delivery/graduation-thesis-workflow.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/graduation-thesis-workflow/delivery/SHA256SUMS.txt) |
 | [dca-calculator](dca-calculator/README.md) | 三资产 SMA800 定投权重与金额计算，FastAPI + Next.js | [下载与启动](dca-calculator/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/dca-calculator/delivery/dca-calculator.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/dca-calculator/delivery/SHA256SUMS.txt) |
 | [LibreTV](libretv/README.md) | 独立的个人使用配置与固定下载版本 | [Agent 入口](libretv/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/libretv/delivery/libretv.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/libretv/delivery/SHA256SUMS.txt) |

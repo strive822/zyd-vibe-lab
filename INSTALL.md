@@ -1,11 +1,12 @@
 # 给 Agent 的下载与使用入口
 
-这是包含 9 个独立项目的仓库。用户要你下载、安装或运行时，请完成实际操作，并报告文件、环境和运行的真实结果。
+这是包含 10 个独立项目的仓库。用户要你下载、安装或运行时，请完成实际操作，并报告文件、环境和运行的真实结果。
 
 ## 按用户点名的项目选择
 
 | 用户描述 | 目标项目 | 先读取 |
 | --- | --- | --- |
+| 岛仔、Daozai、顶部信息岛、daozai | 核验个人修正版，按需准备源码或安装 Windows 应用 | [岛仔安装入口](daozai/INSTALL.md) |
 | 毕业论文、论文工作流、graduation-thesis-workflow | 安装论文技能，再进入需求访谈 | [论文安装入口](graduation-thesis-workflow/INSTALL.md) |
 | 定投、三资产、计算器、dca-calculator | 下载源码、准备依赖、启动本地网页 | [计算器安装入口](dca-calculator/INSTALL.md) |
 | Pi 任务通知、任务完成通知、pi-task-notify | Pi 完成任务、出错、等你确认时发系统通知 | [任务通知安装入口](pi-task-notify/INSTALL.md) |

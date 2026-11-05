@@ -7,6 +7,7 @@ steps; the root README only points here. When documents conflict, this file wins
 
 ## Repository map
 
+- daozai: Windows Rust/egui personal fork of Daozai v0.6.50. Read its INSTALL.md / AGENTS.md; source, pinned artifacts and licenses are self-contained. Tests: `python -m unittest discover -s packaging_tests -v` and `cargo test --locked --all-targets --features record -- --test-threads=1` inside the project. Never test against real AppData or accounts.
 - graduation-thesis-workflow: reusable thesis skill for Codex / Claude Code / WorkBuddy / Pi. Read its AGENTS.md first. Keep skills/graduation-thesis canonical; rebuild platform ZIPs with its scripts/package.py after bundle changes; tests: `python -m unittest discover -s tests -v` inside the project.
 - dca-calculator: FastAPI backend + Next.js frontend calculator. Backend: `pip install -r requirements-dev.txt && python -m pytest`. Frontend: `npm ci`, `npm run typecheck`, `npm test`, `npm run build`. It computes weights only; it is never a trading system.
 - today-todo: zero-dependency Node service + static frontend. Checks: `node --test test/api.test.js` and `node tools/contrast.js`. Runtime data lives in the git-ignored `data/todos.json`; never commit it.
