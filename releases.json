@@ -172,18 +172,18 @@
     },
     "yt-dlp": {
       "version": "2026.10.26",
-      "tag": "yt-dlp-v2026.10.26-r2",
+      "tag": "yt-dlp-v2026.10.26-r3",
       "kind": "network-cli-installer",
       "assets": [
         {
           "name": "yt-dlp-windows.zip",
-          "bytes": 6318,
-          "sha256": "79bb2bb6e2cef2e3dd0c92a0e2d4ec3edbfabf73cf57add321d4405d5fefe989"
+          "bytes": 7157,
+          "sha256": "da89631130ae012528eb49fc76d7308d25cfaad7336c2ad49ce1221e82485159"
         },
         {
           "name": "SHA256SUMS.txt",
           "bytes": 85,
-          "sha256": "3ad033c953d35ae00f4c8f49c2cfede4789c6166a5e2af528bb58d0060756746"
+          "sha256": "67497749072f60d8320e60c70017b7df36bc9f254cd7dda658cc62ff4a583153"
         }
       ]
     }

@@ -989,6 +989,7 @@
 | `yt-dlp/.gitignore` | secret patterns, UTF-8 |
 | `yt-dlp/AGENTS.md` | secret patterns, UTF-8, local Markdown links |
 | `yt-dlp/INSTALL.md` | secret patterns, UTF-8, local Markdown links |
+| `yt-dlp/LICENSE` | secret patterns, UTF-8 |
 | `yt-dlp/README.md` | secret patterns, UTF-8, local Markdown links |
 | `yt-dlp/THIRD_PARTY.md` | secret patterns, UTF-8, local Markdown links |
 | `yt-dlp/assets.json` | secret patterns, UTF-8, JSON |

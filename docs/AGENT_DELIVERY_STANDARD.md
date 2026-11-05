@@ -1,6 +1,6 @@
 # 源码与 Release 交付规范
 
-根 AGENTS.md 是权威规则。全部项目使用“Git 保存开发源码，Release 交付实际安装/运行内容”；旧提交和旧 Release 不重写。
+根 AGENTS.md 是权威规则。全部项目使用“Git 保存开发源码，Release 交付实际安装/运行内容”；Git 提交与标签保留；每个项目的 Release 仅保留最新一版。
 
 ## 两类读者
 
@@ -37,7 +37,7 @@ prepared 下布局：dca-calculator/frontend/out、libretv/.next/standalone 和 
 
 1. 保留用户工作，完成代码、文档和程序的必要检查、独立复审；确认 releases.json 的固定 tag、字节和哈希与最终包一致。
 2. 提交源码；先推一个临时发布分支，让 commit 在 GitHub 可达，但不提前推进 main。
-3. 对每个变更项目创建新 tag / Release，只上传该类型的成品和 SHA256SUMS.txt；说明运行时、是否首次联网和验证边界。不得覆盖旧 Release。
+3. 对每个变更项目创建新 tag / Release，只上传该类型的成品和 SHA256SUMS.txt；说明运行时、是否首次联网和验证边界。已发布附件不原地覆盖。新版本下载核验通过后，备份同项目旧 Release 的元数据、附件和校验值，再清理旧 Release 及附件；Git 标签和源码提交保留。以 releases.json 按项目确定当前版本，不按全仓库唯一的 Latest 标记删除其他项目。
 4. 下载所有新附件并逐项比对本地目录、releases.json 和 SHA256SUMS.txt；运行 `python scripts/verify_published.py --ref <commit>`。
 5. 将 main 正常快进到同一 commit，核验远端 refs 与 CI。完成后删除本次临时发布分支、可重建缓存与重复下载；保留正式程序和必要证据。
 

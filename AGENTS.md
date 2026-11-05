@@ -29,7 +29,7 @@ This repository holds ten independent projects. Source, tests, licenses, templat
 - `python scripts/agent_entry_policy.py`, `python -m unittest discover -s scripts/tests -v`, `python scripts/check_repository.py` are root checks. Published downloads: `python scripts/verify_published.py --ref <immutable commit>`.
 - `python scripts/package_projects.py --output <outside-checkout-path>` builds typed runtime/installer packages, not another copy of the development tree. Web builds and a verified Daozai installer are explicit inputs. Details: docs/AGENT_DELIVERY_STANDARD.md.
 - Update releases.json after final artifacts exist; do not change packaged inputs afterwards. Review the diff and validate artifacts before publishing. Bundled README/INSTALL byte-match source at that ref.
-- Publish at a new `<project>-v<version>-rN` tag; upload only the typed program/installer/skill/extension files and SHA256SUMS.txt. Keep old releases and tags immutable. Verify remote downloads before advancing main; see detailed sequence in docs.
+- Publish at a new `<project>-v<version>-rN` tag; upload only the typed program/installer/skill/extension files and SHA256SUMS.txt. Keep Git commits and tags. Keep only the current verified Release for each project listed in releases.json; never use the repository-wide Latest badge to prune other projects. Back up old release metadata and assets before removing superseded releases. Verify remote downloads before advancing main; see docs for the publishing sequence.
 - CI covers source policy, package/restore boundaries and changed projects. A passing test is not native host, real account or physical device acceptance.
 
 ## Local data and cleanup
