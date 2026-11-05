@@ -3445,8 +3445,11 @@ fn hud_titles_and_states_share_the_icon_center_without_overlapping() {
     for (title,body,left,right) in [
         ("网络连接","Wi-Fi · 网络已连接","Wi-Fi","网络已连接"),
         ("网络连接","以太网 · 网络已断开","以太网","网络已断开"),
+        ("网络连接","以太网 · 网络已连接","以太网","网络已连接"),
+        ("剪贴板","已复制","剪贴板","已复制"),
         ("大写锁定","已开启","大写锁定","已开启"),
         ("键盘输入语言","中文","输入语言","中文"),
+        ("键盘输入语言","英语","输入语言","英语"),
         ("电源已连接","当前电量 76%","电源已连接","当前电量 76%"),
         ("已切换电池供电","当前电量 76%","电池供电","当前电量 76%"),
     ] {
@@ -3471,7 +3474,7 @@ fn low_power_notice_dismisses_without_opening_the_mail_page() {
 }
 
 #[test]
-fn code_copy_confirmation_stays_below_the_island_and_does_not_capture_hover() {
+fn code_copy_waits_for_clipboard_and_uses_the_shared_hud() {
     let _g=ENV_LOCK.lock().unwrap_or_else(|e|e.into_inner());
     for detail in [false,true] {
         let mut h=H::new();
@@ -3481,22 +3484,117 @@ fn code_copy_confirmation_stays_below_the_island_and_does_not_capture_hover() {
         if detail {h.app.mail.open_uid=Some(("a@qq.com".into(),42));}
         h.app.show_page(5);h.hover(H::local(300.0,60.0),4.2);
         let copy=H::local(80.0,if detail{212.0}else{70.0});
-        h.click(copy);h.hover(copy,0.35);
-        let confirmation=|h:&H|h.shapes.iter().find_map(|shape|match &shape.shape {
-            egui::Shape::Text(text) if text.galley.text()=="验证码已复制"=>Some(text.visual_bounding_rect()),_=>None,
-        });
-        let bounds=confirmation(&h).expect("复制后应显示确认提示");
-        assert!(bounds.top()>PH+4.0,"确认提示应在岛下方：{bounds:?}");
-        assert!(h.region.contains_rect(bounds),"原生窗口区域应包含提示，避免被裁掉");
-        assert!(!h.hit.intersects(bounds),"确认提示不应拦截鼠标或维持岛的展开");
+        h.click(copy);
+        assert!(h.cmds.iter().any(|cmd|matches!(cmd,crate::app::Cmd::Copy(text) if text=="482913")));
+        assert!(!h.app.history.iter().any(|a|a.title=="剪贴板"),"排队复制不能提前报成功");
+        crate::collect::note_self_copy("482913");
+        crate::collect::receive_clipboard(crate::collect::Payload::Text("482913".into()));
+        h.frame(vec![]);
+        let a=h.app.history.front().unwrap();
+        assert!(a.is_hud());assert_eq!((&*a.title,&*a.body),("剪贴板","已复制"));assert_eq!(a.duration,2.5);
+        assert_eq!(h.app.shelf_len(),0,"岛内复制不应重新入库");
+        assert!(h.app.toast_text().is_none(),"不应再显示岛下的另一套确认提示");
         let outside=Pos2::new(h.hit.right()+80.0,180.0);
-        h.hover(outside,0.8);
+        h.hover(outside,1.0);
         assert!(h.app.progress()<0.02);
-        assert!(confirmation(&h).is_some(),"岛收起后确认提示仍应显示到正常结束");
-        h.hover(outside,2.0);
-        assert!(confirmation(&h).is_none());
+        h.click_notice_badge();
+        assert!(h.shapes.iter().any(|s|matches!(&s.shape,egui::Shape::Text(t) if t.galley.text()=="已复制")));
+        h.hover(outside,3.0);
+        assert!(h.app.notice.is_none());
         assert!(h.region.bottom()<100.0,"提示结束后应释放额外窗口区域");
     }
+    crate::collect::note_self_copy("");
+}
+
+#[test]
+fn clipboard_hud_covers_all_formats_with_collection_disabled_and_does_not_expose_contents(){
+    let _g=ENV_LOCK.lock().unwrap_or_else(|e|e.into_inner());
+    crate::collect::note_self_copy("");
+    for payload in [crate::collect::Payload::Text("private-test-value".into()),crate::collect::Payload::Text(" \t\r\n".into()),crate::collect::Payload::Files(vec!["private-file.txt".into()]),crate::collect::Payload::Image{rgba:vec![255;4],width:1,height:1,screenshot:false,screenshot_path:None}] {
+        let mut h=H::new();h.app.settings.collect=[false;6];h.app.settings.island_lyrics=false;h.app.settings.notifications=false;
+        h.frame(vec![]);
+        crate::collect::receive_clipboard(payload.clone());h.frame(vec![]);
+        assert!(h.app.history.front().is_some_and(|a|a.title=="剪贴板" && a.body=="已复制"));
+        assert_eq!(h.app.shelf_len(),0);
+        for _ in 0..60{h.frame(vec![]);}
+        assert!(h.shapes.iter().any(|s|matches!(&s.shape,egui::Shape::Text(t) if t.galley.text()=="已复制")));
+        let first=h.app.notice.as_ref().unwrap().at;
+        crate::collect::receive_clipboard(payload);h.frame(vec![]);
+        assert!(h.app.notice.as_ref().unwrap().at>first,"重复复制同样内容也应刷新提示");
+        assert!(h.app.alerts.is_empty(),"同类提示不能堆积");
+    }
+    let mut h=H::new();h.app.settings.collect=[false;6];h.app.settings.system_hud=false;
+    crate::collect::receive_clipboard(crate::collect::Payload::Text("muted".into()));h.frame(vec![]);
+    assert!(!h.app.history.iter().any(|a|a.title=="剪贴板"));
+    h.app.settings.system_hud=true;
+    crate::collect::push(crate::collect::Payload::Image{rgba:vec![255;4],width:1,height:1,screenshot:true,screenshot_path:None});h.frame(vec![]);
+    assert!(!h.app.history.iter().any(|a|a.title=="剪贴板"),"截图文件夹扫描不是复制");
+}
+
+#[test]
+fn open_header_is_draggable_across_hidden_resident_control_positions(){
+    let _g=ENV_LOCK.lock().unwrap_or_else(|e|e.into_inner());
+    for slot in [crate::bar_layout::FOCUS,crate::bar_layout::QUOTA,crate::bar_layout::page_slot(4)] {
+        let mut h=H::new();for _ in 0..90{h.frame(vec![]);}
+        let x=WIN_W/2.0+h.app.resident.position(slot);
+        h.app.show_page(4);h.hover(H::local(200.0,70.0),1.0);
+        let start=Pos2::new(x,14.0);press(&mut h,start);drag_by(&mut h,start,30.0);
+        assert_eq!(h.app.settings.island_x,Some(30.0),"展开后不可见的常驻控件不能留下拖动死区");
+        release(&mut h,start+egui::vec2(30.0,0.0));
+    }
+}
+
+#[test]
+fn island_drag_keeps_first_frame_motion_and_starts_at_three_points(){
+    let _g=ENV_LOCK.lock().unwrap_or_else(|e|e.into_inner());
+    for ppp in [1.0,1.25,1.5,2.0] {
+        let mut h=H::new();h.ctx.set_pixels_per_point(ppp);for _ in 0..90{h.frame(vec![]);}
+        let start=drag_handle(&h);let moved=start+egui::vec2(3.0,0.0);h.cursor=Some(moved);
+        h.frame(vec![egui::Event::PointerMoved(start),egui::Event::PointerButton{pos:start,button:egui::PointerButton::Primary,pressed:true,modifiers:Default::default()},egui::Event::PointerMoved(moved)]);
+        assert_eq!(h.app.settings.island_x,Some(3.0),"{ppp}x 快速起拖不能丢掉第一帧位移");
+        release(&mut h,moved);
+    }
+}
+
+#[test]
+fn right_hold_center_requires_opt_in_one_second_and_a_new_press(){
+    let _g=ENV_LOCK.lock().unwrap_or_else(|e|e.into_inner());
+    let mut h=H::new();h.app.settings.island_x=Some(90.0);h.frame(vec![]);
+    assert!(!h.app.settings.right_hold_center,"旧配置默认不开启新手势");
+    let point=drag_handle(&h);
+    let right=|pressed|egui::Event::PointerButton{pos:point,button:egui::PointerButton::Secondary,pressed,modifiers:Default::default()};
+    h.cursor=Some(point);h.frame(vec![egui::Event::PointerMoved(point),right(true)]);h.hover(point,1.2);
+    assert_eq!(h.app.settings.island_x,Some(90.0));h.frame(vec![right(false)]);
+    h.app.settings.right_hold_center=true;h.app.settings.save();
+    assert!(crate::model::Settings::load().right_hold_center);
+    h.frame(vec![right(true)]);h.hover(point,0.8);
+    assert_eq!(h.app.settings.island_x,Some(90.0),"未满一秒不触发");
+    h.hover(point,0.25);assert_eq!(h.app.settings.island_x,None);assert_eq!(crate::model::Settings::load().island_x,None);
+    h.app.settings.island_x=Some(50.0);h.hover(point,1.1);
+    assert_eq!(h.app.settings.island_x,Some(50.0),"一次按住只触发一次");
+    h.frame(vec![right(false)]);h.frame(vec![right(true)]);h.hover(point,0.3);h.frame(vec![right(false)]);h.hover(point,1.0);
+    assert_eq!(h.app.settings.island_x,Some(50.0),"短按不能触发延迟居中");
+    h.frame(vec![right(true)]);h.hover(Pos2::new(0.0,200.0),1.2);h.frame(vec![right(false)]);
+    assert_eq!(h.app.settings.island_x,Some(50.0),"离开岛体取消长按");
+    h.app.settings.right_hold_center=false;h.app.settings.save();assert!(!crate::model::Settings::load().right_hold_center);
+}
+
+#[test]
+#[ignore = "设置 DAOZAI_UI_PREVIEW_DIR 导出以太网、输入法与复制提示对照图"]
+fn clipboard_network_language_hud_gallery(){
+    let _g=ENV_LOCK.lock().unwrap_or_else(|e|e.into_inner());
+    let dest=std::path::PathBuf::from(std::env::var_os("DAOZAI_UI_PREVIEW_DIR").unwrap());std::fs::create_dir_all(&dest).unwrap();
+    for ppp in [1.0,1.25,1.5,2.0] {for (name,title,body) in [("ethernet-on","网络连接","以太网 · 网络已连接"),("ethernet-off","网络连接","以太网 · 网络已断开"),("chinese","键盘输入语言","中文"),("english","键盘输入语言","英语"),("copied","剪贴板","已复制")] {
+        let mut h=H::new();h.app.settings.pet=false;h.app.settings.island_lyrics=false;h.app.alert(title,body,usize::MAX,false);
+        let (w,height)=((WIN_W*ppp)as u32,(WIN_H*ppp)as u32);let mut raster=crate::preview_raster::Raster::new(w as usize,height as usize);
+        for frame in 0..60 {
+            let raw=egui::RawInput{screen_rect:Some(Rect::from_min_size(Pos2::ZERO,egui::vec2(WIN_W,WIN_H))),time:Some(frame as f64/60.0),viewports:std::iter::once((egui::ViewportId::ROOT,egui::ViewportInfo{native_pixels_per_point:Some(ppp),..Default::default()})).collect(),..Default::default()};
+            let env=Env{t:frame as f64/60.0,today:"2026-11-05".into(),clock:"09:41:00".into(),..Default::default()};
+            let out=h.ctx.run(raw,|ctx|{egui::CentralPanel::default().frame(egui::Frame::NONE).show(ctx,|ui|{h.app.frame(ui,ui.max_rect(),&env);});});raster.update_textures(&out.textures_delta);
+            if frame==59 {raster.buf.fill([0.07,0.09,0.13,1.0]);raster.draw(&h.ctx.tessellate(out.shapes,out.pixels_per_point),out.pixels_per_point);let mut rgba=Vec::new();raster.to_rgba8(&mut rgba);let image=image::RgbaImage::from_raw(w,height,rgba).unwrap();image::imageops::crop_imm(&image,((WIN_W/2.0-150.0)*ppp)as u32,0,(300.0*ppp)as u32,(52.0*ppp)as u32).to_image().save(dest.join(format!("{name}-{}.png",(ppp*100.0)as u32))).unwrap();}
+            raster.free_textures(&out.textures_delta);
+        }
+    }}
 }
 
 #[test]

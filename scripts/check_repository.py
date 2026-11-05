@@ -103,7 +103,7 @@ def check_file(path: Path, known: set[Path], errors: list[str]) -> list[str]:
     checks = ["secret patterns"]
     if label not in SECRET_SCAN_EXEMPT:
         secret_check(data, label, errors)
-    if path.suffix == ".zip":
+    if path.suffix in {".zip", ".ofd"}:
         zip_check(path, errors)
         return checks + ["ZIP CRC/paths", "package/source SHA-256"]
     if path.suffix in {".png", ".gif", ".jpg", ".jpeg"}:

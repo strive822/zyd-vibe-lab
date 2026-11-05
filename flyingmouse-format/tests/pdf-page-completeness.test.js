@@ -61,7 +61,7 @@ test('PDF merge and native Poppler rendering report actual completed work', asyn
     assert.equal(rendered.files.length,4);
     assert.deepEqual(renderEvents.filter(event=>event.stage==='converting').map(event=>event.completed),[0,1,2,3,4]);
     for(const file of rendered.files)assert.ok((await fs.stat(file)).size>0);
-  }finally{await fs.rm(rendered.tempDir,{recursive:true,force:true});}
+  }finally{await rendered.cleanup();}
 });
 
 for (const engine of ['qpdf', 'pdf-lib']) test(`${engine} split keeps ZIP writing in an unknown conversion stage`, { timeout: 15000 }, async t => {
@@ -217,10 +217,27 @@ test('a native paragraph does not hide a smaller scanned body below it', async t
     ocrAvailable: () => true,
     createOcrWorker: async () => ({ terminate: async () => {} }),
     renderPdfTablePage: async () => ({ outputPath: 'scan.png' }),
-    recognizeImageResultWithWorker: async () => { calls++; return { text: '采购明细单\n合计1186.00', confidence: 90, warnings: [] }; }
+    recognizeImageResultWithWorker: async (_worker, _image, options) => {
+      calls++;
+      assert.equal(options.includeGeometry, true);
+      // A whole-page OCR response that omits the digital paragraphs must
+      // establish that its remaining text is in the separate scanned area.
+      // Without boxes, an altered OCR copy of those paragraphs is ambiguous.
+      const lines = [{ text: '采购明细单', bbox: [30, 500, 130, 515] },
+        { text: '合计1186.00', bbox: [30, 530, 150, 545] }];
+      return { text: lines.map(line => line.text).join('\n'), confidence: 90, warnings: [],
+        orientation: 0, deskewAngle: 0,
+        geometry: { width: 595, height: 842, lines: lines.map(line => ({ ...line, words: [{ ...line }] })) } };
+    }
   });
   assert.equal(calls, 1);
-  assert.match(await fs.readFile(output, 'utf8'), /1186\.00/);
+  const text = await fs.readFile(output, 'utf8');
+  assert.match(text, /采购明细单/);
+  assert.match(text, /1186\.00/);
+  for (let index = 0; index < 7; index++) {
+    assert.equal(text.split(`Account metadata line ${index}:`).length-1, 1);
+  }
+  assert.ok(text.indexOf('Account metadata line 6:') < text.indexOf('采购明细单'));
 });
 
 test('native monetary punctuation survives when OCR merges the text into a longer line', async () => {

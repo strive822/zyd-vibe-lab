@@ -20,7 +20,7 @@ pub(crate) struct Alert {
     pub meeting: Option<(crate::mail::Meeting, String)>,
 }
 impl Alert {
-    pub(crate) fn is_hud(&self)->bool {self.source==AlertSource::Internal && matches!(self.title.as_str(),"系统音量"|"大写锁定"|"键盘输入语言"|"网络连接"|"电源已连接"|"已切换电池供电"|"蓝牙设备")}
+    pub(crate) fn is_hud(&self)->bool {self.source==AlertSource::Internal && matches!(self.title.as_str(),"系统音量"|"大写锁定"|"键盘输入语言"|"网络连接"|"剪贴板"|"电源已连接"|"已切换电池供电"|"蓝牙设备")}
 }
 fn bluetooth_notice_content(body:&str)->(&str,&str,Option<u8>){
     if let Some(name)=body.strip_suffix(" · 已断开") {return (name,"已断开",None);}
@@ -77,6 +77,10 @@ fn notice_icon(c:&Card,x:f32,y:f32,a:&Alert) {
             c.stroke(x-10.0,y-8.5,20.0,17.0,4.0,1.2,theme::GRAY);
             let label=match a.body.as_str(){"中文"=>"中","英语"=>"EN",_=>"Aa"};
             c.centered_text(x,y,label,if label=="EN"{9.0}else{11.0},W::Semibold,theme::WHITE,H::Center);
+        },
+        "剪贴板"=>{
+            c.path(&[(x-3.0,y-5.0),(x-3.0,y-9.0),(x+9.0,y-9.0),(x+9.0,y+3.0),(x+5.0,y+3.0)],1.6,theme::GREEN);
+            c.stroke(x-8.0,y-4.0,12.0,13.0,2.0,1.6,theme::GREEN);
         },
         "网络连接"=>{
             let connected=a.body.contains("已连接");
@@ -171,7 +175,7 @@ impl App {
         let title = title.into();
         let transient = matches!(
             title.as_str(),
-            "系统音量" | "大写锁定" | "键盘输入语言" | "网络连接" | "电源已连接" | "已切换电池供电" | "蓝牙设备"
+            "系统音量" | "大写锁定" | "键盘输入语言" | "网络连接" | "剪贴板" | "电源已连接" | "已切换电池供电" | "蓝牙设备"
         );
         let a = Alert {
             source: AlertSource::Internal,
@@ -212,7 +216,7 @@ impl App {
         // 通知仅保存在本次运行的内存中。
         if a.source==AlertSource::Internal {self.history.push_front(a.clone());}
         self.history.truncate(50);
-        if self.settings.notifications {
+        if self.settings.notifications || a.is_hud() {
             if system && a.source==AlertSource::Internal {
                 self.pending
                     .push(Cmd::Notify(a.title.clone(), a.body.clone()));
@@ -356,7 +360,7 @@ impl App {
                     else if a.title=="网络连接"{a.body.split_once(" · ").unwrap_or(("网络",a.body.as_str()))}
                     else{(a.title.as_str(),a.body.as_str())};
                 nc.centered_text(48.0,19.0,&nc.fit(title,11.0,W::Semibold,90.0),11.0,W::Semibold,theme::WHITE,H::Left);
-                nc.centered_text(HUD_W-16.0,19.0,&nc.fit(body,10.5,W::Regular,92.0),10.5,W::Regular,if a.title=="大写锁定"&&a.body=="已开启"||a.title=="网络连接"&&a.body.contains("已连接"){theme::GREEN}else{theme::GRAY},H::Right);
+                nc.centered_text(HUD_W-16.0,19.0,&nc.fit(body,10.5,W::Regular,92.0),10.5,W::Regular,if a.title=="大写锁定"&&a.body=="已开启"||a.title=="网络连接"&&a.body.contains("已连接")||a.title=="剪贴板"{theme::GREEN}else{theme::GRAY},H::Right);
             }
         } else {
             let is_water=a.page==2;let is_focus=a.page==1;let is_power=a.title=="电量偏低";
@@ -1066,6 +1070,7 @@ impl App {
                                 if moved {ui.label(egui::RichText::new(format!("已{}移 {:.0} 点",if offset>0.0{"右"}else{"左"},offset.abs())).size(12.0).color(ui.visuals().weak_text_color()));}
                                 response
                             });
+                            setting_row(ui,"右键长按 1 秒居中","",&mut self.settings.right_hold_center);
                             ui.separator();
                             ui.horizontal(|ui|{
                                 ui.add_sized([56.0,30.0],egui::Label::new("时间制式"));

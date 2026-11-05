@@ -4,18 +4,18 @@
   "projects": {
     "daozai": {
       "version": "0.6.50",
-      "tag": "daozai-v0.6.50-r2",
+      "tag": "daozai-v0.6.50-r3",
       "kind": "windows-installer",
       "assets": [
         {
           "name": "Daozai-Setup-v0.6.50-x64.exe",
-          "bytes": 5649539,
-          "sha256": "2ff8dbe6f9e26cc703cf87cfe7b2d7f27b6ce3fa3d0c351a439f5be6d4d6cc3b"
+          "bytes": 5649888,
+          "sha256": "0a0b865cdc234ccbf013aa330bc46dcf555c371cb41cfddfa82185180b453ebf"
         },
         {
           "name": "SHA256SUMS.txt",
           "bytes": 95,
-          "sha256": "87356a0d68f157a7f3b6fdd8f2d64f0326a599faf0cc96864f659482dd2ef085"
+          "sha256": "8e72d16e75c383888a64a9b6fee033ef942cd685a7e31b3fa64d44d7ae74aac6"
         }
       ]
     },
@@ -37,19 +37,19 @@
       ]
     },
     "flyingmouse-format": {
-      "version": "0.7.10",
-      "tag": "flyingmouse-format-v0.7.10-r1",
+      "version": "0.8.3",
+      "tag": "flyingmouse-format-v0.8.3-r1",
       "kind": "official-installer-bootstrap",
       "assets": [
         {
           "name": "flyingmouse-format-windows.zip",
-          "bytes": 6841,
-          "sha256": "6c426c347c0e4ace8ba3a5830d4218d2d8223f03870d832d89c3e8a49f870c90"
+          "bytes": 7273,
+          "sha256": "18627f86e7b2e38b2b777e91803dd72a991529b73d5e36aaddde0e78e1d68009"
         },
         {
           "name": "SHA256SUMS.txt",
           "bytes": 97,
-          "sha256": "baa22398d8b48382cd9d35ef7af9bd2ba20289d2d3a2bc93a56d9928df5f97ea"
+          "sha256": "04837bd17c7f36bc0cee40284ee8453bfab807502ff72851ad2da769beb08f59"
         }
       ]
     },
@@ -92,13 +92,13 @@
       "assets": [
         {
           "name": "libretv-windows.zip",
-          "bytes": 18872601,
-          "sha256": "fbbae4f048674b4b4b40e6f18cdfff72c1e5c3749af020f3796844565b6fc0c8"
+          "bytes": 18871939,
+          "sha256": "6cda3f9813869181cf7aa08ef4c97f1f670b1e1918bdde9fa158680e4211d510"
         },
         {
           "name": "SHA256SUMS.txt",
           "bytes": 86,
-          "sha256": "7ac3f43d529dc5bbc7f0efd421ff8078cce7c3ad9dce556251e75c25343dd74a"
+          "sha256": "926a49ae9aa9fd4c919887f2b9e48eeea9a91df4ca8b666c846a8a16ce8fa4fd"
         }
       ]
     },
@@ -121,18 +121,18 @@
     },
     "rea": {
       "version": "6.8.0",
-      "tag": "rea-v6.8.0-r1",
+      "tag": "rea-v6.8.0-r2",
       "kind": "network-cli-installer",
       "assets": [
         {
           "name": "rea-windows.zip",
-          "bytes": 7411,
-          "sha256": "51c70c1259600686df9fe1232893e62f83baa716b0ccee0ef1bb70c01bf89ddf"
+          "bytes": 6655,
+          "sha256": "263c125c9776f0b957553d180b886e5b7e803ff19773e17c87b1a467fc9ba42d"
         },
         {
           "name": "SHA256SUMS.txt",
           "bytes": 82,
-          "sha256": "530c749ceebddf7bb08db2f4e087b527549afcf21e3e74868e2f82b13b82fe47"
+          "sha256": "71dacdf28128ee5348bb9c8a87f3a5f26a079b095698d087ef391ca1f496c4f1"
         }
       ]
     },
@@ -155,35 +155,35 @@
     },
     "windows-mcp": {
       "version": "0.8.8",
-      "tag": "windows-mcp-v0.8.8-r1",
+      "tag": "windows-mcp-v0.8.8-r2",
       "kind": "network-mcp-installer",
       "assets": [
         {
           "name": "windows-mcp-windows.zip",
-          "bytes": 8208,
-          "sha256": "7dd1c323c3c955fd513f901c182bcb6e12245b7437e46f11aaddf7cf315c2701"
+          "bytes": 7588,
+          "sha256": "16c2bf7f67d36f8a5fe3bfbfc3f70ed19e76e33e3942be91346d510814a3072e"
         },
         {
           "name": "SHA256SUMS.txt",
           "bytes": 90,
-          "sha256": "79b00cfcaad80df2010eaedca9ef3aede81ca0405b1dea32f1180e61b3360325"
+          "sha256": "1225fe20f86acd80222042b8268b7edb44d70d0c982bfe7691c741c5b80ac962"
         }
       ]
     },
     "yt-dlp": {
       "version": "2026.10.26",
-      "tag": "yt-dlp-v2026.10.26-r1",
+      "tag": "yt-dlp-v2026.10.26-r2",
       "kind": "network-cli-installer",
       "assets": [
         {
           "name": "yt-dlp-windows.zip",
-          "bytes": 7082,
-          "sha256": "bbe21971f19fa7556a8ee3c6a18047b32b7550687d7b5169c97a284b27952650"
+          "bytes": 6318,
+          "sha256": "79bb2bb6e2cef2e3dd0c92a0e2d4ec3edbfabf73cf57add321d4405d5fefe989"
         },
         {
           "name": "SHA256SUMS.txt",
           "bytes": 85,
-          "sha256": "07355ee6048461992a36a80e26f994c34b8076f0456045db4346941a8ad6d84c"
+          "sha256": "3ad033c953d35ae00f4c8f49c2cfede4789c6166a5e2af528bb58d0060756746"
         }
       ]
     }

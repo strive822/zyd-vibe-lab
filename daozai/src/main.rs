@@ -447,7 +447,7 @@ impl eframe::App for Shell {
                     #[cfg(windows)] daozai::system::toggle_mute();
                     self.volume_quiet=PollClock::now();
                 },
-                Cmd::Copy(text)=>{daozai::collect::note_self_copy(&text);ctx.copy_text(text);self.app.say("已复制");},
+                Cmd::Copy(text)=>{daozai::collect::note_self_copy(&text);ctx.copy_text(text);},
                 Cmd::Notify(title,body)=>{
                     #[cfg(windows)] if let Some(tray)=&self.tray{tray.notify(&title,&body,self.app.settings.sound);}
                 },

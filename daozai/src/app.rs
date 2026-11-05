@@ -55,7 +55,7 @@ const CLOSE: (f32, f32) = (620.0, 1.0);
 const SWELL_K: (f32, f32) = (420.0, 0.8);
 const PAGE_SLIDE: f32 = 46.0;
 /// 拖动整岛的水平阈值（逻辑点）；小于它按普通点击/悬停处理。
-const ISLAND_DRAG_THRESHOLD: f32 = 4.0;
+const ISLAND_DRAG_THRESHOLD: f32 = 3.0;
 
 pub struct Options {
     /// 是否联网查歌词（录制/测试时关掉）。
@@ -371,6 +371,7 @@ pub struct App {
 
     // 整岛拖动（贴顶左右移动，松手记住位置）
     island_drag: Option<IslandDrag>,
+    center_hold: Option<(f64, bool)>,
 
     // 暂存站
     pub(crate) shelf_scroll: Spring,
@@ -437,7 +438,6 @@ pub struct App {
     pub(crate) last_drink: Option<(u32, usize)>,
     // 其它
     toast: Option<(String, f64)>,
-    toast_below: bool,
     last_input: f64,
     system_idle: Option<f64>,
     last_cursor: Option<Pos2>,
@@ -484,7 +484,7 @@ impl App {
         let focus_seconds=settings.focus_minutes as f32*60.0;
         let initial_lyrics=settings.lyrics_enabled;
         let initial_page=settings.page_order.iter().copied().find(|page|settings.visible_pages[*page]).unwrap_or(0);
-        crate::collect::start();
+        crate::collect::start(ctx);
         let (staging,staging_error)=load_staging();
         Self {
             opts,
@@ -520,6 +520,7 @@ impl App {
             drag_a: 0.0,
             drag_saved: None,
             island_drag: None,
+            center_hold: None,
             shelf_scroll: Spring::new(0.0, 300.0, 0.9),
             shelf_first: 0,
             shelf_text: String::new(),
@@ -552,7 +553,7 @@ impl App {
             listener_status: "尚未连接".into(),
             notification_bell_until: 0.0, notification_bell_at: -10.0, notice: None, hud_notice: None, hud_alpha: 0.0, notice_width:Spring::new(0.0,CLOSE.0,CLOSE.1), notice_details:false, alerts: Default::default(), history: Default::default(), pending: vec![],
             todo_first: 0, pet: Default::default(), last_drink: None,
-            toast: None, toast_below: false,
+            toast: None,
             last_input: 0.0, system_idle: None,
             last_cursor: None,
             pet_a: 0.0,
@@ -619,17 +620,11 @@ impl App {
 
     pub fn say(&mut self, msg: impl Into<String>) {
         self.toast = Some((msg.into(), self.t));
-        self.toast_below = false;
     }
 
     /// 仅供 UI 测试：当前提示文本。
     #[cfg(test)]
     pub(crate) fn toast_text(&self) -> Option<String> { self.toast.as_ref().map(|(text, _)| text.clone()) }
-
-    pub(crate) fn code_copied(&mut self, _code:&str) {
-        self.say("验证码已复制");
-        self.toast_below = true;
-    }
 
     pub(crate) fn mail_code_hidden(&self,item:&mail::Item)->bool {
         self.mail.privacy.hidden(item,self.t,self.settings.mail_code_hide_seconds)
@@ -1343,6 +1338,7 @@ impl App {
         self.drag_a = anim::approach(self.drag_a, if self.drag_hot { 1.0 } else { 0.0 }, 16.0, dt);
         // ---------- 输入：整岛贴顶左右拖动 ----------
         let island_drag_active = self.island_drag_step(ui, cx, top, env, hovering_files);
+        self.right_hold_center_step(ui, cx, top, env, hovering_files);
         // 按住岛体（尚未移动）时先不展开，给「按住再拖」留出机会。
         let island_hold = self.island_drag.is_some() && !self.open;
 
@@ -1521,12 +1517,8 @@ impl App {
             let c = base.shifted(0.0, (1.0 - reveal) * -5.0).faded(reveal);
             let c = if reveal < 0.6 { c.ghost() } else { c };
             if self.calendar.draft.is_some(){self.draw_calendar_editor(&c);}else if self.task_dialog.is_some(){self.draw_task_editor(&c);}else{self.panel_body(&c, env, &mut cmds);}
-            if !self.toast_below {self.toast_layer(&c,106.0);}
+            self.toast_layer(&c,106.0);
         }
-        // 岛下的确认提示使用独立裁剪区域，收起时跟随岛体下沿。
-        let floating_toast=if self.toast_below && self.toast.is_some() {
-            self.toast_layer(&Card::new(ui,origin,win),h+8.0)
-        }else{None};
         if (self.adding||self.editing.is_some()) && reveal > 0.9 && self.page == 4 && self.page_e() > 0.25 {
             self.input_field(ui, origin, &mut cmds);
         }
@@ -1565,6 +1557,7 @@ impl App {
             || self.drag_hot
             || island_drag_active
             || self.island_drag.is_some()
+            || self.center_hold.is_some_and(|(_,done)|!done)
             || (self.pet_a > 0.001 && self.pet_a < 0.999)
             || !self.resident.settled()
             || self.open && self.page==3 && self.shelf_x.values().any(|s| !s.settled(68.0))
@@ -1583,7 +1576,7 @@ impl App {
         let repaint_after=std::time::Duration::from_secs_f64(if transitioning{1.0/60.0}else if ambient{1.0/30.0}else if pet_visible{if self.pet.state==PetState::Sleeping{0.1}else{0.05}}else{1.0});
         cmds.append(&mut self.pending);
         FrameOut {
-            region: rel(floating_toast.map_or(region,|toast|region.union(toast)).intersect(ui.max_rect())),
+            region: rel(region.intersect(ui.max_rect())),
             hit: rel(self.hit_rect(cx, top, self.progress())),
             notice_hit:notice_shape.map(|r|rel(notice_details.map_or(r,|details|r.union(details)))),
             file_drop_zone:self.settings.visible_pages[3].then(||rel(Rect::from_min_size(Pos2::new(cx-PW/2.0,top),Vec2::new(PW,96.0)))),
@@ -1601,7 +1594,7 @@ impl App {
         // 展开态顶栏右侧的设置齿轮（与 `shared_header` 的 page-settings 热区一致）。
         if self.open {
             let gear_x = cx - PW / 2.0 + 394.0;
-            if (local.x - gear_x).abs() <= 16.0 && (3.0..=33.0).contains(&local.y) { return true; }
+            return (local.x - gear_x).abs() <= 16.0 && (3.0..=33.0).contains(&local.y);
         }
         let layout = self.resident.current();
         let in_row = |x: f32, radius: f32| (local.x - x).abs() <= radius && (1.0..=29.0).contains(&local.y);
@@ -1630,17 +1623,19 @@ impl App {
     /// 整岛贴顶横向拖动：按住岛体挪动超过阈值才开始，松手记住位置。
     /// 图标、额度环、设置齿轮的热区单独排除，按在它们上面仍是点击而不是拖岛。
     fn island_drag_step(&mut self, ui: &egui::Ui, cx: f32, top: f32, env: &Env, hovering_files: bool) -> bool {
-        let pressed = ui.ctx().input(|i| i.pointer.button_pressed(egui::PointerButton::Primary));
+        let press = ui.ctx().input(|i| i.pointer.button_pressed(egui::PointerButton::Primary).then(||i.pointer.press_origin()).flatten());
         // 窗口跟随拖动时鼠标事件可能落出窗口，实际运行用系统按键状态兜底。
         let down = env.mouse_down.unwrap_or_else(|| ui.ctx().input(|i| i.pointer.primary_down()));
-        let bar = Rect::from_center_size(Pos2::new(cx, top + BAR_H / 2.0), Vec2::new(self.resident.target.width.max(BAR_W_MIN), BAR_H));
+        let width=if self.open {self.open_width()} else {self.resident.target.width.max(BAR_W_MIN)};
+        let bar = Rect::from_center_size(Pos2::new(cx, top + BAR_H / 2.0), Vec2::new(width, BAR_H));
         let hit = self.hit_rect(cx, top, self.progress());
         // 从岛体顶栏空白处起拖：按下点同时落在可见岛体与命中区里，
         // 且不在页入口/额度环/设置齿轮的热区内；图标点击仍走各自控件的点击判定。
         // 展开态也允许拖顶栏（时钟日期区域），这样悬停展开后仍能移动整岛。
-        let press_allowed = env.cursor.is_some_and(|local| bar.contains(local) && hit.contains(local) && !self.island_press_on_control(local, cx));
-        if pressed && press_allowed && !self.is_editing() && !hovering_files && !self.passkey_passthrough {
-            if let Some(point) = env.cursor_screen {
+        let press_allowed = press.is_some_and(|local| bar.contains(local) && hit.contains(local) && !self.island_press_on_control(local, cx));
+        if press_allowed && !self.is_editing() && !hovering_files && !self.passkey_passthrough {
+            // 同一帧可能既按下又移动：保留事件的按下点，不能用帧末采样点吞掉第一段位移。
+            if let Some(point) = press.zip(env.cursor).zip(env.cursor_screen).map(|((press,local),screen)|screen+(press-local)) {
                 self.island_drag = Some(IslandDrag { press_x: point.x, press_y: point.y, start: env.island_offset.unwrap_or(0.0), active: false });
             }
         }
@@ -1668,6 +1663,24 @@ impl App {
         let active = drag.active;
         self.island_drag = Some(drag);
         active
+    }
+
+    fn right_hold_center_step(&mut self, ui:&egui::Ui, cx:f32, top:f32, env:&Env, hovering_files:bool) {
+        let (pressed,down)=ui.ctx().input(|i|(i.pointer.button_pressed(egui::PointerButton::Secondary),i.pointer.secondary_down()));
+        let inside=env.cursor.is_some_and(|point|self.hit_rect(cx,top,self.progress()).contains(point));
+        if !self.settings.right_hold_center || !down || !inside || hovering_files || self.passkey_passthrough {
+            self.center_hold=None;
+            return;
+        }
+        if pressed {self.center_hold=Some((self.t,false));}
+        if let Some((at,false))=self.center_hold {
+            if self.t-at>=1.0 {
+                self.center_hold=Some((at,true));
+                self.island_drag=None;
+                self.settings.island_x=None;
+                self.settings.save();
+            }
+        }
     }
 
     fn hit_rect(&self, cx: f32, top: f32, p: f32) -> Rect {
@@ -2278,6 +2291,9 @@ impl App {
     /// 截图载荷只在提交成功（或通道关闭明确丢弃）后确认；写失败不确认，
     /// 截图线程下一轮自然重收（F12）；失败在界面上给出简短提示。
     fn pump_collect(&mut self) {
+        if crate::collect::take_copy_notice() && self.settings.system_hud {
+            self.alert("剪贴板", "已复制", usize::MAX, false);
+        }
         let payloads=crate::collect::drain();
         if payloads.is_empty() { return; }
         let channels=self.settings.collect;

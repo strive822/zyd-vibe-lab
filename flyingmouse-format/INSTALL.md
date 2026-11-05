@@ -2,13 +2,13 @@
 
 ## 给人：自己动手的步骤
 
-1. 打开 [固定 Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/flyingmouse-format-v0.7.10-r1)，下载 `flyingmouse-format-windows.zip` 和 `SHA256SUMS.txt`。
+1. 打开 [固定 Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/flyingmouse-format-v0.8.3-r1)，下载 `flyingmouse-format-windows.zip` 和 `SHA256SUMS.txt`。
 2. 在下载目录执行 `Get-FileHash -Algorithm SHA256 .\flyingmouse-format-windows.zip`，与校验文件逐项比对；不匹配则停止。
 3. 安装器直接运行；ZIP 检查没有绝对路径、越界或链接后解压到新目录，再按下面步骤使用。无需克隆开发仓库。
 
-Windows 10/11 x64。解压联网安装入口，双击 install.cmd；它下载未改动的官方 FlyingMouse-Format-Setup-0.7.10-x64.exe，核验 SHA-256 `56c022bc5ec1904300c8ffe77f892d0bea09fe157fbbf402589a64decab2587b` 后打开原安装向导。也可从上游官方 Release 直接下载同名安装器。
+Windows 10/11 x64。解压联网安装入口，双击 install.cmd；它下载未改动的官方 FlyingMouse-Format-Setup-0.8.3-x64.exe，核验 SHA-256 `3a3825bd3eb751c451978c6248a52c17e122fdf708556fd7a4cc55739592ec2d` 后打开原安装向导。也可从上游官方 Release 直接下载同名安装器。
 
-上游地址：https://github.com/LaoFeng-mouse/flyingmouse-format/releases/tag/v0.7.10 。完整离线应用约3.76 GiB，主要是 Office、OCR、音视频等必需引擎；这是程序运行内容，不能当开发缓存删除。已有安装时先检查版本与路径，不重复下载整套引擎。
+上游地址：https://github.com/LaoFeng-mouse/flyingmouse-format/releases/tag/v0.8.3 。官方安装器约1.62 GB，完整离线应用还包含运行引擎，主要是 Office、OCR、音视频等必需引擎；这是程序运行内容，不能当开发缓存删除。已有安装时先检查版本与路径，不重复下载整套引擎。
 
 启动 FlyingMouse Format.exe，做一张合成图片转 PNG 或一个小 TXT 转 PDF 验证，不改用户原始文件。上游为非商用许可，保留牢蜂/LaoFeng署名、LICENSE与第三方说明，不套壳改名。Agent 驱动转换按 agent-skill/flyingmouse-format/SKILL.md，在应用内完成连接后使用 CLI，不声称仅复制技能就已连接。
 

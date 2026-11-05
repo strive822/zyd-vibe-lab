@@ -10,7 +10,7 @@ args = parser.parse_args()
 target = args.destination.resolve()
 if target.exists():
     raise SystemExit('Destination already exists; existing work preserved')
-url = 'https://raw.githubusercontent.com/LaoFeng-mouse/flyingmouse-format/a7b9b15d32db80cecedae00e89289088656fb1ae/bin/avs3/avs3RM0Decoder.exe'
+url = 'https://raw.githubusercontent.com/LaoFeng-mouse/flyingmouse-format/e8d0827016192f980893b08c09920305ef089dab/bin/avs3/avs3RM0Decoder.exe'
 with urlopen(Request(url, headers={'User-Agent':'zyd-pinned-runtime/1'}), timeout=60) as response:
     data = response.read()
 if hashlib.sha256(data).hexdigest() != 'a38546b45ef82219533c0e18478764a334f8287395b0d590dcd6c876976edb84':

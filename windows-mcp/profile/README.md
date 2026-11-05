@@ -1,6 +1,6 @@
 # 我的 Windows-MCP 入口
 
-固定 Windows-MCP 0.8.8，Python 3.14.7；独立运行目录，stdio，关闭匿名遥测。恢复脚本准备固定源码和相对路径启动入口。已有全局连接不需要重复安装。
+固定 Windows-MCP 0.8.8 主线快照 `9ab92bca2772dfb53ae3ed4feb98dac22c5b3dea`（含文件移动保护修复），Python 3.14.7；独立运行目录，stdio，关闭匿名遥测。恢复脚本准备固定源码和相对路径启动入口。已有全局连接不需要重复安装。
 
 新电脑需要已有 Windows uv，先检查 `uv --version`，然后在恢复目录运行 `install.cmd`。uv 按固定源码的 uv.lock 安装，在本目录管理独立 Python、source/.venv 和 cache，不升级无关软件。`start.cmd` 使用本目录固定解释器，不依赖手动激活环境。
 

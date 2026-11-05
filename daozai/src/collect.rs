@@ -75,6 +75,22 @@ pub(crate) fn drain() -> Vec<Payload> {
     queue().lock().map(|mut queue| queue.drain(..).collect()).unwrap_or_default()
 }
 
+static COPIED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+static REPAINT: OnceLock<eframe::egui::Context> = OnceLock::new();
+
+/// 只传递成功读取的复制事件，不携带内容；与暂存通道开关和去重无关。
+pub(crate) fn take_copy_notice() -> bool {
+    COPIED.swap(false, std::sync::atomic::Ordering::AcqRel)
+}
+
+pub(crate) fn receive_clipboard(payload: Payload) {
+    COPIED.store(true, std::sync::atomic::Ordering::Release);
+    if let Some(ctx)=REPAINT.get() {ctx.request_repaint();}
+    let own=match &payload {Payload::Text(text)=>is_self_copy(text),_=>{is_self_copy("");false}};
+    if own { return; }
+    push(payload);
+}
+
 fn self_copy() -> &'static Mutex<String> {
     static SELF: OnceLock<Mutex<String>> = OnceLock::new();
     SELF.get_or_init(|| Mutex::new(String::new()))
@@ -89,7 +105,8 @@ pub fn note_self_copy(text: &str) {
 
 pub(crate) fn is_self_copy(text: &str) -> bool {
     let text = text.trim_end_matches(['\r', '\n']);
-    self_copy().lock().map(|last| !last.is_empty() && last.as_str() == text).unwrap_or(false)
+    // 标记只属于下一次读取；外部再次复制同文或切换格式不能继续被排除。
+    self_copy().lock().map(|mut last| {let own=!last.is_empty() && last.as_str()==text;last.clear();own}).unwrap_or(false)
 }
 
 /// 截图目录里的文件快照：大小 + 修改时间。写了一半的文件下一次探测时大小会变，会再次触发。
@@ -123,6 +140,16 @@ static CLIPBOARD_UPDATES: std::sync::atomic::AtomicUsize = std::sync::atomic::At
 #[cfg(windows)]
 static CLIPBOARD_READING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
+#[cfg(windows)]
+static CLIPBOARD_SEQUENCE: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+
+#[cfg(any(windows,test))]
+fn keep_reading(updates:&std::sync::atomic::AtomicUsize, reading:&std::sync::atomic::AtomicBool, observed:usize)->bool {
+    use std::sync::atomic::Ordering::SeqCst;
+    reading.store(false,SeqCst);
+    updates.load(SeqCst)!=observed && !reading.swap(true,SeqCst)
+}
+
 /// 剪贴板是全局资源：同一时刻只允许一个线程 Open/Close，避免互相踩踏。
 #[cfg(windows)]
 fn clipboard_lock() -> &'static Mutex<()> {
@@ -135,7 +162,8 @@ fn clipboard_lock() -> &'static Mutex<()> {
 pub(crate) fn update_count() -> usize { CLIPBOARD_UPDATES.load(std::sync::atomic::Ordering::Relaxed) }
 
 /// 启动两类监听（只启动一次）：剪贴板与截图文件夹。
-pub(crate) fn start() {
+pub(crate) fn start(ctx: &eframe::egui::Context) {
+    let _=REPAINT.set(ctx.clone());
     static STARTED: OnceLock<()> = OnceLock::new();
     STARTED.get_or_init(|| {
         #[cfg(windows)]
@@ -158,19 +186,27 @@ fn spawn_clipboard() {
         use windows::Win32::Foundation::LRESULT;
         const WM_CLIPBOARDUPDATE: u32 = 0x031D;
         if msg == WM_CLIPBOARDUPDATE {
-            CLIPBOARD_UPDATES.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            CLIPBOARD_UPDATES.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             if std::env::var("DAOZAI_DEBUG_COLLECT").is_ok() { eprintln!("[collect] clipboard update"); }
             // 同一次复制会连发数条更新：只保留一轮等待，读全格式后一次入库。
             if CLIPBOARD_READING.swap(true, std::sync::atomic::Ordering::SeqCst) {
                 return LRESULT(0);
             }
-            std::thread::spawn(|| {
+            std::thread::spawn(|| loop {
                 std::thread::sleep(std::time::Duration::from_millis(140));
-                let payload = read_clipboard();
-                CLIPBOARD_READING.store(false, std::sync::atomic::Ordering::SeqCst);
-                if let Some(payload) = payload {
-                    push(payload);
+                let observed=CLIPBOARD_UPDATES.load(std::sync::atomic::Ordering::SeqCst);
+                match read_clipboard() {
+                    Ok(Some((sequence,payload)))=>{
+                        if sequence==0 || CLIPBOARD_SEQUENCE.swap(sequence,std::sync::atomic::Ordering::SeqCst)!=sequence {
+                            receive_clipboard(payload);
+                        }
+                    },
+                    Ok(None)=>{is_self_copy("");},
+                    // 被其他程序占用只代表尚未读到，不代表没有复制；保留读取者等待释放。
+                    Err(())=>continue,
                 }
+                // 清标志后复核：读取期间的新更新不能被丢掉；若消息线程已接手则由它续读。
+                if !keep_reading(&CLIPBOARD_UPDATES,&CLIPBOARD_READING,observed) {break;}
             });
             return LRESULT(0);
         }
@@ -199,40 +235,28 @@ fn spawn_clipboard() {
 }
 
 #[cfg(windows)]
-fn read_clipboard() -> Option<Payload> {
-    let _guard = clipboard_lock().lock().ok()?;
-    use windows::Win32::System::DataExchange::{CloseClipboard, IsClipboardFormatAvailable, OpenClipboard};
+fn read_clipboard() -> Result<Option<(u32,Payload)>,()> {
+    let _guard = clipboard_lock().lock().map_err(|_|())?;
+    use windows::Win32::System::DataExchange::{CloseClipboard, GetClipboardSequenceNumber, IsClipboardFormatAvailable, OpenClipboard};
     use windows::Win32::System::Ole::{CF_BITMAP, CF_DIB, CF_HDROP, CF_UNICODETEXT};
 
-    let has_files = unsafe { IsClipboardFormatAvailable(u32::from(CF_HDROP.0)) }.is_ok();
-    // 截图工具常见只给 CF_BITMAP，浏览器/画图多给 CF_DIB：两种都算图片。
-    let has_image = unsafe { IsClipboardFormatAvailable(u32::from(CF_DIB.0)) }.is_ok()
-        || unsafe { IsClipboardFormatAvailable(u32::from(CF_BITMAP.0)) }.is_ok();
-    let has_text = unsafe { IsClipboardFormatAvailable(u32::from(CF_UNICODETEXT.0)) }.is_ok();
-    let format = pick_formats(has_files, has_image, has_text)?;
-    if std::env::var("DAOZAI_DEBUG_COLLECT").is_ok() {
-        eprintln!("[collect] formats files={has_files} image={has_image} text={has_text} -> {format:?}");
-    }
     // 复制方进程退出、剪贴板正被写入时 OpenClipboard 会短暂失败，重试约 1 秒。
     for attempt in 0..20 {
         if unsafe { OpenClipboard(None) }.is_ok() {
-            let payload = {
+            // 持有系统剪贴板锁后再选格式，避免连续复制改变格式时读到过期的格式判断。
+            let has_files = unsafe { IsClipboardFormatAvailable(u32::from(CF_HDROP.0)) }.is_ok();
+            let has_image = unsafe { IsClipboardFormatAvailable(u32::from(CF_DIB.0)) }.is_ok()
+                || unsafe { IsClipboardFormatAvailable(u32::from(CF_BITMAP.0)) }.is_ok();
+            let has_text = unsafe { IsClipboardFormatAvailable(u32::from(CF_UNICODETEXT.0)) }.is_ok();
+            let payload = pick_formats(has_files,has_image,has_text).and_then(|format| {
                 match format {
                     Format::Files => read_files(),
                     Format::Image => read_dib().or_else(|| read_bitmap()),
                     Format::Text => read_text(),
                 }
-            };
+            });
+            let sequence=unsafe { GetClipboardSequenceNumber() };
             unsafe { let _ = CloseClipboard(); }
-            // 自身“复制”回写不收集成新条目。
-            if let Some(Payload::Text(text)) = &payload {
-                if is_self_copy(text) {
-                    if std::env::var("DAOZAI_DEBUG_COLLECT").is_ok() {
-                        eprintln!("[collect] skipped self copy");
-                    }
-                    return None;
-                }
-            }
             if std::env::var("DAOZAI_DEBUG_COLLECT").is_ok() {
                 eprintln!("[collect] read {:?}", payload.as_ref().map(|payload| match payload {
                     Payload::Text(text) => format!("text {}B", text.len()),
@@ -240,14 +264,14 @@ fn read_clipboard() -> Option<Payload> {
                     Payload::Files(files) => format!("files {}", files.len()),
                 }));
             }
-            return payload;
+            return Ok(payload.map(|payload|(sequence,payload)));
         }
         if std::env::var("DAOZAI_DEBUG_COLLECT").is_ok() && attempt == 19 {
             eprintln!("[collect] open clipboard failed after retries");
         }
         std::thread::sleep(std::time::Duration::from_millis(50));
     }
-    None
+    Err(())
 }
 
 /// 所有 Win32 调用都已放进显式 unsafe 块，签名不需要 unsafe。
@@ -269,7 +293,7 @@ fn read_text() -> Option<Payload> {
     let end = slice.iter().position(|value| *value == 0).unwrap_or(len);
     let text = String::from_utf16_lossy(&slice[..end]);
     let _ = unsafe { GlobalUnlock(hglobal) };
-    if text.trim().is_empty() {
+    if text.is_empty() {
         None
     } else {
         Some(Payload::Text(text))
@@ -524,7 +548,7 @@ pub(crate) fn clipboard_update_count_for_test() -> usize {
 /// 真实剪贴板读取入口，仅供本机联调测试使用。
 #[cfg(all(test, windows))]
 pub(crate) fn read_clipboard_for_test() -> Option<Payload> {
-    read_clipboard()
+    read_clipboard().ok().flatten().map(|(_,payload)|payload)
 }
 
 /// 系统截图目录是否可解析（重定向后也应拿到实际路径）。
@@ -536,6 +560,17 @@ pub(crate) fn screenshot_dir_for_test() -> Option<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn updates_during_a_read_schedule_another_read_without_waiting_for_a_new_event() {
+        use std::sync::atomic::{AtomicBool,AtomicUsize,Ordering::SeqCst};
+        let updates=AtomicUsize::new(4);let reading=AtomicBool::new(true);
+        updates.fetch_add(1,SeqCst);
+        assert!(keep_reading(&updates,&reading,4));
+        assert!(reading.load(SeqCst),"读取过程中已发生的新更新必须有后续读取者");
+        assert!(!keep_reading(&updates,&reading,5));
+        assert!(!reading.load(SeqCst),"无新更新时释放，让下一次消息可唤醒读取");
+    }
 
     fn mask_channels(mask: usize) -> [bool; 6] {
         let mut channels = [false; 6];
@@ -630,7 +665,7 @@ mod tests {
     #[test]
     #[ignore = "需要真实剪贴板；运行中的岛仔实例可能占用，按需显式执行"]
     fn message_window_receives_clipboard_updates() {
-        start();
+        start(&eframe::egui::Context::default());
         std::thread::sleep(std::time::Duration::from_millis(300));
         let before = clipboard_update_count_for_test();
         assert!(powershell(&format!("Set-Clipboard -Value 'msg-test-{}'", std::process::id())));
@@ -680,7 +715,13 @@ mod tests {
     fn self_copy_is_not_collected_again() {
         note_self_copy("岛内复制的一段\n");
         assert!(is_self_copy("岛内复制的一段"));
+        assert!(!is_self_copy("岛内复制的一段"),"自身复制标记只能消费一次，外部同文仍应收集");
+        note_self_copy("岛内复制的一段");
         assert!(!is_self_copy("别的程序复制的一段"));
+        assert!(!is_self_copy("岛内复制的一段"),"中间复制其他文本后，旧标记不得继续排除");
+        note_self_copy("岛内复制的一段");
+        is_self_copy("");
+        assert!(!is_self_copy("岛内复制的一段"),"非支持格式覆盖剪贴板也应清除旧标记");
         note_self_copy("");
         assert!(!is_self_copy("任何内容"));
     }

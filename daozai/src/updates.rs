@@ -31,7 +31,6 @@ pub(crate) struct State {
     dialog_open: bool,
     focus_requested: bool,
     logo: Option<egui::TextureHandle>,
-    link_copied: bool,
 }
 
 impl State {
@@ -50,7 +49,6 @@ impl State {
                 };
                 self.result = Some(result);
                 self.rx = None;
-                self.link_copied = false;
                 ctx.request_repaint();
             }
             Err(mpsc::TryRecvError::Disconnected) => {
@@ -176,10 +174,9 @@ impl State {
                         ui.add_space(4.0);
                         ui.horizontal(|ui| {
                             if ui.add(egui::Button::new("稍后").fill(theme::BTN).min_size(egui::vec2(110.0, 40.0))).clicked() { self.dismiss(); }
-                            let label = if self.link_copied { "已复制链接" } else { "复制发布页链接" };
-                            if ui.add(egui::Button::new(egui::RichText::new(label).color(theme::WHITE)).fill(theme::BLUE).min_size(egui::vec2(ui.available_width(), 40.0))).clicked() {
+                            if ui.add(egui::Button::new(egui::RichText::new("复制发布页链接").color(theme::WHITE)).fill(theme::BLUE).min_size(egui::vec2(ui.available_width(), 40.0))).clicked() {
+                                crate::collect::note_self_copy(&release.page);
                                 ui.ctx().copy_text(release.page.clone());
-                                self.link_copied = true;
                             }
                         });
                         ui.add_space(2.0);

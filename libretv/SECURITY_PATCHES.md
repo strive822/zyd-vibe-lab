@@ -12,7 +12,7 @@
 - 在全新环境重新解析并提交完整锁文件，避免沿用旧依赖树；运行时固定为项目内 Node.js 24.22.1 LTS。
 
 验证结果：类型检查、Lint、37 个测试文件 / 542 项测试、生产构建通过；生产依赖审计（`npm audit --omit=dev`）为 0 项漏洞。
-包内各文件哈希见 packages/libretv-files.json；完整源码 ZIP 哈希见 assets.json。安装使用 npm ci，不能只替换 package.json 而沿用旧锁文件。
+展开源码的逐文件哈希见 source-files.json；生产成品的大小和 SHA-256 见仓库根 releases.json。安装使用 npm ci，不能只替换 package.json 而沿用旧锁文件。
 
 ## 开发依赖中已知的遗留审计项
 

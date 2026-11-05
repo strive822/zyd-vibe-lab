@@ -88,6 +88,7 @@ pub struct Settings {
     pub display_id: String,
     /// 整岛横向拖动后的位置：相对屏幕居中的逻辑点偏移，正数向右；`None` 表示居中。
     pub island_x: Option<f32>,
+    pub right_hold_center: bool,
     /// 顶栏日历图标显示今天几号（0）还是星期（1）。
     pub calendar_icon: u8,
     pub settings_theme: crate::settings_theme::SettingsTheme,
@@ -135,7 +136,7 @@ pub struct Settings {
 
 impl Default for Settings {
     fn default() -> Self {
-        Self { display_id: String::new(), island_x: None, calendar_icon: 0, settings_theme: Default::default(), pet: true, minimal: false, browser_minimal: false, avoid_browsers: true, avoid_apps: Vec::new(), visible_pages: [true; 8], page_order: [0,1,2,3,4,5,6,7], show_battery: true, clock_12h: false, clock_period: 0, resident_order: Vec::new(), collect: [true; 6], system_hud: true, bluetooth_notifications: true, read_notifications:false, notification_preview:false, notifications: true, sound: false, lyrics_enabled:true, island_lyrics:false, lyric_delay_ms:-350, hide_fullscreen: true, focus_minutes: 25, rest_minutes: 5, water_minutes: 45, serving_ml: 250, water_start: 9, water_end: 22, mail_enabled: true, mail_code: true, mail_code_hide_seconds:60, mail_interval: 120, mail_ics: 15, ignored_mail_events: Vec::new(), calendar_prompt: true, calendar_auto_sync: true }
+        Self { display_id: String::new(), island_x: None, right_hold_center: false, calendar_icon: 0, settings_theme: Default::default(), pet: true, minimal: false, browser_minimal: false, avoid_browsers: true, avoid_apps: Vec::new(), visible_pages: [true; 8], page_order: [0,1,2,3,4,5,6,7], show_battery: true, clock_12h: false, clock_period: 0, resident_order: Vec::new(), collect: [true; 6], system_hud: true, bluetooth_notifications: true, read_notifications:false, notification_preview:false, notifications: true, sound: false, lyrics_enabled:true, island_lyrics:false, lyric_delay_ms:-350, hide_fullscreen: true, focus_minutes: 25, rest_minutes: 5, water_minutes: 45, serving_ml: 250, water_start: 9, water_end: 22, mail_enabled: true, mail_code: true, mail_code_hide_seconds:60, mail_interval: 120, mail_ics: 15, ignored_mail_events: Vec::new(), calendar_prompt: true, calendar_auto_sync: true }
     }
 }
 
@@ -162,6 +163,7 @@ impl Settings {
                 "display_id" => s.display_id = v,
                 // 旧配置没有位置字段；损坏/非有限值一律回到居中。
                 "island_x" => s.island_x = v.trim().parse::<f32>().ok().filter(|value|value.is_finite() && value.abs()<=100_000.0),
+                "right_hold_center" => s.right_hold_center = v == "1",
                 "calendar_icon" => s.calendar_icon = if v == "1" { 1 } else { 0 },
                 "pet" => s.pet = v == "1" || v.eq_ignore_ascii_case("true"),
                 "minimal" => s.minimal = v == "1" || v.eq_ignore_ascii_case("true"),
@@ -234,6 +236,7 @@ impl Settings {
                 ("display_id".into(),self.display_id.clone()),
                 // 空串表示居中；保留两位小数，避免反复拖动累积取整漂移。
                 ("island_x".into(),self.island_x.filter(|value|value.is_finite()).map(|value|format!("{value:.2}")).unwrap_or_default()),
+                ("right_hold_center".into(),(self.right_hold_center as u8).to_string()),
                 ("calendar_icon".into(), self.calendar_icon.to_string()),
                 ("settings_theme".into(),self.settings_theme.key().into()),
                 ("pet".into(), if self.pet { "1".to_string() } else { "0".to_string() }),

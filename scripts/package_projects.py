@@ -110,8 +110,8 @@ def build(name: str, output: Path, prepared: Path | None = None, installer: Path
     destination = output / name
     destination.mkdir(parents=True, exist_ok=True)
     if name == 'daozai':
-        if installer is None or sha256(installer.read_bytes()) != '2ff8dbe6f9e26cc703cf87cfe7b2d7f27b6ce3fa3d0c351a439f5be6d4d6cc3b':
-            raise ValueError('Pass --installer with the verified GLM Z installer')
+        if installer is None or sha256(installer.read_bytes()) != '0a0b865cdc234ccbf013aa330bc46dcf555c371cb41cfddfa82185180b453ebf':
+            raise ValueError('Pass --installer with the verified personal installer')
         target = destination / 'Daozai-Setup-v0.6.50-x64.exe'
         target.write_bytes(installer.read_bytes())
         artifacts = [target]

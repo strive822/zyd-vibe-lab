@@ -2,7 +2,7 @@
 
 ## 给人：自己动手的步骤
 
-1. 打开 [固定 Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/rea-v6.8.0-r1)，下载 `rea-windows.zip` 和 `SHA256SUMS.txt`。
+1. 打开 [固定 Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/rea-v6.8.0-r2)，下载 `rea-windows.zip` 和 `SHA256SUMS.txt`。
 2. 在下载目录执行 `Get-FileHash -Algorithm SHA256 .\rea-windows.zip`，与校验文件逐项比对；不匹配则停止。
 3. 安装器直接运行；ZIP 检查没有绝对路径、越界或链接后解压到新目录，再按下面步骤使用。无需克隆开发仓库。
 
