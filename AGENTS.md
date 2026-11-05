@@ -1,47 +1,39 @@
 # Repository rules (authoritative)
 
-This is a collection of independent personal projects, not one application.
-This file is the single source of truth for what every project here must look
-like. docs/AGENT_DELIVERY_STANDARD.md holds detailed templates and operational
-steps; the root README only points here. When documents conflict, this file wins.
+This repository holds ten independent projects. Source, tests, licenses, templates and locked upstream references belong in Git. User-facing installers, runtime/launcher packages, skills and extensions belong in GitHub Releases. Never rewrite published history as part of routine cleanup.
 
 ## Repository map
 
-- daozai: Windows Rust/egui personal fork of Daozai v0.6.50. Read its INSTALL.md / AGENTS.md; source, pinned artifacts and licenses are self-contained. Tests: `python -m unittest discover -s packaging_tests -v` and `cargo test --locked --all-targets --features record -- --test-threads=1` inside the project. Never test against real AppData or accounts.
-- graduation-thesis-workflow: reusable thesis skill for Codex / Claude Code / WorkBuddy / Pi. Read its AGENTS.md first. Keep skills/graduation-thesis canonical; rebuild platform ZIPs with its scripts/package.py after bundle changes; tests: `python -m unittest discover -s tests -v` inside the project.
-- dca-calculator: FastAPI backend + Next.js frontend calculator. Backend: `pip install -r requirements-dev.txt && python -m pytest`. Frontend: `npm ci`, `npm run typecheck`, `npm test`, `npm run build`. It computes weights only; it is never a trading system.
-- today-todo: zero-dependency Node service + static frontend. Checks: `node --test test/api.test.js` and `node tools/contrast.js`. Runtime data lives in the git-ignored `data/todos.json`; never commit it.
-- pi-task-notify: Pi coding-agent notification extension. Verify through `pi install` / `pi -e` per its INSTALL.md; do not modify the user's Pi configuration beyond the documented install.
-- libretv, yt-dlp, windows-mcp, rea: upstream snapshots. Each has INSTALL.md, AGENTS.md, assets.json, profile/, restore.py and THIRD_PARTY.md. Preserve locked versions, licenses and usage profiles; restore only into NEW directories; downloads are not installations. After restore-related changes run `python -m unittest discover -s scripts/tests -v` from the repository root.
-- flyingmouse-format: upstream snapshot of a Windows offline file converter with its own detailed AGENTS.md (Chinese). Follow that file; do not rewrite or trim it.
-- docs/ and scripts/ are support directories, not projects.
+- daozai: Rust/egui Windows app. `python -m unittest discover -s packaging_tests -v`; `cargo test --locked --all-targets --features record -- --test-threads=1`. Isolate test data; never real AppData/accounts. GLM uses zai.svg.
+- dca-calculator: FastAPI + Next.js; no trading. Backend pytest; frontend typecheck, tests and static build with DCA_EXPORT=1.
+- today-todo: zero-dependency Node service; `node --test test/api.test.js`, `node tools/contrast.js`. Never commit real data/todos.json.
+- graduation-thesis-workflow: canonical skills/graduation-thesis; `python -m unittest discover -s tests -v`; four platform skill packages are built outside Git.
+- pi-task-notify: Pi host extension; verify in Pi per INSTALL.md. Do not change unrelated Pi settings.
+- libretv: expanded app source is source/, with source-files.json inventory. Run npm ci, typecheck, lint, test, build there. Existing profile and restore.py are developer recovery tools; users use the production Release.
+- yt-dlp, windows-mcp, rea: own installers/profiles and pinned upstream references. Restore only into NEW directories; preserve upstream notices. Never equate preparation with host registration or actual device access. Root restore-boundary tests apply.
+- flyingmouse-format: pinned upstream Windows app. Preserve its detailed AGENTS.md, branding, noncommercial license and original attribution. Users use the unchanged official installer; runtime/bootstrap only downloads and verifies it.
+- docs/ and scripts/ support the repository; they are not projects.
 
-## Required for every project (minimum set)
+## Required for every project
 
-1. Own subdirectory with an ASCII lowercase kebab-case name. The name is the ZIP base name and every raw URL segment; raw.githubusercontent.com is case-sensitive.
-2. README.md containing the exact heading `## 直接让 Agent 帮你使用` and a fenced `text` prompt that names the repository URL, this exact directory name and INSTALL.md, scoped to what the project actually does.
-3. A working INSTALL.md covering complete download, integrity checks, isolated environments, actual use/verification and permission boundaries. Preserve the distinction between downloading, installing and running.
-4. An AGENTS.md stating purpose, verification commands and boundaries (what must never be broken), pointing back to this file.
-5. `delivery/<name>.zip` plus `SHA256SUMS.txt` and `FILES.json` generated by `python scripts/package_projects.py`; never hand-edit generated ZIPs; never package credentials, caches or real user data.
-6. License handling: self-written projects use MIT with `Copyright (c) 2026 zhongyudi`; upstream content keeps its original license and notices (THIRD_PARTY.md / NOTICE) pinned to a commit or tag.
-7. Runnable verification commands documented in README / INSTALL / AGENTS.
-8. Registration: a row in the root README project table with ZIP and SHA links, a row in the root INSTALL.md table, and an entry in this map.
+1. ASCII lowercase kebab-case directory; README.md, INSTALL.md, AGENTS.md, license and reproducible source/build instructions.
+2. README heading `## 直接让 Agent 帮你使用` with a text prompt naming this repository, exact project directory and INSTALL.md.
+3. INSTALL.md has `## 给人：` and `## 给 Agent：` sections: browser Release link, checksum, install/start/verify, plus copyable Agent prompt and execution constraints. Root INSTALL.md follows the same rule.
+4. Register purpose and installation links in root README/INSTALL and a pinned Release in releases.json. Each published artifact has exact name, bytes, SHA-256 and a downloadable SHA256SUMS.txt.
+5. Preserve original licenses/notices and pinned upstream commits. Original work uses MIT, Copyright (c) 2026 zhongyudi. The upstream download locks do not claim to include all third-party source locally.
+6. Source-only Git: no delivery/, generated packages/, target/, node_modules/, virtualenvs or installers/archives. Binary source assets such as images, fonts and model data remain where required; prebuilt executables are downloaded from fixed sources for development.
 
-## Extra requirements by type
+## Build, verification and publishing
 
-- Self-written source code: automated tests and a CI job in .github/workflows/checks.yml. Host-driven extensions that cannot be exercised outside their host (for example pi-task-notify) are exempt; they must document their host-driven verification path in INSTALL/AGENTS instead.
-- Upstream snapshot: pinned upstream commit, assets.json + restore.py + profile/ + THIRD_PARTY.md; restore only into new directories.
-- Skill/extension packages: versioned packages/ with checksums and a documented installer path.
+- Follow each project's AGENTS.md; no unrelated application refactors. Preserve existing uncommitted user work.
+- `python scripts/agent_entry_policy.py`, `python -m unittest discover -s scripts/tests -v`, `python scripts/check_repository.py` are root checks. Published downloads: `python scripts/verify_published.py --ref <immutable commit>`.
+- `python scripts/package_projects.py --output <outside-checkout-path>` builds typed runtime/installer packages, not another copy of the development tree. Web builds and a verified Daozai installer are explicit inputs. Details: docs/AGENT_DELIVERY_STANDARD.md.
+- Update releases.json after final artifacts exist; do not change packaged inputs afterwards. Review the diff and validate artifacts before publishing. Bundled README/INSTALL byte-match source at that ref.
+- Publish at a new `<project>-v<version>-rN` tag; upload only the typed program/installer/skill/extension files and SHA256SUMS.txt. Keep old releases and tags immutable. Verify remote downloads before advancing main; see detailed sequence in docs.
+- CI covers source policy, package/restore boundaries and changed projects. A passing test is not native host, real account or physical device acceptance.
 
-## Change and publish rules
+## Local data and cleanup
 
-- Any file change inside a project requires rebuilding its delivery trio; names, links and hashes must stay consistent everywhere. Root documents must match reality (project counts, table rows, links).
-- Bundled README.md and INSTALL.md must byte-match the published source at the same ref. Text packaged on Windows must be checked out with LF (see the `-text` patterns in .gitattributes); after pushing, verify with `python scripts/verify_published.py --ref <commit>`.
-- Publishing a meaningful version of a project also means creating its GitHub Release: tag `<project>-v<version>` at the released commit, attach the delivery trio as assets, and mirror the README entry in the notes. Release asset names must match the delivery filenames exactly (raw and asset URLs are case-sensitive).
-- Do not describe local-only files or guessed URLs as published downloads. Publish only after checking staged changes and tests. Do not claim native client discovery, real account success or device acceptance based on a unit test.
-- For repository maintenance run `python scripts/check_repository.py` plus the changed project's checks. Avoid modifying daily running instances or real accounts during automated checks.
-
-## Cleanup and boundaries
-
-- After acceptance, remove disposable intermediates (temporary downloads, failed builds, debug logs, caches); keep source, tests, licenses, user data, evidence and intentional delivery packages. Verify cleanup stays inside the workspace and review git status afterwards.
-- Private materials, credentials and real personal data stay out of the repository.
+- .local-archives/ is a private, ignored preservation area for pre-migration user work. Never package, upload or use it as the canonical current source.
+- Do not operate daily running instances or credentials during automated tests. Preserve installed apps, configurations, user data and needed rollback programs.
+- Keep intermediate builds under the task's Codex temp directory. Remove recreatable caches and duplicate outputs after acceptance; keep final installers, checksums and necessary verification evidence outside Git. Verify absolute deletion/move bounds on Windows; never follow reparse points.

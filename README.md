@@ -1,104 +1,90 @@
 # zyd-vibe-lab
 
-zhongyudi 的个人项目仓库：各项目独立下载、安装、运行和维护；原工具箱已拆为四个独立目录。
-
-> 原 github-toolbox 已拆为四个独立项目；全部 10 个项目都有自己的 Agent 入口、独立下载包和 SHA-256。
+zhongyudi 的 10 个独立项目。仓库保存源码、测试、配置模板、锁文件与许可证；用户安装或运行的成品放各项目 GitHub Release。旧提交和旧 Release 保留。
 
 ## 直接让 Agent 帮你使用
 
-把下面任意一句发给具备联网、文件读写和运行能力的 Agent。它应先读本仓库 [INSTALL.md](INSTALL.md)，按项目名选择入口，再完成下载、核验与启动。系统权限、学校材料和账号登录仍需本人处理。
+先选项目，再把下面对应提示词交给有联网、文件和运行能力的 Agent。完整入口见 [INSTALL.md](INSTALL.md)。
 
-**毕业论文工作流（Codex / Claude Code / WorkBuddy）：**
-
-```text
-安装并使用 https://github.com/strive822/zyd-vibe-lab 里的 graduation-thesis-workflow。请先读取仓库 INSTALL.md，完整安装技能并检查环境，然后开始了解我的论文要求。
-```
-
-**三资产定投计算器：**
+**岛仔 Daozai**
 
 ```text
-下载并运行 https://github.com/strive822/zyd-vibe-lab 里的 dca-calculator。请先读取仓库 INSTALL.md，自动准备隔离环境与依赖，启动前后端并验证页面；不要覆盖已有项目。
+安装并使用 https://github.com/strive822/zyd-vibe-lab 里的 daozai。先读取该项目 INSTALL.md，从固定 Release 下载对应成品并校验，按项目类型安装或启动；保留已有数据与配置。日常使用不克隆开发仓库、不重新构建前端；只下载时不安装或启动。
 ```
 
-**LibreTV：**
+**三资产定投计算器**
 
 ```text
-下载并运行 https://github.com/strive822/zyd-vibe-lab 里的 libretv。请先读取该项目 INSTALL.md，取得完整独立目录，核对校验值，在新目录恢复固定版本、个人启动入口与预置源，准备项目内运行时和依赖，启动并验证页面；不要覆盖现有服务。
+安装并使用 https://github.com/strive822/zyd-vibe-lab 里的 dca-calculator。先读取该项目 INSTALL.md，从固定 Release 下载对应成品并校验，按项目类型安装或启动；保留已有数据与配置。日常使用不克隆开发仓库、不重新构建前端；只下载时不安装或启动。
 ```
 
-**yt-dlp：**
+**飞鼠格式**
 
 ```text
-下载并准备使用 https://github.com/strive822/zyd-vibe-lab 里的 yt-dlp。请先读取该项目 INSTALL.md，取得完整独立目录并核验，在新目录准备 yt-dlp、FFmpeg、Deno 和下载入口，验证版本；不要全局安装，不自动下载视频。
+安装并使用 https://github.com/strive822/zyd-vibe-lab 里的 flyingmouse-format。先读取该项目 INSTALL.md，从固定 Release 下载对应成品并校验，按项目类型安装或启动；保留已有数据与配置。日常使用不克隆开发仓库、不重新构建前端；只下载时不安装或启动。
 ```
 
-**Windows-MCP：**
+**毕业论文工作流**
 
 ```text
-下载并准备使用 https://github.com/strive822/zyd-vibe-lab 里的 windows-mcp。请先读取该项目 INSTALL.md，在新目录恢复固定源码与入口，使用项目内环境安装必要依赖并验证；保留已有配置，注册 MCP 接入前先说明具体改动。
+安装并使用 https://github.com/strive822/zyd-vibe-lab 里的 graduation-thesis-workflow。先读取该项目 INSTALL.md，从固定 Release 下载对应成品并校验，按项目类型安装或启动；保留已有数据与配置。日常使用不克隆开发仓库、不重新构建前端；只下载时不安装或启动。
 ```
 
-**rea：**
+**LibreTV**
 
 ```text
-下载 https://github.com/strive822/zyd-vibe-lab 里的 rea。请先读取该项目 INSTALL.md，取得完整独立目录，下载并核验固定的 rea-agents 包，保留许可和使用说明；不全局安装、不自动运行 setup 或安装分析引擎。
+安装并使用 https://github.com/strive822/zyd-vibe-lab 里的 libretv。先读取该项目 INSTALL.md，从固定 Release 下载对应成品并校验，按项目类型安装或启动；保留已有数据与配置。日常使用不克隆开发仓库、不重新构建前端；只下载时不安装或启动。
 ```
 
-**今日待办（电脑与手机局域网共用清单）：**
+**Pi 任务通知**
 
 ```text
-下载并运行 https://github.com/strive822/zyd-vibe-lab 里的 today-todo。请先读取该项目 INSTALL.md，把文件放进新目录并核验，再用 Node.js 启动本地服务、打开 http://localhost:3000 验证页面；不要覆盖已有的数据文件。
+安装并使用 https://github.com/strive822/zyd-vibe-lab 里的 pi-task-notify。先读取该项目 INSTALL.md，从固定 Release 下载对应成品并校验，按项目类型安装或启动；保留已有数据与配置。日常使用不克隆开发仓库、不重新构建前端；只下载时不安装或启动。
 ```
 
-**Pi 任务通知（任务完成/出错/等确认/心跳系统通知）：**
+**REA**
 
 ```text
-下载并安装 https://github.com/strive822/zyd-vibe-lab 里的 pi-task-notify。请先读取该项目 INSTALL.md，按说明从 GitHub Release 下载 pi-task-notify.zip 并校验 SHA256，解压后用 pi -e 试用、确认后再 pi install <路径> 持久安装，重启 Pi 后运行 /notify-test 验证 4 条样例通知，并向我报告每一步的真实结果；不要改动我已有的 Pi 配置。
+安装并使用 https://github.com/strive822/zyd-vibe-lab 里的 rea。先读取该项目 INSTALL.md，从固定 Release 下载对应成品并校验，按项目类型安装或启动；保留已有数据与配置。日常使用不克隆开发仓库、不重新构建前端；只下载时不安装或启动。
 ```
 
-**飞鼠格式（离线格式转换器）：**
+**今日待办**
 
 ```text
-下载并使用 https://github.com/strive822/zyd-vibe-lab 里的 flyingmouse-format。请先读取该项目 INSTALL.md，取得完整独立目录并核对 SHA-256；只要软件本体就改用上游官方安装包核验安装，要让 Agent 驱动转换就按上游 agent-skill 说明接入 CLI；保留许可证与署名，不用于商业用途。
+安装并使用 https://github.com/strive822/zyd-vibe-lab 里的 today-todo。先读取该项目 INSTALL.md，从固定 Release 下载对应成品并校验，按项目类型安装或启动；保留已有数据与配置。日常使用不克隆开发仓库、不重新构建前端；只下载时不安装或启动。
 ```
 
-**岛仔（Windows 顶部信息岛个人版）：**
+**Windows-MCP**
 
 ```text
-下载并使用 https://github.com/strive822/zyd-vibe-lab 里的 daozai。请先读取该项目 INSTALL.md，下载完整独立包并核验 SHA-256；根据我的要求准备源码或安装 Windows 个人版，保留已有账号、设置和文件，安装替换前先备份并确认。不要连接或上传我的真实账号数据。
+安装并使用 https://github.com/strive822/zyd-vibe-lab 里的 windows-mcp。先读取该项目 INSTALL.md，从固定 Release 下载对应成品并校验，按项目类型安装或启动；保留已有数据与配置。日常使用不克隆开发仓库、不重新构建前端；只下载时不安装或启动。
 ```
 
-简短说“安装这个仓库里的论文工作流”也可使用论文入口。未指定项目时，Agent 应先确认项目。
+**yt-dlp**
+
+```text
+安装并使用 https://github.com/strive822/zyd-vibe-lab 里的 yt-dlp。先读取该项目 INSTALL.md，从固定 Release 下载对应成品并校验，按项目类型安装或启动；保留已有数据与配置。日常使用不克隆开发仓库、不重新构建前端；只下载时不安装或启动。
+```
 
 ## 项目与下载
 
-| 项目 | 用途 | Agent 入口 | 下载方式 |
+| 项目 | 交付形式 | 人与 Agent 共用入口 | 成品 |
 | --- | --- | --- | --- |
-| [岛仔 Daozai](daozai/README.md) | Windows 顶部信息岛个人版：音乐、专注、暂存、日程与八家 AI 额度，含 GLM Z 标修正 | [安装与验证](daozai/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/daozai/delivery/daozai.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/daozai/delivery/SHA256SUMS.txt) |
-| [graduation-thesis-workflow](graduation-thesis-workflow/README.md) | 本科论文需求访谈、真实文献与证据、写作审查；包含 Humanizer | [安装技能](graduation-thesis-workflow/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/graduation-thesis-workflow/delivery/graduation-thesis-workflow.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/graduation-thesis-workflow/delivery/SHA256SUMS.txt) |
-| [dca-calculator](dca-calculator/README.md) | 三资产 SMA800 定投权重与金额计算，FastAPI + Next.js | [下载与启动](dca-calculator/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/dca-calculator/delivery/dca-calculator.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/dca-calculator/delivery/SHA256SUMS.txt) |
-| [LibreTV](libretv/README.md) | 独立的个人使用配置与固定下载版本 | [Agent 入口](libretv/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/libretv/delivery/libretv.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/libretv/delivery/SHA256SUMS.txt) |
-| [yt-dlp](yt-dlp/README.md) | 独立的个人使用配置与固定下载版本 | [Agent 入口](yt-dlp/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/yt-dlp/delivery/yt-dlp.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/yt-dlp/delivery/SHA256SUMS.txt) |
-| [Windows-MCP](windows-mcp/README.md) | 独立的个人使用配置与固定下载版本 | [Agent 入口](windows-mcp/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/windows-mcp/delivery/windows-mcp.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/windows-mcp/delivery/SHA256SUMS.txt) |
-| [rea](rea/README.md) | 独立的个人使用配置与固定下载版本 | [Agent 入口](rea/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/rea/delivery/rea.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/rea/delivery/SHA256SUMS.txt) |
-| [pi-task-notify](pi-task-notify/README.md) | Pi 编码代理任务通知：完成/出错/等确认/心跳，三档模式 /notify 可切，Windows 实测 | [安装与验证](pi-task-notify/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/pi-task-notify/delivery/pi-task-notify.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/pi-task-notify/delivery/SHA256SUMS.txt) |
-| [today-todo](today-todo/README.md) | 电脑与手机局域网共用的今日清单，零依赖 Node 服务 + 原生前端 | [下载与启动](today-todo/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/today-todo/delivery/today-todo.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/today-todo/delivery/SHA256SUMS.txt) |
-| [flyingmouse-format](flyingmouse-format/README.md) | 飞鼠格式离线文件转换器 0.7.10 源码快照：图片/Office/PDF/音视频互转 + OCR，含上游 Agent CLI 技能 | [下载与使用](flyingmouse-format/INSTALL.md) | [独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/flyingmouse-format/delivery/flyingmouse-format.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/flyingmouse-format/delivery/SHA256SUMS.txt) |
+| [岛仔 Daozai](daozai/README.md) | Windows 安装器 | [安装与验证](daozai/INSTALL.md) | [Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/daozai-v0.6.50-r2) |
+| [三资产定投计算器](dca-calculator/README.md) | 网页启动包（前端已构建） | [安装与验证](dca-calculator/INSTALL.md) | [Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/dca-calculator-v1.0.0-r1) |
+| [飞鼠格式](flyingmouse-format/README.md) | 官方安装器联网安装入口 | [安装与验证](flyingmouse-format/INSTALL.md) | [Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/flyingmouse-format-v0.7.10-r1) |
+| [毕业论文工作流](graduation-thesis-workflow/README.md) | Codex / Claude Code / Pi / WorkBuddy 技能包 | [安装与验证](graduation-thesis-workflow/INSTALL.md) | [Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/graduation-thesis-workflow-v0.4.0-r1) |
+| [LibreTV](libretv/README.md) | 网页生产运行包 | [安装与验证](libretv/INSTALL.md) | [Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/libretv-v2.21.1-r1) |
+| [Pi 任务通知](pi-task-notify/README.md) | Pi 宿主扩展包 | [安装与验证](pi-task-notify/INSTALL.md) | [Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/pi-task-notify-v0.2.0-r1) |
+| [REA](rea/README.md) | 固定版本 CLI 联网准备包 | [安装与验证](rea/INSTALL.md) | [Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/rea-v6.8.0-r1) |
+| [今日待办](today-todo/README.md) | 零依赖 Node 网页启动包 | [安装与验证](today-todo/INSTALL.md) | [Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/today-todo-v1.0.0-r1) |
+| [Windows-MCP](windows-mcp/README.md) | MCP 服务联网准备包 | [安装与验证](windows-mcp/INSTALL.md) | [Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/windows-mcp-v0.8.8-r1) |
+| [yt-dlp](yt-dlp/README.md) | CLI 工具链联网准备包 | [安装与验证](yt-dlp/INSTALL.md) | [Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/yt-dlp-v2026.10.26-r1) |
 
-论文工作流不保证毕业或检测分数；计算器只计算，不执行交易。
+## 开发与维护
 
-## 维护
+开发才需要取得源码。机器可读的固定版本、附件大小和 SHA-256 见 [releases.json](releases.json)。有仓库副本的 Agent 可运行 `python scripts/get_release.py --project <项目名> --destination <仓库外的新下载目录>`；输出 JSON，下载并核验，不安装或启动。
 
-从仓库根目录运行 `python scripts/check_repository.py`，检查受 Git 管理的文件、文档链接、Python 语法、下载包校验和及源码一致性。各项目的测试命令见对应 README；持续检查配置在 [.github/workflows/checks.yml](.github/workflows/checks.yml)。
+`python scripts/agent_entry_policy.py`、`python -m unittest discover -s scripts/tests -v`、`python scripts/check_repository.py` 是根检查。打包命令与发布顺序见 [交付规范](docs/AGENT_DELIVERY_STANDARD.md)。构建缓存和下载的程序不进 Git。
 
-本轮检查范围、版本更新与下载验收见 [仓库同步验收报告](docs/REPOSITORY_SYNC_2026-11-01.md)。早期检查记录见 [Repository Cleanup Report](docs/REPOSITORY_CLEANUP_REPORT.md)。
-
-## 许可证
-
-[计算器](dca-calculator/LICENSE)、[今日待办](today-todo/LICENSE)与 [Pi 任务通知](pi-task-notify/LICENSE)使用 MIT（版权人 zhongyudi）；[论文工作流](graduation-thesis-workflow/LICENSE)的原创内容为 MIT，其中的 Humanizer 保留上游许可；其余项目保留上游许可证，见各目录 LICENSE / THIRD_PARTY / NOTICE。
-
-
-## 新增项目交付规范
-
-新增或更新项目的准入清单以根 [AGENTS.md](AGENTS.md) 为唯一权威；
-README/INSTALL 模板与操作细节见 [Agent 交付规范](docs/AGENT_DELIVERY_STANDARD.md)。
+计算器只做计算，不执行交易。论文工作流不保证毕业或检测分数。第三方内容保持原许可证与署名，具体来源见各项目 THIRD_PARTY / LICENSE。

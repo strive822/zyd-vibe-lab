@@ -29,6 +29,8 @@ def main() -> None:
     parser.add_argument("--source", required=True, type=Path)
     args = parser.parse_args()
     local = args.source.resolve()
+    if (ROOT / 'libretv' / 'source').exists():
+        raise ValueError('Source export target already exists; no output changed')
     profiles = ROOT
     libretv = profiles / "libretv" / "profile"
     libretv.mkdir(parents=True, exist_ok=True)
@@ -41,19 +43,19 @@ def main() -> None:
             values = json.loads(value.strip().strip("'"))
     (libretv / "defaults.json").write_text(json.dumps(values, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     source = local / "LibreTV" / "source"
-    packages = ROOT / "libretv" / "packages"
-    packages.mkdir(exist_ok=True)
-    snapshot = packages / "libretv-source.zip"
+    snapshot = ROOT / 'libretv' / 'source'
+    if snapshot.exists():
+        raise ValueError('Source export target already exists; existing work is preserved')
+    snapshot.mkdir(parents=True)
     inventory = {}
-    with zipfile.ZipFile(snapshot, "w", compression=zipfile.ZIP_DEFLATED) as bundle:
-        for path in source_files(source):
-            name = path.relative_to(source).as_posix()
-            content = path.read_bytes()
-            info = zipfile.ZipInfo(name, date_time=(2026, 10, 22, 0, 0, 0))
-            info.compress_type = zipfile.ZIP_DEFLATED
-            bundle.writestr(info, content)
-            inventory[name] = hashlib.sha256(content).hexdigest()
-    (packages / "libretv-files.json").write_text(json.dumps(inventory, indent=2) + "\n", encoding="utf-8")
+    for path in source_files(source):
+        name = path.relative_to(source).as_posix()
+        content = path.read_bytes()
+        target = snapshot / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(content)
+        inventory[name] = hashlib.sha256(content).hexdigest()
+    (ROOT / 'libretv' / 'source-files.json').write_text(json.dumps(inventory, indent=2) + '\n', encoding='utf-8')
     repo_dirs = {"LibreTV": "libretv", "rea": "rea", "Windows-MCP": "windows-mcp"}
     for tool, filename in (("LibreTV", "LICENSE"), ("rea", "LICENSE"), ("Windows-MCP", "LICENSE.md")):
         origin = local / tool / ("source" if tool != "Windows-MCP" else "") / filename

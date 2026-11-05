@@ -34,8 +34,8 @@ def workbuddy_skill(source: bytes) -> bytes:
 
 def build(output):
     output = Path(output).resolve()
-    if output.is_relative_to(SOURCE):
-        raise ValueError('Build output cannot be inside the skill source.')
+    if output.is_relative_to(ROOT):
+        raise ValueError('Build output must be outside the project source checkout.')
     output.mkdir(parents=True, exist_ok=True)
     records = []
     for platform in ('codex', 'claude-code', 'pi', 'workbuddy'):
@@ -56,7 +56,7 @@ def build(output):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--out', default=str(ROOT / 'dist'))
+    parser.add_argument('--out', default=str(Path.home() / '.codex/.tmp/graduation-thesis-release'))
     args = parser.parse_args()
     for record in build(args.out):
         print(record['file'], record['sha256'])

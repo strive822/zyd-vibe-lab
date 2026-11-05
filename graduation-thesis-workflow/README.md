@@ -7,16 +7,16 @@
 只想保存文件时，把“安装/运行”改成“只下载，不安装、不启动”。
 
 ```text
-安装并使用 https://github.com/strive822/zyd-vibe-lab 里的 graduation-thesis-workflow。请先读取该项目 INSTALL.md，完整安装技能并检查隔离环境，然后了解我的论文要求；保留已有技能和材料。
+安装并使用 https://github.com/strive822/zyd-vibe-lab 里的 graduation-thesis-workflow。先读取该项目 INSTALL.md，从固定 Release 下载对应成品并校验，按项目类型安装或启动；保留已有数据与配置。日常使用不克隆开发仓库、不重新构建前端；只下载时不安装或启动。
 ```
-
-本地独立交付包：`delivery/graduation-thesis-workflow.zip`，校验文件：`delivery/SHA256SUMS.txt`。
-直接下载：[独立项目 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/graduation-thesis-workflow/delivery/graduation-thesis-workflow.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/graduation-thesis-workflow/delivery/SHA256SUMS.txt) · [逐文件清单](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/graduation-thesis-workflow/delivery/FILES.json)。
-Agent 可下载独立 ZIP，或取得完整仓库后只使用本项目目录。
 
 面向各专业本科论文的可移植 Agent Skill。通过 grilling 式访谈确认学校要求和必要条件，再自动推进文献、研究、写作、审查与交付。目标是满足毕业论文要求，不承诺毕业、录用或检测分数。
 
 **不编造文献、数据、实验、引文、审批或导师反馈。材料不足时完成能做的部分并列出缺口，补齐后续做。** 规则和脚本降低出错风险，不能数学保证模型永不犯错，也不能代替作者、导师对学术内容负责。
+
+## 成品下载
+
+[固定 Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/graduation-thesis-workflow-v0.4.0-r1)：Codex / Claude Code / Pi / WorkBuddy 技能包，附 SHA256SUMS.txt。完整步骤见 [INSTALL.md](INSTALL.md)。仓库内保留源码，不保存构建包或依赖缓存。
 
 ## 零基础使用：只对助手说一句话
 
@@ -64,10 +64,10 @@ Agent 可下载独立 ZIP，或取得完整仓库后只使用本项目目录。
 
 | 工具 | 安装包 |
 | --- | --- |
-| WorkBuddy | [下载 WorkBuddy ZIP](https://github.com/strive822/zyd-vibe-lab/raw/refs/heads/main/graduation-thesis-workflow/packages/graduation-thesis-workbuddy.zip) |
-| Codex | [下载 Codex ZIP](https://github.com/strive822/zyd-vibe-lab/raw/refs/heads/main/graduation-thesis-workflow/packages/graduation-thesis-codex.zip) |
-| Claude Code | [下载 Claude Code ZIP](https://github.com/strive822/zyd-vibe-lab/raw/refs/heads/main/graduation-thesis-workflow/packages/graduation-thesis-claude-code.zip) |
-| Pi | [下载 Pi ZIP](https://github.com/strive822/zyd-vibe-lab/raw/refs/heads/main/graduation-thesis-workflow/packages/graduation-thesis-pi.zip) |
+| WorkBuddy | [下载 WorkBuddy ZIP](https://github.com/strive822/zyd-vibe-lab/releases/download/graduation-thesis-workflow-v0.4.0-r1/graduation-thesis-workbuddy.zip) |
+| Codex | [下载 Codex ZIP](https://github.com/strive822/zyd-vibe-lab/releases/download/graduation-thesis-workflow-v0.4.0-r1/graduation-thesis-codex.zip) |
+| Claude Code | [下载 Claude Code ZIP](https://github.com/strive822/zyd-vibe-lab/releases/download/graduation-thesis-workflow-v0.4.0-r1/graduation-thesis-claude-code.zip) |
+| Pi | [下载 Pi ZIP](https://github.com/strive822/zyd-vibe-lab/releases/download/graduation-thesis-workflow-v0.4.0-r1/graduation-thesis-pi.zip) |
 
 以下内容面向希望了解实现或维护仓库的人，普通使用者无需操作。
 
@@ -86,7 +86,7 @@ Agent 可下载独立 ZIP，或取得完整仓库后只使用本项目目录。
 ```text
 skills/graduation-thesis/  唯一技能源，包含 SKILL.md、阶段模块、脚本
 scripts/package.py        生成四种自包含 ZIP
-packages/                 可直接下载的四端 ZIP 和 SHA256 清单
+scripts/package.py        从源码生成四端 ZIP，成品仅放 Release
 tests/                    隔离的合成测试，不是论文数据
 docs/                     安装、验证和发布说明
 README.md                 产品范围和使用入口
@@ -104,11 +104,10 @@ SOP.md                    维护和发布流程
 
 ```text
 python -m unittest discover -s tests -v
-python scripts/package.py --out packages
-python scripts/build_delivery.py
+python scripts/package.py --out <仓库外的任务目录>
 ```
 
-可下载的 ZIP 位于 `packages/`，附 SHA256 清单；维护时使用上面的命令同步重建。发布到 GitHub 的步骤见 [发布指南](docs/RELEASE.md)。当前验证范围见 [验证记录](docs/VALIDATION.md)，不能把打包成功等同于四端真实论文端到端验证。
+可下载的四端 ZIP 位于本项目 Release，附 SHA256 清单；维护时将构建输出指向仓库外的任务目录。发布到 GitHub 的步骤见 [发布指南](docs/RELEASE.md)。当前验证范围见 [验证记录](docs/VALIDATION.md)，不能把打包成功等同于四端真实论文端到端验证。
 
 ## 来源与许可
 

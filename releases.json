@@ -1,0 +1,191 @@
+{
+  "schema": 1,
+  "repository": "strive822/zyd-vibe-lab",
+  "projects": {
+    "daozai": {
+      "version": "0.6.50",
+      "tag": "daozai-v0.6.50-r2",
+      "kind": "windows-installer",
+      "assets": [
+        {
+          "name": "Daozai-Setup-v0.6.50-x64.exe",
+          "bytes": 5649539,
+          "sha256": "2ff8dbe6f9e26cc703cf87cfe7b2d7f27b6ce3fa3d0c351a439f5be6d4d6cc3b"
+        },
+        {
+          "name": "SHA256SUMS.txt",
+          "bytes": 95,
+          "sha256": "87356a0d68f157a7f3b6fdd8f2d64f0326a599faf0cc96864f659482dd2ef085"
+        }
+      ]
+    },
+    "dca-calculator": {
+      "version": "1.0.0",
+      "tag": "dca-calculator-v1.0.0-r1",
+      "kind": "web-launcher",
+      "assets": [
+        {
+          "name": "dca-calculator-windows.zip",
+          "bytes": 278231,
+          "sha256": "9494a135125cf6eb800e49b4f32ac1eb4d223a6af71875e552b4b16ce4d0e1c6"
+        },
+        {
+          "name": "SHA256SUMS.txt",
+          "bytes": 93,
+          "sha256": "56712f57ae7bb2375558881e988d7019c4737dfaf598fc34b86d873fd77e92e0"
+        }
+      ]
+    },
+    "flyingmouse-format": {
+      "version": "0.7.10",
+      "tag": "flyingmouse-format-v0.7.10-r1",
+      "kind": "official-installer-bootstrap",
+      "assets": [
+        {
+          "name": "flyingmouse-format-windows.zip",
+          "bytes": 6841,
+          "sha256": "6c426c347c0e4ace8ba3a5830d4218d2d8223f03870d832d89c3e8a49f870c90"
+        },
+        {
+          "name": "SHA256SUMS.txt",
+          "bytes": 97,
+          "sha256": "baa22398d8b48382cd9d35ef7af9bd2ba20289d2d3a2bc93a56d9928df5f97ea"
+        }
+      ]
+    },
+    "graduation-thesis-workflow": {
+      "version": "0.4.0",
+      "tag": "graduation-thesis-workflow-v0.4.0-r1",
+      "kind": "skill",
+      "assets": [
+        {
+          "name": "graduation-thesis-codex.zip",
+          "bytes": 46607,
+          "sha256": "64ee71924e2efcb9cd61e36b121533d4bbde1862af9cb6f729473bca3709eaed"
+        },
+        {
+          "name": "graduation-thesis-claude-code.zip",
+          "bytes": 46607,
+          "sha256": "64ee71924e2efcb9cd61e36b121533d4bbde1862af9cb6f729473bca3709eaed"
+        },
+        {
+          "name": "graduation-thesis-pi.zip",
+          "bytes": 46607,
+          "sha256": "64ee71924e2efcb9cd61e36b121533d4bbde1862af9cb6f729473bca3709eaed"
+        },
+        {
+          "name": "graduation-thesis-workbuddy.zip",
+          "bytes": 46683,
+          "sha256": "c4f310e690e91b4d56547657658be5520d7e85367c857538ba7424664fcf07bd"
+        },
+        {
+          "name": "SHA256SUMS.txt",
+          "bytes": 383,
+          "sha256": "019142bb48560cc7621d118ada786a2f118c2e4d229a816d2528681de97ffcbb"
+        }
+      ]
+    },
+    "libretv": {
+      "version": "2.21.1",
+      "tag": "libretv-v2.21.1-r1",
+      "kind": "web-launcher",
+      "assets": [
+        {
+          "name": "libretv-windows.zip",
+          "bytes": 18872648,
+          "sha256": "1c6191fa04268d97bd852ae1f3c827f685effc67c68373916aa0d644c94ed01c"
+        },
+        {
+          "name": "SHA256SUMS.txt",
+          "bytes": 86,
+          "sha256": "c6829fff2ec00e101ce86d95819880022a5183d6086345c5746a36b17457c23d"
+        }
+      ]
+    },
+    "pi-task-notify": {
+      "version": "0.2.0",
+      "tag": "pi-task-notify-v0.2.0-r1",
+      "kind": "host-extension",
+      "assets": [
+        {
+          "name": "pi-task-notify-windows.zip",
+          "bytes": 11433,
+          "sha256": "8bc02adf66218b0b4f7b95e00b5ef833bd36c29a02b910e943ac0ded11128f4c"
+        },
+        {
+          "name": "SHA256SUMS.txt",
+          "bytes": 93,
+          "sha256": "893103ef9ce48eea5c0e15229aebd6d4f3ef5264d21ce1937f1a34ef022995fa"
+        }
+      ]
+    },
+    "rea": {
+      "version": "6.8.0",
+      "tag": "rea-v6.8.0-r1",
+      "kind": "network-cli-installer",
+      "assets": [
+        {
+          "name": "rea-windows.zip",
+          "bytes": 7411,
+          "sha256": "51c70c1259600686df9fe1232893e62f83baa716b0ccee0ef1bb70c01bf89ddf"
+        },
+        {
+          "name": "SHA256SUMS.txt",
+          "bytes": 82,
+          "sha256": "530c749ceebddf7bb08db2f4e087b527549afcf21e3e74868e2f82b13b82fe47"
+        }
+      ]
+    },
+    "today-todo": {
+      "version": "1.0.0",
+      "tag": "today-todo-v1.0.0-r1",
+      "kind": "web-launcher",
+      "assets": [
+        {
+          "name": "today-todo-windows.zip",
+          "bytes": 27194,
+          "sha256": "9f710039008ba156997548b2bca52824e0e3e9412c7da2c5d88a2cc7bc2dd6ce"
+        },
+        {
+          "name": "SHA256SUMS.txt",
+          "bytes": 89,
+          "sha256": "9c86fb5e91de76ea85fd5cada410ca0ed271b34857d27a2bbf92c2afd4a42a61"
+        }
+      ]
+    },
+    "windows-mcp": {
+      "version": "0.8.8",
+      "tag": "windows-mcp-v0.8.8-r1",
+      "kind": "network-mcp-installer",
+      "assets": [
+        {
+          "name": "windows-mcp-windows.zip",
+          "bytes": 8208,
+          "sha256": "7dd1c323c3c955fd513f901c182bcb6e12245b7437e46f11aaddf7cf315c2701"
+        },
+        {
+          "name": "SHA256SUMS.txt",
+          "bytes": 90,
+          "sha256": "79b00cfcaad80df2010eaedca9ef3aede81ca0405b1dea32f1180e61b3360325"
+        }
+      ]
+    },
+    "yt-dlp": {
+      "version": "2026.10.26",
+      "tag": "yt-dlp-v2026.10.26-r1",
+      "kind": "network-cli-installer",
+      "assets": [
+        {
+          "name": "yt-dlp-windows.zip",
+          "bytes": 7082,
+          "sha256": "bbe21971f19fa7556a8ee3c6a18047b32b7550687d7b5169c97a284b27952650"
+        },
+        {
+          "name": "SHA256SUMS.txt",
+          "bytes": 85,
+          "sha256": "07355ee6048461992a36a80e26f994c34b8076f0456045db4346941a8ad6d84c"
+        }
+      ]
+    }
+  }
+}

@@ -9,6 +9,6 @@ INSTALL.md (Release ZIP or source checkout, `pi -e` trial or
 notifications appeared on screen without the user confirming it.
 
 Boundaries: do not modify the user's Pi configuration beyond the documented
-install; never include real account data in notifications; after any file
-change rebuild `delivery/` with the root `scripts/package_projects.py`
-(see root AGENTS.md).
+install; never include real account data in notifications. Build host-loadable
+extension packages outside the checkout using root scripts/package_projects.py;
+upload programs and checksums to Release, not delivery archives to Git.

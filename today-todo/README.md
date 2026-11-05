@@ -7,18 +7,20 @@
 只想保存文件时，把“启动”改成“只下载，不启动”。
 
 ```text
-下载并运行 https://github.com/strive822/zyd-vibe-lab 里的 today-todo。请先读取该项目 INSTALL.md，把文件放进新目录并核验，再用 Node.js 启动本地服务、打开 http://localhost:3000 验证页面；不要覆盖已有的数据文件。
+安装并使用 https://github.com/strive822/zyd-vibe-lab 里的 today-todo。先读取该项目 INSTALL.md，从固定 Release 下载对应成品并校验，按项目类型安装或启动；保留已有数据与配置。日常使用不克隆开发仓库、不重新构建前端；只下载时不安装或启动。
 ```
 
-本地交付包：`delivery/today-todo.zip`，校验文件：`delivery/SHA256SUMS.txt`，逐文件清单：`delivery/FILES.json`。
-直接下载：[独立 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/today-todo/delivery/today-todo.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/today-todo/delivery/SHA256SUMS.txt) · [逐文件清单](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/today-todo/delivery/FILES.json)。
-Agent 可下载独立 ZIP，或克隆整个仓库后只使用 `today-todo/` 目录。
+成品从下方 Release 下载；开发者才需要克隆仓库取得源码。
 
 > 一台电脑跑服务，手机连同一个 WiFi 打开同一份清单。零依赖、零构建，双击即用。
 
 | 电脑端（FAB 停在板面底部） | 手机端（FAB 悬浮右下角） | 添加面板（同一容器形变） |
 | --- | --- | --- |
 | ![电脑端](docs/screenshots/desktop.png) | ![手机端](docs/screenshots/mobile.png) | ![添加面板](docs/screenshots/composer-open.png) |
+
+## 成品下载
+
+[固定 Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/today-todo-v1.0.0-r1)：零依赖 Node 网页启动包，附 SHA256SUMS.txt。完整步骤见 [INSTALL.md](INSTALL.md)。仓库内保留源码，不保存构建包或依赖缓存。
 
 ## 是什么
 

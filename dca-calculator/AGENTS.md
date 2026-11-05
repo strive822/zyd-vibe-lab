@@ -10,5 +10,6 @@ Frontend checks (inside `frontend/`): `npm ci`, `npm run typecheck`, `npm test`,
 CI runs both; run them before delivery.
 
 Boundaries: never commit real user data, credentials or `.env` files; keep the
-frontend static export flow intact; after any file change rebuild `delivery/`
-with the root `scripts/package_projects.py` (see root AGENTS.md).
+frontend static export flow intact. Runtime Releases contain the prebuilt export,
+backend code and requirements-runtime.txt pins; build outside the checkout using
+root scripts/package_projects.py (see root AGENTS.md). No delivery archives in Git.

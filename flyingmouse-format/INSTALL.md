@@ -1,74 +1,27 @@
-# 给 Agent：flyingmouse-format（飞鼠格式）下载、核验与使用
+# 飞鼠格式：安装与验证
 
-本目录是上游 [LaoFeng-mouse/flyingmouse-format](https://github.com/LaoFeng-mouse/flyingmouse-format) v0.7.10 的完整源码快照（固定 commit `a7b9b15d32db80cecedae00e89289088656fb1ae`），原样保留上游 `LICENSE`、`THIRD_PARTY_NOTICES.md`、`README.md`（仅在顶部前置 Agent 入口段落）与上游自带的 `agent-skill/`。上游为非商用许可：个人免费使用与传播，禁止商业售卖与套壳。
+## 给人：自己动手的步骤
 
-## 获取完整文件
+1. 打开 [固定 Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/flyingmouse-format-v0.7.10-r1)，下载 `flyingmouse-format-windows.zip` 和 `SHA256SUMS.txt`。
+2. 在下载目录执行 `Get-FileHash -Algorithm SHA256 .\flyingmouse-format-windows.zip`，与校验文件逐项比对；不匹配则停止。
+3. 安装器直接运行；ZIP 检查没有绝对路径、越界或链接后解压到新目录，再按下面步骤使用。无需克隆开发仓库。
 
-单独传递时，取本目录 `delivery/flyingmouse-format.zip` 与配套校验文件，实际核对 SHA-256，检查归档路径后解压到新目录。包内包含完整 `flyingmouse-format/` 目录，不依赖仓库内其他项目。
+Windows 10/11 x64。解压联网安装入口，双击 install.cmd；它下载未改动的官方 FlyingMouse-Format-Setup-0.7.10-x64.exe，核验 SHA-256 `56c022bc5ec1904300c8ffe77f892d0bea09fe157fbbf402589a64decab2587b` 后打开原安装向导。也可从上游官方 Release 直接下载同名安装器。
 
-官方仓库内的完整独立包与校验文件：
+上游地址：https://github.com/LaoFeng-mouse/flyingmouse-format/releases/tag/v0.7.10 。完整离线应用约3.76 GiB，主要是 Office、OCR、音视频等必需引擎；这是程序运行内容，不能当开发缓存删除。已有安装时先检查版本与路径，不重复下载整套引擎。
 
-```text
-https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/flyingmouse-format/delivery/flyingmouse-format.zip
-https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/flyingmouse-format/delivery/SHA256SUMS.txt
-https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/flyingmouse-format/delivery/FILES.json
-```
+启动 FlyingMouse Format.exe，做一张合成图片转 PNG 或一个小 TXT 转 PDF 验证，不改用户原始文件。上游为非商用许可，保留牢蜂/LaoFeng署名、LICENSE与第三方说明，不套壳改名。Agent 驱动转换按 agent-skill/flyingmouse-format/SKILL.md，在应用内完成连接后使用 CLI，不声称仅复制技能就已连接。
 
-先核验 ZIP 的 SHA-256（与 `SHA256SUMS.txt` 首行比对），再检查归档条目没有绝对路径、`..`、链接或重名冲突，解压到新目录并与 `FILES.json` 比对逐文件哈希。校验失败即停止，不换未知来源。
-
-PowerShell 核验示例：
-
-```powershell
-$expected = (Get-Content .\SHA256SUMS.txt).Split(' ')[0]
-$actual = (Get-FileHash .\flyingmouse-format.zip -Algorithm SHA256).Hash.ToLower()
-if ($expected -ne $actual) { throw 'SHA-256 mismatch' }
-Expand-Archive .\flyingmouse-format.zip -DestinationPath D:\MyTools\
-```
-
-## 只想要软件本体：官方安装包（推荐）
-
-用户只想在 Windows 上转换文件时，直接用上游官方 release 安装包，不经过本仓库二次打包：
+## 给 Agent：交给 AI 执行
 
 ```text
-https://github.com/LaoFeng-mouse/flyingmouse-format/releases/download/v0.7.10/FlyingMouse-Format-Setup-0.7.10-x64.exe
-SHA-256: 56c022bc5ec1904300c8ffe77f892d0bea09fe157fbbf402589a64decab2587b
+安装并使用 https://github.com/strive822/zyd-vibe-lab 里的 flyingmouse-format。先读取该项目 INSTALL.md，从固定 Release 下载对应成品并校验，按项目类型安装或启动；保留已有数据与配置。日常使用不克隆开发仓库、不重新构建前端；只下载时不安装或启动。
 ```
 
-系统要求 Windows 10/11 x64。下载后核对 SHA-256，再安装：
+本文全部小节是 Agent 执行时的完整约束。先检查已有安装、数据与端口；复用已验收现用程序或按本次授权升级，保留账号和用户文件。用户仅要求下载时，不安装、不启动；用户要求安装或启动时，按已给授权完成。不要安装无关项目。首次联网准备与实际启动/宿主接入分别报告。
 
-- 图形安装：双击运行安装包。
-- Agent 静默安装（NSIS）：
+固定附件及其大小/哈希登记在仓库根 releases.json；有源码仓库副本时可用 `python scripts/get_release.py --project flyingmouse-format --destination <仓库外的新目录>` 下载并得到 JSON 核验结果。下载器不执行程序。
 
-```powershell
-Start-Process -FilePath 'D:\Downloads\FlyingMouse-Format-Setup-0.7.10-x64.exe' -ArgumentList '/S', '/D=C:\Users\me\Desktop\飞鼠格式转换' -Wait
-```
+## 源码开发
 
-`/D=` 指定安装目录，必须是最后一个参数、等号后不换行；省略 `/D=` 时默认装到用户目录。安装完成后主程序为安装目录下的 `FlyingMouse Format.exe`（由启动器拉起 `FlyingMouse Format Runtime.exe` 窗口进程）。
-
-## 验证
-
-1. 启动 `FlyingMouse Format.exe`，窗口（标题含 FlyingMouse Format）出现即启动成功；窗口进程是 `FlyingMouse Format Runtime.exe`。首次启动可能比后续慢（杀软扫描与缓存预热），属正常现象。
-2. 转换自测：拖入一张图片转 PNG，或用一个小 TXT 转 PDF，在保存目录确认产物存在且能打开。
-
-## 让 Agent 驱动转换（可选）
-
-上游自带 `agent-skill/flyingmouse-format/`（含 `SKILL.md`）。按该目录说明把技能装进 Agent 后，可走应用 CLI 检查与转换：
-
-```powershell
-node scripts/flyingmouse-format.js targets <file> --json
-node scripts/flyingmouse-format.js convert <files...> --to <format> --output-dir <dir> --json
-node scripts/flyingmouse-format.js merge-pdfs <pdfs...> --output <result.pdf> --json
-```
-
-CLI 依赖已安装的应用在应用内“Connect to Agent”完成连接；未连接时先做 GUI 安装与验证。
-
-## 源码路径（阅读与二次开发）
-
-- 运行时要求：Node.js ≥ 18。`npm ci` 安装依赖，`npm test` 跑上游测试套件。
-- 转换引擎（FFmpeg / LibreOffice / Poppler / Tesseract 等）由上游构建流程按锁定清单下载打包，源码目录不包含引擎二进制；阅读与修改源码不需要引擎，直接运行转换需要官方安装包或自行准备引擎。
-
-## 权限边界
-
-- 非商用许可：个人免费使用、传播时必须保留 `LICENSE` 与原作者（牢蜂 / LaoFeng）署名；禁止销售、倒卖、套壳改名后冒充自有产品。
-- 安装只写入用户指定的安装目录；不改动系统 PATH、不写注册表外的系统位置；转换在本地离线完成，文件不上传云端。
-- 核验失败即停止并报告，不下载或替换为未知来源的文件；不自动删除用户的原始文件与转换产物。
+开发源码位于本仓库 `flyingmouse-format/`，第三方来源与许可见本目录 LICENSE / THIRD_PARTY（存在时）。阅读 AGENTS.md 后再测试或构建；常规使用只取 Release。编译缓存、依赖环境和构建输出放任务临时目录，最终程序不提交 Git。

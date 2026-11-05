@@ -95,10 +95,25 @@ def install(tool: str, destination: Path, assets: dict, cache: Path):
 
     def asset(name: str) -> Path:
         return download(assets[name], cache)
-    snapshot = ROOT / 'packages' / 'libretv-source.zip'
-    if not checked_file(snapshot, assets['libretv-source']):
-        raise ValueError('Local source snapshot checksum mismatch')
-    extract_zip(snapshot, destination / 'source')
+    source_root = (ROOT / 'source').resolve()
+    inventory = json.loads((ROOT / 'source-files.json').read_text(encoding='utf-8'))
+    planned = []
+    for name, digest in inventory.items():
+        relative = PurePosixPath(name)
+        if relative.is_absolute() or '..' in relative.parts or '\\' in name or ':' in name:
+            raise ValueError('Invalid source inventory path')
+        source = source_root
+        for part in relative.parts:
+            source = source / part
+            if source.is_symlink() or getattr(source.lstat(), 'st_file_attributes', 0) & 0x400:
+                raise ValueError('Linked source inventory entry')
+        if sha256(source) != digest:
+            raise ValueError('Local source checksum mismatch: ' + name)
+        planned.append((name, source))
+    for name, source in planned:
+        target = destination / 'source' / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source, target)
     shutil.copytree(ROOT / 'profile', destination, dirs_exist_ok=True)
     extract_zip(asset('node'), destination / 'runtime', strip_root=True)
     defaults = json.loads((destination / 'defaults.json').read_text(encoding='utf-8'))

@@ -1,5 +1,7 @@
 # AGENTS.md
 
+本仓库分发入口遵守父级源码/Release分离规范。AVS3预编译EXE不再跟踪；开发构建副本需要时运行 `scripts/fetch-runtime-asset.py --destination <构建副本>/bin/avs3/avs3RM0Decoder.exe` 获取并核验固定上游文件，保留原第三方声明。程序用户使用官方安装器；本文其余产品约束保持适用。
+
 现役版本、渠道状态与产物来源统一查 [0.7.10 修复与发布记录](docs/REPAIR-0.7.10.md)，用户变化见[发布说明](docs/release-notes-0710.md)。GitHub 发布、本地 MSIX、商店认证和客户端安装必须分别验证；不要用后续测试或文档提交改写已验收二进制的构建来源。CAD 工作仍暂停，本地音乐专用模块不在公开分支。
 
 Windows 构建使用 package.json 配置和锁定引擎，需准备 MSVC。完整重建 EXE/ASAR 后由 afterSign 附加原生入口。不得关闭 GPU 或渲染器沙箱、全局重置 ACL 或按 Unknown Account 名称批量删除权限。

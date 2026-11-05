@@ -4,8 +4,7 @@
 先阅读本项目 [INSTALL.md](INSTALL.md)，再下载、核验与按需使用。
 
 ```text
-下载并使用 https://github.com/strive822/zyd-vibe-lab 里的 flyingmouse-format。
-请先读取该项目 INSTALL.md，下载完整文件并核验，按说明准备项目内环境并验证结果；保留已有文件。
+安装并使用 https://github.com/strive822/zyd-vibe-lab 里的 flyingmouse-format。先读取该项目 INSTALL.md，从固定 Release 下载对应成品并校验，按项目类型安装或启动；保留已有数据与配置。日常使用不克隆开发仓库、不重新构建前端；只下载时不安装或启动。
 ```
 
 ---
@@ -28,6 +27,10 @@
 [下载 Windows 0.7.10 / Download](https://github.com/LaoFeng-mouse/flyingmouse-format/releases/download/v0.7.10/FlyingMouse-Format-Setup-0.7.10-x64.exe) · [版本详情 / Release](https://github.com/LaoFeng-mouse/flyingmouse-format/releases/tag/v0.7.10) · [问题反馈 / Issues](https://github.com/LaoFeng-mouse/flyingmouse-format/issues)
 
 ![FlyingMouse Format mouse UI](public/assets/screenshots/home.png)
+
+## 成品下载
+
+[固定 Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/flyingmouse-format-v0.7.10-r1)：官方安装器联网安装入口，附 SHA256SUMS.txt。完整步骤见 [INSTALL.md](INSTALL.md)。仓库内保留源码，不保存构建包或依赖缓存。
 
 ## 中文
 

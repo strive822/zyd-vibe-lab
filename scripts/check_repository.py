@@ -77,24 +77,22 @@ def check_packages(errors: list[str]) -> None:
     from package_projects import PROJECTS, verify
     for name in PROJECTS:
         verify(ROOT / name)
-    thesis = ROOT / "graduation-thesis-workflow"
-    sys.path.insert(0, str(thesis / "scripts"))
-    try:
-        from package import workbuddy_skill
-    finally:
-        sys.path.pop(0)
-    for record in json.loads((thesis / "packages/checksums.json").read_text()):
-        path = thesis / "packages" / record["file"]
-        if digest(path.read_bytes()) != record["sha256"]:
-            errors.append(f"{path.name}: archive SHA-256 mismatch")
-        with zipfile.ZipFile(path) as archive:
-            for name in archive.namelist():
-                source = thesis / "skills" / name if name != "graduation-thesis/LICENSE" else thesis / "LICENSE"
-                expected_bytes = source.read_bytes()
-                if name == "graduation-thesis/SKILL.md" and "workbuddy" in path.name:
-                    expected_bytes = workbuddy_skill(expected_bytes)
-                if archive.read(name) != expected_bytes:
-                    errors.append(f"{path.name}: bundle/source mismatch {name}")
+    catalog = json.loads((ROOT / 'releases.json').read_text(encoding='utf-8'))
+    if set(catalog['projects']) != set(PROJECTS):
+        errors.append('releases.json: project coverage mismatch')
+    for name, release in catalog['projects'].items():
+        if not release['tag'].startswith(name + '-v') or not release['assets']:
+            errors.append(f'{name}: missing pinned Release assets')
+        names = set()
+        for asset in release['assets']:
+            filename = asset['name']
+            if Path(filename).name != filename or ':' in filename or '\\' in filename or filename.casefold() in names:
+                errors.append(f'{name}: unsafe or duplicate asset name')
+            names.add(filename.casefold())
+            if not re.fullmatch('[0-9a-f]{64}', asset['sha256']) or asset['bytes'] <= 0:
+                errors.append(f'{name}: invalid asset checksum/size')
+        if 'sha256sums.txt' not in names:
+            errors.append(f'{name}: missing downloadable checksums')
 
 
 def check_file(path: Path, known: set[Path], errors: list[str]) -> list[str]:
@@ -187,7 +185,7 @@ def main() -> int:
         lines += [f"| `{name}` | {', '.join(checks)} |" for name, checks in rows]
         args.inventory.parent.mkdir(parents=True, exist_ok=True)
         args.inventory.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
-    print(f"PASS: {len(files)} Git-visible files; local links, syntax, secret patterns and delivery packages.")
+    print(f"PASS: {len(files)} Git-visible files; local links, syntax, secret patterns and source/Release separation.")
     print("Projects:", dict(Counter(p.relative_to(ROOT).parts[0] for p in files)))
     return 0
 

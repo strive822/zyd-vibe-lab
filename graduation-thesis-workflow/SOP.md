@@ -13,7 +13,7 @@
 
 ## 0.3.0 发布顺序
 
-修改单一技能源 → `python -m unittest discover -s tests -v` → `python scripts/package.py --out packages` → 核对三端 ZIP、许可、校验和与本地链接 → 同步并只提交本项目文件。论文交付先实质审查再 review-snapshot，最后 audit；不能通过重写快照掩盖未检查的修改。
+修改单一技能源 → `python -m unittest discover -s tests -v` → `python scripts/package.py --out <仓库外的任务目录>` → 核对四端 ZIP、许可、校验和与本地链接 → 提交源码，成品和校验发布到 Release。论文交付先实质审查再 review-snapshot，最后 audit；不能通过重写快照掩盖未检查的修改。
 
 ## 2026-10-24 · Humanizer 上游更新
 

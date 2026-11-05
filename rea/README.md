@@ -7,12 +7,8 @@
 只想保存文件时，把“安装/运行”改成“只下载，不安装、不启动”。
 
 ```text
-下载 https://github.com/strive822/zyd-vibe-lab 里的 rea。请先读取该项目 INSTALL.md，取得完整独立目录，下载并核验固定的 rea-agents 包，保留许可和使用说明；不全局安装、不自动运行 setup 或安装分析引擎。
+安装并使用 https://github.com/strive822/zyd-vibe-lab 里的 rea。先读取该项目 INSTALL.md，从固定 Release 下载对应成品并校验，按项目类型安装或启动；保留已有数据与配置。日常使用不克隆开发仓库、不重新构建前端；只下载时不安装或启动。
 ```
-
-本地独立交付包：`delivery/rea.zip`，校验文件：`delivery/SHA256SUMS.txt`。
-直接下载：[独立项目 ZIP](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/rea/delivery/rea.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/rea/delivery/SHA256SUMS.txt) · [逐文件清单](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/rea/delivery/FILES.json)。
-Agent 可下载独立 ZIP，或取得完整仓库后只使用本项目目录。
 
 独立项目目录，保留原来的固定版本、个人使用配置和下载校验。无须获取其他项目。
 
@@ -21,7 +17,6 @@ Agent 可下载独立 ZIP，或取得完整仓库后只使用本项目目录。
 - `profile/`：启动入口、使用说明和许可副本；这是恢复材料，不能当成已安装程序。
 - `assets.json`：仅包含本项目所需的固定下载来源、大小与 SHA-256。
 - `restore.py`：只恢复本项目，目标必须是新目录。
-- `delivery/`：本项目独立交付 ZIP、SHA-256 与逐文件清单，由根目录脚本生成。
 
 # 我的 REA 使用入口
 
@@ -39,3 +34,7 @@ npx.cmd rea-agents@6.8.0 setup
 原下载包也可作为 `npm install` 的本地来源，但不强制全局安装。保留包内原许可、THIRD_PARTY_NOTICES 和 licenses。源码参考提交为 `933af60eba43c29f1fb1c606fddcd725ae0d9d96`，不是 npm 包构建结果的替代证明。
 
 仅分析有权处理的目标；区分观察、推断和未知项；保留证据出处。不要自动安装/升级无关 Node、Java、Ghidra 或其他引擎，不宣称具备未实测的原生反编译能力。
+
+## 成品下载
+
+[固定 Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/rea-v6.8.0-r1)：固定版本 CLI 联网准备包，附 SHA256SUMS.txt。完整步骤见 [INSTALL.md](INSTALL.md)。仓库内保留源码，不保存构建包或依赖缓存。

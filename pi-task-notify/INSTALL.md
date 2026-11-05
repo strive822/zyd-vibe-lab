@@ -7,10 +7,14 @@
 - 已安装 [Pi 编码代理](https://pi.dev)（`pi` 命令可用，1.4.0 及以上）
 - 操作系统：Windows 10/11（完整体验）、macOS（完整体验，未实机验证）、Linux（基础体验，未实机验证）
 
+## 给人：自己动手的步骤
+
+下面两种方式都是人工步骤，不依赖 AI；装好重启 Pi 后用 `/notify-test` 自验。想交给 AI 代办时看文末「给 Agent」一节。
+
 ## 方式一：从 GitHub Release 下载（推荐）
 
-1. 打开 <https://github.com/strive822/zyd-vibe-lab/releases/tag/pi-task-notify-v0.2.0>，下载 `pi-task-notify.zip` 与 `SHA256SUMS.txt`
-2. 校验：`certutil -hashfile pi-task-notify.zip SHA256`（Windows）或 `shasum -a 256 pi-task-notify.zip`（macOS/Linux），与 `SHA256SUMS.txt` 中的值比对
+1. 打开 <https://github.com/strive822/zyd-vibe-lab/releases/tag/pi-task-notify-v0.2.0-r1>，下载 `pi-task-notify-windows.zip` 与 `SHA256SUMS.txt`
+2. 校验：`certutil -hashfile pi-task-notify-windows.zip SHA256`（Windows）或 `shasum -a 256 pi-task-notify-windows.zip`（macOS/Linux），与 `SHA256SUMS.txt` 中的值比对
 3. 解压得到 `pi-task-notify/` 目录
 
 ## 方式二：克隆仓库取源码
@@ -66,6 +70,14 @@ pi install ./pi-task-notify
 ## 完整性校验（源码方式）
 
 从仓库下载时，可用 Git 自身的对象校验（`git clone` 完整性由 Git 保证）；从 Release 下载的 ZIP 按"方式一"第 2 步做 SHA256 比对。
+
+## 给 Agent：交给 AI 执行
+
+把下面这段话复制给 Agent；本文全部小节（下载方式、试用与持久安装、验证安装、配置、完整性校验、权限边界、卸载、常见问题）是 Agent 执行时的完整约束：
+
+```text
+下载并安装 https://github.com/strive822/zyd-vibe-lab 里的 pi-task-notify。请先读取该项目 INSTALL.md，按说明从 GitHub Release 下载 pi-task-notify-windows.zip 并校验 SHA256，解压后用 pi -e 试用、确认后再 pi install <路径> 持久安装，重启 Pi 后运行 /notify-test 验证 4 条样例通知，并向我报告每一步的真实结果；不要改动我已有的 Pi 配置。
+```
 
 ## 权限边界
 

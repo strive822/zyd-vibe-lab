@@ -5,14 +5,12 @@ Windows 10/11 x64 顶部信息岛，基于 [Renly1994/xiaotang-daozai](https://g
 ## 直接让 Agent 帮你使用
 
 ```text
-下载并使用 https://github.com/strive822/zyd-vibe-lab 里的 daozai。请先读取该项目 INSTALL.md，下载完整独立包并核验 SHA-256；根据我的要求准备源码或安装 Windows 个人版，保留已有账号、设置和文件，安装替换前先备份并确认。不要连接或上传我的真实账号数据。
+安装并使用 https://github.com/strive822/zyd-vibe-lab 里的 daozai。先读取该项目 INSTALL.md，从固定 Release 下载对应成品并校验，按项目类型安装或启动；保留已有数据与配置。日常使用不克隆开发仓库、不重新构建前端；只下载时不安装或启动。
 ```
 
 ## 下载与使用
 
-- [固定版本 Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/daozai-v0.6.50-r1)：`daozai.zip`、`SHA256SUMS.txt` 和 `FILES.json` 是完整源码与成品独立包；Windows 安装器、便携包与 `SHA256SUMS-windows.txt` 也作为附件提供。r1 修正源码恢复脚本的 Windows 路径别名判断，应用本体仍为 0.6.50。
-- [当前独立包](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/daozai/delivery/daozai.zip) · [SHA-256](https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/daozai/delivery/SHA256SUMS.txt)
-- 完整步骤见 [INSTALL.md](INSTALL.md)，源码与许可见 [THIRD_PARTY.md](THIRD_PARTY.md)。
+[固定 Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/daozai-v0.6.50-r2) 仅提供 Z 标个人版安装器与 SHA256SUMS.txt。使用步骤见 [INSTALL.md](INSTALL.md)；源码、许可与开发记录保存在仓库。
 
 包含音乐/歌词、专注、饮水、待办、日历、邮件、暂存站及八种 AI 额度来源。此次修正版支持整岛拖动与位置保存、顶栏饮水百分比/未完成待办数/日期或星期，并使用 GLM 开放平台的斜线 Z 标识。图标排序在设置内进行；文件穿透沿用先拖文件再按 `·` 的行为。
 

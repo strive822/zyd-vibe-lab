@@ -1,64 +1,25 @@
-# 给 Agent：下载并运行计算器
+# 三资产定投计算器：安装与验证
 
-本地独立交付包为 `delivery/dca-calculator.zip`，配套 `SHA256SUMS.txt` 和 `FILES.json`。
-实际核验后完整解压到新目录，再遵循以下安装说明。下载链接见本项目 README。
+## 给人：自己动手的步骤
 
-用户提示词：
+1. 打开 [固定 Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/dca-calculator-v1.0.0-r1)，下载 `dca-calculator-windows.zip` 和 `SHA256SUMS.txt`。
+2. 在下载目录执行 `Get-FileHash -Algorithm SHA256 .\dca-calculator-windows.zip`，与校验文件逐项比对；不匹配则停止。
+3. 安装器直接运行；ZIP 检查没有绝对路径、越界或链接后解压到新目录，再按下面步骤使用。无需克隆开发仓库。
+
+Windows，需 Python 3.11+ 和首次安装依赖的网络；成品已包含静态前端，不需要 Node。解压到新目录，双击 start.cmd。首次在本目录创建 backend/.venv 并安装 requirements-runtime.txt，随后打开 http://127.0.0.1:8000 。终端 Ctrl+C 停止。
+
+验证 `/api/health` 返回 `{"status":"ok"}` 且首页可访问。行情不可达时应显示明确错误，不伪造权重；此工具不执行交易。端口冲突时识别已有服务，不结束未知进程。删除程序目录前停服务，无账号数据需要迁移。
+
+## 给 Agent：交给 AI 执行
 
 ```text
-下载并运行 https://github.com/strive822/zyd-vibe-lab 里的 dca-calculator。请读取这个项目的 INSTALL.md，自动准备环境、启动前后端并验证页面，保留已有文件。
+安装并使用 https://github.com/strive822/zyd-vibe-lab 里的 dca-calculator。先读取该项目 INSTALL.md，从固定 Release 下载对应成品并校验，按项目类型安装或启动；保留已有数据与配置。日常使用不克隆开发仓库、不重新构建前端；只下载时不安装或启动。
 ```
 
-## 获取与环境
+本文全部小节是 Agent 执行时的完整约束。先检查已有安装、数据与端口；复用已验收现用程序或按本次授权升级，保留账号和用户文件。用户仅要求下载时，不安装、不启动；用户要求安装或启动时，按已给授权完成。不要安装无关项目。首次联网准备与实际启动/宿主接入分别报告。
 
-克隆仓库，或安全解压 `https://github.com/strive822/zyd-vibe-lab/archive/refs/heads/main.zip`，完整保留其中 `dca-calculator/`。下载前先读 [README.md](README.md)，实际检查 Python 3.11+、Node.js 22.6+ 和 npm。Windows 是原始交付环境；Linux / macOS 可以运行 Python 与 Next.js 源码，Windows bat 和 exe 不能跨系统执行。
+固定附件及其大小/哈希登记在仓库根 releases.json；有源码仓库副本时可用 `python scripts/get_release.py --project dca-calculator --destination <仓库外的新目录>` 下载并得到 JSON 核验结果。下载器不执行程序。
 
-没有 Python 或 Node 时，Agent 使用宿主允许的官方安装方式准备；缺少安装权限则说明具体限制。不要把依赖装入系统 Python，也不要覆盖已有项目或占用的服务端口。
+## 源码开发
 
-## 启动（Windows PowerShell，当前目录为项目根目录）
-
-```powershell
-python -m venv backend/.venv
-backend/.venv/Scripts/python.exe -m pip install -r backend/requirements.txt
-```
-
-在两个长期运行的终端或宿主进程工具中分别执行，先检查端口 8000 / 3000 是否可用：
-
-```powershell
-# 后端终端，在项目根目录执行
-backend/.venv/Scripts/python.exe -m uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8000
-```
-
-```powershell
-# 前端终端
-Set-Location frontend
-npm ci
-npm run dev -- --hostname 127.0.0.1
-```
-
-Windows 也可使用 `scripts/start_backend.bat`、`scripts/start_frontend.bat`。如果端口被占用，先识别是否已有本项目服务；复用正确的已有服务，或报告冲突，不杀掉未知进程。
-
-## 启动（WSL / Linux / macOS，当前目录为项目根目录）
-
-```bash
-python3 -m venv backend/.venv
-backend/.venv/bin/python -m pip install -r backend/requirements.txt
-backend/.venv/bin/python -m uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8000
-```
-
-另开一个终端：
-
-```bash
-cd frontend
-npm ci
-npm run dev -- --hostname 127.0.0.1
-```
-
-## 验证与使用
-
-1. 请求 `http://127.0.0.1:8000/api/health`，预期 `{"status":"ok"}`。
-2. 打开 `http://127.0.0.1:3000`，确认页面加载并显示两个模型或明确的数据源错误。
-3. 请求一次 `/api/calculation`。真实行情成功时才核验三资产和两个模型权重和为 1；免费数据源不可达时报告 502 和具体原因，不代填行情。
-4. 输入 1000 元，确认每个模型三项金额合计 1000.00；修改金额不应再请求行情。仅接受正数及最多两位小数。
-
-此项目没有账号或 API Key，读取公开行情，不执行交易。安装无需重新打包 exe；可选打包先按 README 完成静态导出。测试需要 `backend/requirements-dev.txt`，前端检查使用 `npm run typecheck`、`npm test`、`npm run build`。
+开发源码位于本仓库 `dca-calculator/`，第三方来源与许可见本目录 LICENSE / THIRD_PARTY（存在时）。阅读 AGENTS.md 后再测试或构建；常规使用只取 Release。编译缓存、依赖环境和构建输出放任务临时目录，最终程序不提交 Git。

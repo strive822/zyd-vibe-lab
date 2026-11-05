@@ -1,83 +1,81 @@
-"""Download every independent bundle at one Git ref and verify its public files.
-
-Uses memory and disposable downloads only; never installs or starts a project.
-Run: python scripts/verify_published.py --ref <published commit SHA>
-"""
+"""Verify pinned, publicly downloadable Release programs at a published source ref."""
 from __future__ import annotations
-
 import argparse
 from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import io
 import json
+from pathlib import PurePosixPath
 import stat
 import time
 from urllib.error import HTTPError, URLError
+from urllib.parse import quote
 from urllib.request import Request, urlopen
-from pathlib import PurePosixPath
 import zipfile
-
-from package_projects import PROJECTS
-
 
 def get(url: str) -> bytes:
     for attempt in range(3):
-        # A request made while a push is still arriving can cache a 404 at the
-        # edge. Retry the same official file with a fresh cache key, twice only.
-        candidate = url if attempt == 0 else f"{url}?verification={time.time_ns()}"
+        candidate = url if attempt == 0 else url + ('&' if '?' in url else '?') + f'verification={time.time_ns()}'
         try:
-            with urlopen(Request(candidate, headers={"User-Agent": "zyd-vibe-lab-verification/1"}), timeout=120) as response:
+            with urlopen(Request(candidate, headers={'User-Agent':'zyd-release-verification/2'}), timeout=120) as response:
                 return response.read()
-        except HTTPError as error:
-            if attempt == 2 or error.code not in {404, 429, 500, 502, 503, 504}:
-                raise
         except (URLError, TimeoutError):
             if attempt == 2:
                 raise
-        time.sleep(attempt + 1)
-    raise RuntimeError("Download did not complete")
+            time.sleep(attempt + 1)
+    raise RuntimeError('Download did not complete')
 
+def verify(name: str, release: dict, repository: str, ref: str) -> str:
+    base = f'https://github.com/{repository}/releases/download/' + quote(release['tag'], safe='')
+    downloaded = {}
+    for asset in release['assets']:
+        data = get(base + '/' + quote(asset['name'], safe=''))
+        if len(data) != asset['bytes'] or hashlib.sha256(data).hexdigest() != asset['sha256']:
+            raise ValueError(f"{name}: Release size/hash mismatch: {asset['name']}")
+        downloaded[asset['name']] = data
+    checksums = {}
+    for line in downloaded['SHA256SUMS.txt'].decode('utf-8-sig').splitlines():
+        digest, filename = line.split()
+        if filename in checksums:
+            raise ValueError(f'{name}: duplicate checksum row')
+        checksums[filename] = digest
+    programs = set(downloaded) - {'SHA256SUMS.txt'}
+    if set(checksums) != programs:
+        raise ValueError(f'{name}: incomplete checksum coverage')
+    for filename in programs:
+        data = downloaded[filename]
+        if hashlib.sha256(data).hexdigest() != checksums[filename]:
+            raise ValueError(f'{name}: checksums file mismatch')
+        if filename.endswith('.zip'):
+            with zipfile.ZipFile(io.BytesIO(data)) as archive:
+                seen = set()
+                for info in archive.infolist():
+                    path = PurePosixPath(info.orig_filename)
+                    if (path.is_absolute() or '..' in path.parts or '\\' in info.orig_filename or ':' in info.orig_filename
+                            or stat.S_ISLNK(info.external_attr >> 16) or info.filename.casefold() in seen):
+                        raise ValueError(f'{name}: unsafe or duplicate Release path')
+                    seen.add(info.filename.casefold())
+                if archive.testzip() is not None:
+                    raise ValueError(f'{name}: ZIP CRC failure')
+                for document in ('README.md', 'INSTALL.md'):
+                    entry = name + '/' + document
+                    if entry in archive.namelist():
+                        raw = f'https://raw.githubusercontent.com/{repository}/{ref}/{name}/{document}'
+                        if archive.read(entry) != get(raw):
+                            raise ValueError(f'{name}: bundled {document} differs from released source')
+        elif filename.endswith('.exe') and not data.startswith(b'MZ'):
+            raise ValueError(f'{name}: installer is not PE')
+    return f'PASS {name}: {len(programs)} program/installer package(s); all public sizes, hashes and ZIP paths verified'
 
-def verify(project: str, ref: str) -> str:
-    base = f"https://raw.githubusercontent.com/strive822/zyd-vibe-lab/{ref}/{project}"
-    checksum = get(base + "/delivery/SHA256SUMS.txt").decode("utf-8-sig").split()
-    expected, filename = checksum
-    if filename != project + ".zip":
-        raise ValueError(f"{project}: unexpected download filename")
-    data = get(base + "/delivery/" + filename)
-    if hashlib.sha256(data).hexdigest() != expected:
-        raise ValueError(f"{project}: published ZIP hash mismatch")
-    manifest = json.loads(get(base + "/delivery/FILES.json"))
-    with zipfile.ZipFile(io.BytesIO(data)) as archive:
-        names = [entry.filename for entry in archive.infolist()]
-        if len(names) != len(set(name.casefold() for name in names)):
-            raise ValueError(f"{project}: duplicate archive entry")
-        if set(names) != {f"{project}/{name}" for name in manifest}:
-            raise ValueError(f"{project}: published manifest coverage mismatch")
-        for entry in archive.infolist():
-            path = PurePosixPath(entry.orig_filename)
-            if (path.is_absolute() or ".." in path.parts or "\\" in entry.orig_filename
-                    or ":" in entry.orig_filename or stat.S_ISLNK(entry.external_attr >> 16)):
-                raise ValueError(f"{project}: unsafe archive path")
-        for name, digest in manifest.items():
-            if hashlib.sha256(archive.read(f"{project}/{name}")).hexdigest() != digest:
-                raise ValueError(f"{project}: published file hash mismatch: {name}")
-        for name in ("README.md", "INSTALL.md"):
-            if archive.read(f"{project}/{name}") != get(base + "/" + name):
-                raise ValueError(f"{project}: bundled {name} differs from published source")
-        if archive.testzip() is not None:
-            raise ValueError(f"{project}: corrupt ZIP")
-    return f"PASS {project}: downloaded {len(data)} bytes; {len(manifest)} files verified"
-
-
-def main() -> None:
+def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--ref", default="main", help="Prefer an immutable published commit SHA")
+    parser.add_argument('--ref', default='main')
     args = parser.parse_args()
+    repository = 'strive822/zyd-vibe-lab'
+    catalog = json.loads(get(f'https://raw.githubusercontent.com/{repository}/{args.ref}/releases.json'))
     with ThreadPoolExecutor(max_workers=3) as pool:
-        for result in pool.map(lambda name: verify(name, args.ref), PROJECTS):
+        for result in pool.map(lambda item: verify(item[0], item[1], repository, args.ref), catalog['projects'].items()):
             print(result, flush=True)
 
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

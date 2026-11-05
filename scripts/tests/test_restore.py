@@ -46,20 +46,14 @@ class RestoreBoundaryTests(unittest.TestCase):
                 self.assertTrue(any(target.iterdir()))
 
     def test_source_snapshot_is_complete_and_excludes_local_state(self):
-        assets = json.loads((ROOT / "assets.json").read_text(encoding="utf-8"))
-        record = next(entry for entry in assets if entry["id"] == "libretv-source")
-        snapshot = ROOT / record["file"]
-        self.assertTrue(restore.checked_file(snapshot, record))
-        inventory = json.loads((ROOT / "packages/libretv-files.json").read_text(encoding="utf-8"))
-        with zipfile.ZipFile(snapshot) as bundle:
-            self.assertEqual(set(bundle.namelist()), set(inventory))
-            self.assertIn("LICENSE", inventory)
-            self.assertIn("package-lock.json", inventory)
-            self.assertIn(".env.example", inventory)
-            for name, digest in inventory.items():
-                self.assertEqual(hashlib.sha256(bundle.read(name)).hexdigest(), digest)
-                self.assertFalse(set(Path(name).parts) & {"node_modules", ".next", ".git"})
-                self.assertNotIn(".env.local", name)
+        inventory = json.loads((ROOT / 'source-files.json').read_text(encoding='utf-8'))
+        self.assertIn('LICENSE', inventory)
+        self.assertIn('package-lock.json', inventory)
+        self.assertIn('.env.example', inventory)
+        for name, digest in inventory.items():
+            self.assertEqual(hashlib.sha256((ROOT / 'source' / name).read_bytes()).hexdigest(), digest)
+            self.assertFalse(set(Path(name).parts) & {'node_modules', '.next', '.git'})
+            self.assertNotIn('.env.local', name)
 
     def test_unsafe_zip_is_rejected_before_writing_any_files(self):
         for name in ("../outside.txt", "/absolute.txt", "C:/drive.txt", "folder\\file.txt"):
@@ -165,9 +159,24 @@ class RestoreBoundaryTests(unittest.TestCase):
             with patch.object(exporter, "ROOT", output), patch.object(sys, "argv", ["export", "--source", str(origin)]):
                 exporter.main()
             self.assertIn("private-sentinel-value", (source / ".env.local").read_text())
-            with zipfile.ZipFile(output / "libretv/packages/libretv-source.zip") as bundle:
-                self.assertNotIn(".env.local", bundle.namelist())
-                self.assertFalse(any(b"private-sentinel-value" in bundle.read(name) for name in bundle.namelist()))
+            exported = output / 'libretv/source'
+            self.assertFalse((exported / '.env.local').exists())
+            self.assertFalse(any(b'private-sentinel-value' in path.read_bytes() for path in exported.rglob('*') if path.is_file()))
+
+    def test_existing_source_export_fails_before_modifying_profiles(self):
+        export_spec = importlib.util.spec_from_file_location('profile_export_existing', ROOT.parent / 'scripts/export_profile.py')
+        exporter = importlib.util.module_from_spec(export_spec)
+        export_spec.loader.exec_module(exporter)
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary)
+            (output / 'libretv/source').mkdir(parents=True)
+            profile = output / 'libretv/profile'
+            profile.mkdir()
+            existing = profile / 'launcher.mjs'
+            existing.write_text('existing user work')
+            with patch.object(exporter, 'ROOT', output), patch.object(sys, 'argv', ['export', '--source', str(output / 'missing')]), self.assertRaises(ValueError):
+                exporter.main()
+            self.assertEqual(existing.read_text(), 'existing user work')
 
 
 if __name__ == "__main__":

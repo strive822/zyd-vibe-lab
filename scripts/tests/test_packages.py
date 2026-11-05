@@ -29,23 +29,38 @@ class DeliveryCompletenessTests(unittest.TestCase):
                     ["README.md"],
                 )
 
-    def test_new_or_removed_source_requires_rebuild(self):
+    def test_runtime_bundle_excludes_developer_and_private_files(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            checkout = root / "checkout"
+            checkout.mkdir()
+            project = checkout / "today-todo"
+            project.mkdir()
+            source = project / "README.md"
+            source.write_text("original", encoding="utf-8")
+            (project / "server.js").write_text("runtime", encoding="utf-8")
+            (project / "private.txt").write_text("private", encoding="utf-8")
+            (project / "test").mkdir()
+            (project / "test" / "test.js").write_text("developer", encoding="utf-8")
+            with patch.object(packages, "ROOT", checkout):
+                output = root / "artifacts"
+                packages.build("today-todo", output)
+                import zipfile
+                with zipfile.ZipFile(output / "today-todo" / "today-todo-windows.zip") as bundle:
+                    self.assertIn("today-todo/server.js", bundle.namelist())
+                    self.assertNotIn("today-todo/private.txt", bundle.namelist())
+                    self.assertNotIn("today-todo/test/test.js", bundle.namelist())
+                with self.assertRaisesRegex(ValueError, "outside"):
+                    packages.build("today-todo", checkout / "dist")
+
+    def test_source_only_policy_rejects_a_committed_program(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             project = root / "example"
             project.mkdir()
-            source = project / "README.md"
-            source.write_text("original", encoding="utf-8")
-            with patch.object(packages, "ROOT", root):
-                packages.build("example")
-                added = project / "new.py"
-                added.write_text("print('new')", encoding="utf-8")
-                with self.assertRaisesRegex(ValueError, "current sources"):
-                    packages.verify(project)
-                added.unlink()
-                source.unlink()
-                with self.assertRaisesRegex(ValueError, "current sources"):
-                    packages.verify(project)
+            (project / "accidental.exe").write_bytes(b"MZfixture")
+            with patch.object(packages, "ROOT", root), self.assertRaisesRegex(ValueError, "artifact"):
+                packages.verify(project)
 
 
 if __name__ == "__main__":

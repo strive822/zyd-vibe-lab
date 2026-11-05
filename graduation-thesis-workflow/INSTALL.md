@@ -1,9 +1,32 @@
 # 给 AI 助手的安装入口
 
-本地独立交付包为 `delivery/graduation-thesis-workflow.zip`，配套 `SHA256SUMS.txt` 和 `FILES.json`。
-实际核验后完整解压到新目录，再遵循以下安装说明。下载链接见本项目 README。
+## 给人：自己动手的步骤
 
-用户说“安装 https://github.com/strive822/zyd-vibe-lab 里的论文工作流”时，请执行安装，不只复述教程。本仓库含多个项目，目标只限 `graduation-thesis-workflow`，不要安装其他项目。
+不经过任何 Agent，浏览器加文件管理器即可完成：
+
+1. 打开 <https://github.com/strive822/zyd-vibe-lab/releases/tag/graduation-thesis-workflow-v0.4.0-r1>，按客户端选择 `graduation-thesis-codex.zip` / `graduation-thesis-claude-code.zip` / `graduation-thesis-pi.zip` / `graduation-thesis-workbuddy.zip` 与 `SHA256SUMS.txt`（也可在仓库页 `Code` → `Download ZIP`）。
+2. 在下载目录打开命令提示符，核对哈希（应与 `SHA256SUMS.txt` 中所选 ZIP 文件名对应行一致）：
+
+   ```bat
+   certutil -hashfile graduation-thesis-codex.zip SHA256
+   ```
+
+   上例使用 Codex 包；其他客户端替换为实际下载的 ZIP 文件名，并比对校验文件中的同名行。
+
+3. 右键解压，进入 `graduation-thesis\`，把整个 `graduation-thesis` 文件夹复制到你所用客户端的技能目录：
+
+   | 客户端 | 技能目录 |
+   | --- | --- |
+   | Claude Code | `~/.claude/skills/` |
+   | Codex | `~/.agents/skills/` |
+   | Pi | `%USERPROFILE%\.pi\agent\skills\`（首次使用需把该目录注册进 `~/.pi/agent/settings.json` 的 `skills` 数组，详见 [docs/INSTALL.md](docs/INSTALL.md)） |
+   | WorkBuddy | 客户端实际使用的 skills 目录（本机为 `~/.workbuddy/skills/`） |
+
+4. 重启客户端，确认能看到 graduation-thesis 技能；后续 Python 环境等依赖由工作流自身引导（见包内 SKILL.md 与 references/00-setup.md）。
+
+## 给 Agent：交给 AI 执行
+
+用户说“安装 https://github.com/strive822/zyd-vibe-lab 里的论文工作流”时，请执行安装，不只复述教程。本仓库含多个项目，目标只限 `graduation-thesis-workflow`，不要安装其他项目。本文其余小节（获取文件、识别客户端、核验与进入工作流、面向用户只问论文问题）是 Agent 执行时的完整约束。
 
 ## 1. 获取文件，不要求用户安装 Git
 

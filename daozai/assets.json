@@ -5,18 +5,7 @@
     "commit": "b93dd84fc9bdb95978fef72ffb7068bdf47ac5a9"
   },
   "personalSourceCommit": "07022995c16ab65353c11d38b61e1120ce5c18ef",
-  "artifacts": [
-    {
-      "file": "packages/Daozai-Setup-v0.6.50-x64.exe",
-      "bytes": 5649539,
-      "sha256": "2ff8dbe6f9e26cc703cf87cfe7b2d7f27b6ce3fa3d0c351a439f5be6d4d6cc3b"
-    },
-    {
-      "file": "packages/Daozai-v0.6.50-windows-x64.zip",
-      "bytes": 7244127,
-      "sha256": "d6b735862f42ccf715ac9608bd01f653a8a9a55f195653f4fb8a6030ab19a076"
-    }
-  ],
+  "artifacts": [],
   "source_files": [
     ".cargo/config.toml",
     ".gitignore",
@@ -96,9 +85,6 @@
     "installer/uninstall.ps1",
     "installer/update.ps1",
     "LICENSE",
-    "packages/Daozai-Setup-v0.6.50-x64.exe",
-    "packages/Daozai-v0.6.50-windows-x64.zip",
-    "packages/SHA256SUMS.txt",
     "packaging_tests/test_restore.py",
     "profile/README.md",
     "README.md",
@@ -253,5 +239,12 @@
     "vendor/imap-proto/src/parser/rfc5464.rs",
     "vendor/imap-proto/src/types.rs"
   ],
-  "delivery_revision": "r1"
+  "delivery_revision": "r2",
+  "publishedArtifacts": [
+    {
+      "url": "https://github.com/strive822/zyd-vibe-lab/releases/download/daozai-v0.6.50-r2/Daozai-Setup-v0.6.50-x64.exe",
+      "bytes": 5649539,
+      "sha256": "2ff8dbe6f9e26cc703cf87cfe7b2d7f27b6ce3fa3d0c351a439f5be6d4d6cc3b"
+    }
+  ]
 }

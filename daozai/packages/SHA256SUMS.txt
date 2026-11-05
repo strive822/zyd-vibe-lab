@@ -1,2 +1,0 @@
-2ff8dbe6f9e26cc703cf87cfe7b2d7f27b6ce3fa3d0c351a439f5be6d4d6cc3b  Daozai-Setup-v0.6.50-x64.exe
-d6b735862f42ccf715ac9608bd01f653a8a9a55f195653f4fb8a6030ab19a076  Daozai-v0.6.50-windows-x64.zip

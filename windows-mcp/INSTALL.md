@@ -1,42 +1,27 @@
-# 给 Agent：Windows-MCP 独立下载与恢复
+# Windows-MCP：安装与验证
 
-## 获取完整文件
+## 给人：自己动手的步骤
 
-本地目录可直接使用。单独传递时，取本目录 `delivery/windows-mcp.zip` 与
-`delivery/SHA256SUMS.txt`，实际核对 SHA-256，检查归档路径并解压到新目录。
-包内包含完整 `windows-mcp/` 目录，不依赖 github-toolbox 或其他项目。
+1. 打开 [固定 Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/windows-mcp-v0.8.8-r1)，下载 `windows-mcp-windows.zip` 和 `SHA256SUMS.txt`。
+2. 在下载目录执行 `Get-FileHash -Algorithm SHA256 .\windows-mcp-windows.zip`，与校验文件逐项比对；不匹配则停止。
+3. 安装器直接运行；ZIP 检查没有绝对路径、越界或链接后解压到新目录，再按下面步骤使用。无需克隆开发仓库。
 
-官方仓库内的完整独立包与校验文件：
+Windows；准备包需 Python 3.11+、可用网络，后续隔离安装需 uv。解压后双击 prepare.cmd；它按 assets.json 下载并核验固定源码到全新 app/，不启动、不注册宿主。已有 app/ 时拒绝覆盖。
 
-```text
-https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/windows-mcp/delivery/windows-mcp.zip
-https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/windows-mcp/delivery/SHA256SUMS.txt
-https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/windows-mcp/delivery/FILES.json
-```
+按 app/README.md 运行 app/install.cmd，使用固定源码的 uv.lock 和项目内 Python/环境；之后 app/start.cmd 是 stdio 入口。注册 Agent 时只新增这个服务，保留其他 MCP 配置；宿主配置必须按该宿主当前规则执行。WSL 也要通过 Windows 进程调用桌面能力。
 
-先核验 ZIP 的 SHA-256，再检查归档条目没有绝对路径、`..`、链接或重名冲突。
-解压到新目录，并与 FILES.json 比较逐文件哈希。校验失败停止，不换未知来源。
+文件准备、服务可启动、宿主发现工具和真实桌面调用分别验收；只有目标聊天真实调用 Screenshot/Snapshot 后，才报告已接通。本轮分发整理不自动注册或读取桌面内容。
 
-
-## 恢复（用户要求安装或准备运行环境时）
-
-使用 Windows x64 的 Python 3.11+。在本项目目录执行：
-
-```powershell
-python .\restore.py --destination 'D:\MyTools\Windows-MCP'
-```
-
-只处理本项目，校验大小与 SHA-256；目标已存在时拒绝覆盖。
-缺少运行时先检查实际环境，按用户授权放到项目目录，不改系统 PATH、不全局安装。
-仅要求下载时停在文件保存与核验阶段，不执行 restore.py。
-
-恢复只保存固定 Windows-MCP 0.8.8 源码和入口。用户要求安装时，先确认 Windows uv 可用，再在恢复目录运行 install.cmd；该入口用源码 uv.lock 创建 source/.venv 和项目内 Python 3.14.7，不改全局环境。缺少 uv 时取得官方 Windows uv 便携程序，放到项目内并在当前进程 PATH 使用。
-
-用 source/.venv/Scripts/python.exe -m windows_mcp --help 检查入口。start.cmd 以 stdio 运行固定源码；MCP 注册是另外的宿主配置步骤，依用户授权操作，不能凭下载或 --help 声称已接入。具体说明见 profile/README.md。
-
-## 可以直接给 Agent 的提示词
+## 给 Agent：交给 AI 执行
 
 ```text
-请下载并核验 Windows-MCP 的独立交付包，保留全部文件和许可，解压到新目录。
-先阅读包内 INSTALL.md；只下载，不安装、不启动、不修改全局配置。
+安装并使用 https://github.com/strive822/zyd-vibe-lab 里的 windows-mcp。先读取该项目 INSTALL.md，从固定 Release 下载对应成品并校验，按项目类型安装或启动；保留已有数据与配置。日常使用不克隆开发仓库、不重新构建前端；只下载时不安装或启动。
 ```
+
+本文全部小节是 Agent 执行时的完整约束。先检查已有安装、数据与端口；复用已验收现用程序或按本次授权升级，保留账号和用户文件。用户仅要求下载时，不安装、不启动；用户要求安装或启动时，按已给授权完成。不要安装无关项目。首次联网准备与实际启动/宿主接入分别报告。
+
+固定附件及其大小/哈希登记在仓库根 releases.json；有源码仓库副本时可用 `python scripts/get_release.py --project windows-mcp --destination <仓库外的新目录>` 下载并得到 JSON 核验结果。下载器不执行程序。
+
+## 源码开发
+
+开发源码位于本仓库 `windows-mcp/`，第三方来源与许可见本目录 LICENSE / THIRD_PARTY（存在时）。阅读 AGENTS.md 后再测试或构建；常规使用只取 Release。编译缓存、依赖环境和构建输出放任务临时目录，最终程序不提交 Git。

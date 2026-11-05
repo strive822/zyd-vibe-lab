@@ -1,52 +1,40 @@
-# 给 Agent 的下载与使用入口
+# 安装与使用入口
 
-这是包含 10 个独立项目的仓库。用户要你下载、安装或运行时，请完成实际操作，并报告文件、环境和运行的真实结果。
+## 给人：自己动手的步骤
 
-## 按用户点名的项目选择
+在下面选择项目，打开它的 INSTALL.md；从固定 Release 下载程序、启动包或技能包及 `SHA256SUMS.txt`，核验后按该项目说明使用。无需先学 Git，也无需下载整个开发仓库。
 
-| 用户描述 | 目标项目 | 先读取 |
-| --- | --- | --- |
-| 岛仔、Daozai、顶部信息岛、daozai | 核验个人修正版，按需准备源码或安装 Windows 应用 | [岛仔安装入口](daozai/INSTALL.md) |
-| 毕业论文、论文工作流、graduation-thesis-workflow | 安装论文技能，再进入需求访谈 | [论文安装入口](graduation-thesis-workflow/INSTALL.md) |
-| 定投、三资产、计算器、dca-calculator | 下载源码、准备依赖、启动本地网页 | [计算器安装入口](dca-calculator/INSTALL.md) |
-| Pi 任务通知、任务完成通知、pi-task-notify | Pi 完成任务、出错、等你确认时发系统通知 | [任务通知安装入口](pi-task-notify/INSTALL.md) |
-| 今日待办、待办清单、today-todo | 下载零依赖 Node 服务并验证 | [待办安装入口](today-todo/INSTALL.md) |
-| LibreTV | 单独下载、核验与按需恢复 | [LibreTV 安装入口](libretv/INSTALL.md) |
-| yt-dlp | 单独下载、核验与按需恢复 | [yt-dlp 安装入口](yt-dlp/INSTALL.md) |
-| Windows-MCP | 单独下载、核验与按需恢复 | [Windows-MCP 安装入口](windows-mcp/INSTALL.md) |
-| rea | 单独下载、核验与按需恢复 | [rea 安装入口](rea/INSTALL.md) |
-| flyingmouse-format | 单独下载、核验与按需使用 | [飞鼠格式安装入口](flyingmouse-format/INSTALL.md) |
+| 项目 | 交付形式 | 说明 | 下载 |
+| --- | --- | --- | --- |
+| [岛仔 Daozai](daozai/README.md) | Windows 安装器 | [安装与验证](daozai/INSTALL.md) | [Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/daozai-v0.6.50-r2) |
+| [三资产定投计算器](dca-calculator/README.md) | 网页启动包（前端已构建） | [安装与验证](dca-calculator/INSTALL.md) | [Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/dca-calculator-v1.0.0-r1) |
+| [飞鼠格式](flyingmouse-format/README.md) | 官方安装器联网安装入口 | [安装与验证](flyingmouse-format/INSTALL.md) | [Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/flyingmouse-format-v0.7.10-r1) |
+| [毕业论文工作流](graduation-thesis-workflow/README.md) | Codex / Claude Code / Pi / WorkBuddy 技能包 | [安装与验证](graduation-thesis-workflow/INSTALL.md) | [Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/graduation-thesis-workflow-v0.4.0-r1) |
+| [LibreTV](libretv/README.md) | 网页生产运行包 | [安装与验证](libretv/INSTALL.md) | [Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/libretv-v2.21.1-r1) |
+| [Pi 任务通知](pi-task-notify/README.md) | Pi 宿主扩展包 | [安装与验证](pi-task-notify/INSTALL.md) | [Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/pi-task-notify-v0.2.0-r1) |
+| [REA](rea/README.md) | 固定版本 CLI 联网准备包 | [安装与验证](rea/INSTALL.md) | [Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/rea-v6.8.0-r1) |
+| [今日待办](today-todo/README.md) | 零依赖 Node 网页启动包 | [安装与验证](today-todo/INSTALL.md) | [Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/today-todo-v1.0.0-r1) |
+| [Windows-MCP](windows-mcp/README.md) | MCP 服务联网准备包 | [安装与验证](windows-mcp/INSTALL.md) | [Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/windows-mcp-v0.8.8-r1) |
+| [yt-dlp](yt-dlp/README.md) | CLI 工具链联网准备包 | [安装与验证](yt-dlp/INSTALL.md) | [Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/yt-dlp-v2026.10.26-r1) |
 
-仅说“安装这个仓库”且无法从上下文确定项目时，只询问选择哪个项目；不要默认安装全部。说“安装工作流”沿用论文入口。
+Windows 在下载目录运行 `Get-FileHash -Algorithm SHA256 .\下载的文件名`，与同一 Release 的 `SHA256SUMS.txt` 比对；macOS/Linux 可用 `shasum -a 256`。ZIP 解压到新目录，已有数据留在原处。
 
-## 获取完整文件
-
-仓库：`https://github.com/strive822/zyd-vibe-lab`。
-
-有 Git 时可克隆到新的目录。没有 Git 时，由 Agent 用实际可用的下载和文件工具取得 `https://github.com/strive822/zyd-vibe-lab/archive/refs/heads/main.zip`，安全解压后取目标子目录；不要求用户先学 Git。需要源码的项目不能只下载 README、单个脚本或单独的 exe。
-
-需要直接读取入口时，使用：
+## 给 Agent：交给 AI 执行
 
 ```text
-https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/INSTALL.md
-https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/graduation-thesis-workflow/INSTALL.md
-https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/dca-calculator/INSTALL.md
-https://raw.githubusercontent.com/strive822/zyd-vibe-lab/main/pi-task-notify/INSTALL.md
+安装并使用 https://github.com/strive822/zyd-vibe-lab 里的 <项目名>。先读取对应 INSTALL.md，从固定 Release 下载成品并核验大小与 SHA-256，再按该项目类型安装或启动，完成对应验证。保留已有账号、数据和配置；只下载时不安装、不启动。不安装无关项目。
 ```
 
-需要固定版本时，使用各项目的 GitHub Release：`https://github.com/strive822/zyd-vibe-lab/releases/tag/<项目>-v<版本>`，每个 Release 附 `<项目>.zip`、`SHA256SUMS.txt`、`FILES.json`。Release 是不可变定格；日常入口与最新状态仍以各项目 INSTALL.md 为准。
+本文和所选项目 INSTALL.md 是 Agent 执行时的完整约束。先确定项目、平台、已有安装和本次请求范围；信息已明确时直接执行，不重复索要确认。
 
-按当前宿主识别 Windows / PowerShell、WSL / Linux 或 macOS，并检查实际可用工具。Agent 自动完成已授权且必要的依赖准备；组织策略和系统权限提示仍使用正常流程，不绕过。
+## Agent 的执行顺序
 
-下载放到本次专用临时目录。拒绝绝对路径、`..` 越界、符号链接逃逸和文件名冲突；解压前检查条目。已有同名目录先检查内容；不同或不完整内容保留，选新目录，更新则依用户授权先备份。验证提供的校验和；失败最多重试两次，不换未知来源。
+1. 读取项目 INSTALL.md 与 [releases.json](releases.json)，使用固定 tag 与附件，不猜最新版本、不把源码 ZIP 当程序。
+2. 下载到仓库外的新目录，核对大小和 SHA-256；已有同名不同内容文件不覆盖。仅下载不会安装或启动。
+3. 执行该项目的安装/启动入口。联网准备包会按其 assets.json 下载固定官方运行时或工具，并再次校验；不是离线全量包。
+4. 分别验证文件、进程/页面和宿主接入；不能凭文件存在声称已安装、凭单元测试声称真实账号或手机已接通。
+5. 保留用户数据。MCP 注册、REA setup、扩展持久接入按用户本次授权执行，不覆盖其他服务或配置。不安装用户未选择的其他项目。
 
-## 完成标准
+## 开发源码
 
-报告选择了哪个项目、实际保存或安装路径、依赖准备结果、启动命令或访问地址、验证结果，以及仍需用户处理的步骤。文件已下载、进程已启动、页面可访问、账号已连接、技能已被宿主发现是不同状态，逐项如实说明。
-
-真实论文材料不进入公共仓库；密钥在本机安全输入。不能把合成测试数据、历史截图或缓存值报告为当前真实结果。
-
-## 本地独立交付
-
-每个项目有自己的 `delivery/<项目名>.zip`、SHA256SUMS.txt 和 FILES.json。
-优先使用目标项目 README 中的独立包与 SHA-256 链接。仅下载请求不包含安装或启动。
+只有阅读、修改、测试和重新发布才需要 Git 源码。各目录 AGENTS.md 给出开发验证命令；构建与下载目录放在 `~/.codex/.tmp/<任务名>/`，不要把 node_modules、target、虚拟环境或成品提交到仓库。

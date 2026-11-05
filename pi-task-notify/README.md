@@ -7,10 +7,14 @@
 把下面这段话复制给具备联网、文件读写和运行能力的 Agent。先阅读本项目 [INSTALL.md](INSTALL.md)，再安装与验证。
 
 ```text
-下载并安装 https://github.com/strive822/zyd-vibe-lab 里的 pi-task-notify。请先读取该项目 INSTALL.md，按说明从 GitHub Release 下载 pi-task-notify.zip 并校验 SHA256，解压后用 pi -e 试用、确认后再 pi install <路径> 持久安装，重启 Pi 后运行 /notify-test 验证 4 条样例通知，并向我报告每一步的真实结果；不要改动我已有的 Pi 配置。
+安装并使用 https://github.com/strive822/zyd-vibe-lab 里的 pi-task-notify。先读取该项目 INSTALL.md，从固定 Release 下载对应成品并校验，按项目类型安装或启动；保留已有数据与配置。日常使用不克隆开发仓库、不重新构建前端；只下载时不安装或启动。
 ```
 
 安装与验证的完整步骤见 [INSTALL.md](INSTALL.md)。
+
+## 成品下载
+
+[固定 Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/pi-task-notify-v0.2.0-r1)：Pi 宿主扩展包，附 SHA256SUMS.txt。完整步骤见 [INSTALL.md](INSTALL.md)。仓库内保留源码，不保存构建包或依赖缓存。
 
 ## 功能
 

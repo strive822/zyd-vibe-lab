@@ -15,3 +15,15 @@ Thumbs.db
 node_modules/
 coverage/
 core
+.local-archives/
+/*/delivery/
+/*/packages/
+/*/target/
+/*/dist/
+.next/
+.downloads/
+.runtime/
+.npm-cache/
+dca-calculator/frontend/out/
+libretv/source/next-env.d.ts
+*.tsbuildinfo

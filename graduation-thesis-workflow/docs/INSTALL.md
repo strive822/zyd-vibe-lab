@@ -24,7 +24,7 @@ Pi 默认不扫描该目录，安装后需由助手在用户授权下完成注�
 
 ## WorkBuddy
 
-下载已提供的 packages 包，或由维护者运行 `python scripts/package.py --out packages`，在技能界面使用“添加技能 → 上传技能”导入 `packages/graduation-thesis-workbuddy.zip`，启用后在对话中要求使用 graduation-thesis。依据：[官方安装说明](https://www.workbuddy.cn/docs/workbuddy/From-Beginner-to-Expert-Guide/Function-Description/Skills-Market)、[包结构说明](https://open.workbuddy.cn/docs/skill)。
+从本项目固定 Release 下载并核验 `graduation-thesis-workbuddy.zip`，在技能界面使用“添加技能 → 上传技能”导入该 ZIP，启用后在对话中要求使用 graduation-thesis。维护者用 `python scripts/package.py --out <仓库外的任务目录>` 生成四端成品，源码仓库不保存 ZIP。依据：[官方安装说明](https://www.workbuddy.cn/docs/workbuddy/From-Beginner-to-Expert-Guide/Function-Description/Skills-Market)、[包结构说明](https://open.workbuddy.cn/docs/skill)。
 
 WorkBuddy 分发包附加中英文描述、版本和作者字段。未将 `.codebuddy` 等其他产品目录混同为 WorkBuddy 安装目录。不同版本界面可能变化，导入失败时参考当前官方说明；可暂用“读取本地 SKILL.md”方式验证文件工作流，不能据此声称原生导入已验证。
 
