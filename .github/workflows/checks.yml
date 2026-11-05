@@ -23,7 +23,13 @@ jobs:
           python-version: '3.12'
       - run: python -m unittest discover -s packaging_tests -v
       - run: rustup toolchain install stable --profile minimal
-      - run: cargo +stable test --locked --all-targets --features record -- --test-threads=1
+      - name: Prepare isolated data and run Daozai tests
+        shell: pwsh
+        run: |
+          $env:DAOZAI_DATA_DIR = Join-Path $env:RUNNER_TEMP 'daozai-ci-data'
+          New-Item -ItemType Directory -Force -Path $env:DAOZAI_DATA_DIR | Out-Null
+          New-Item -ItemType Directory -Force -Path (Join-Path $env:USERPROFILE 'Pictures\Screenshots') | Out-Null
+          cargo +stable test --locked --all-targets --features record -- --test-threads=1
 
   repository:
     runs-on: ubuntu-latest
