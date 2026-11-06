@@ -453,6 +453,10 @@ fn main() {
             bt: Vec::new(),
             bt_ready: true,
             passkey_down: false,
+            drop_hovering: false,
+            dropped: Vec::new(),
+            drop_error: None,
+            right_double_click: None,
         };
 
         let mut vp = egui::ViewportInfo::default();

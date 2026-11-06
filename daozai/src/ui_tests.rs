@@ -428,6 +428,22 @@ fn expanded_settings_routes_preserve_inline_controls(){
 }
 
 #[test]
+fn expanded_headers_hide_resident_bell_and_unread_count_without_blocking_settings(){
+    let _g=ENV_LOCK.lock().unwrap_or_else(|e|e.into_inner());
+    for page in 0..8 {for alert in [false,true]{
+        let mut h=H::new();
+        h.app.mail.accounts.push(crate::mail::Account{custom:None,email:"fixture@example.com".into(),provider:crate::mail::Provider::Qq,enabled:true});
+        h.app.mail.unread.insert("fixture@example.com".into(),73);
+        if alert{h.app.notification_bell_until=100.0;h.app.notification_bell_at=0.0;}
+        h.frame(vec![]);
+        assert!(h.shapes.iter().any(|s|matches!(&s.shape,egui::Shape::Text(t)if t.galley.text()=="73")),"收起时保留未读提醒");
+        h.app.show_page(page);h.hover(H::local(200.0,60.0),1.0);
+        assert!(!h.shapes.iter().any(|s|matches!(&s.shape,egui::Shape::Text(t)if t.galley.text()=="73")),"展开后不能残留收起栏铃铛/未读数");
+        h.click(H::local(394.0,18.0));assert!(h.app.settings_open);assert_eq!(h.app.page,page);
+    }}
+}
+
+#[test]
 fn quality_late_calendar_response_does_not_restore_disconnected_account() {
     let _g=ENV_LOCK.lock().unwrap_or_else(|e|e.into_inner());let mut h=H::new();
     let config=crate::calendar::Config{provider:crate::calendar::Provider::Feishu,username:"old".into(),href:None,server:None};
@@ -483,6 +499,8 @@ struct H {
     hovered_files:Vec<egui::HoveredFile>,
     passkey_down:bool,
     dropped_files:Vec<egui::DroppedFile>,
+    native_hover:bool,
+    native_drops:Vec<crate::app::DropData>,
     /// 整岛拖动测试：逻辑屏幕坐标、偏移范围与真实按键状态。
     /// 测试窗口固定放在屏幕原点，所以 `cursor`（窗口局部坐标）与 `cursor_screen` 相同；
     /// 生产里后者是真屏幕坐标，窗口移动时两者不再相等。
@@ -509,7 +527,7 @@ impl H {
         std::env::set_var("DAOZAI_DATA_DIR", &dir);
         let ctx = egui::Context::default();
         let app = App::new(&ctx, Options { fetch_lyrics: false, pet_idle: 1e9 });
-        Self { ctx, app, t: 0.0, cursor: None,cmds:vec![],region:Rect::NOTHING,hit:Rect::NOTHING,animating:false,shapes:Vec::new(), bt:Vec::new(),media:Default::default(),power:(None,false),network:None,system_idle:None,browser_at_top:None,file_drop_zone:None,hovered_files:vec![],dropped_files:vec![],passkey_down:false,island_offset:None,island_limits:(-544.0,544.0),mouse_down:None,dir }
+        Self { ctx, app, t: 0.0, cursor: None,cmds:vec![],region:Rect::NOTHING,hit:Rect::NOTHING,animating:false,shapes:Vec::new(), bt:Vec::new(),media:Default::default(),power:(None,false),network:None,system_idle:None,browser_at_top:None,file_drop_zone:None,hovered_files:vec![],dropped_files:vec![],native_hover:false,native_drops:vec![],passkey_down:false,island_offset:None,island_limits:(-544.0,544.0),mouse_down:None,dir }
     }
     fn frame(&mut self, events: Vec<egui::Event>) {
         self.t += 1.0 / 60.0;
@@ -535,6 +553,8 @@ impl H {
             bt: self.bt.clone(),
             bt_ready: true,
             passkey_down: self.passkey_down,
+            drop_hovering:self.native_hover,
+            dropped:std::mem::take(&mut self.native_drops),
             media:self.media.clone(),
             battery:self.power.0,
             charging:self.power.1,
@@ -3557,26 +3577,52 @@ fn island_drag_keeps_first_frame_motion_and_starts_at_three_points(){
 }
 
 #[test]
-fn right_hold_center_requires_opt_in_half_second_and_a_new_press(){
+fn right_double_click_center_requires_two_nearby_right_clicks_and_opt_in(){
     let _g=ENV_LOCK.lock().unwrap_or_else(|e|e.into_inner());
     let mut h=H::new();h.app.settings.island_x=Some(90.0);h.frame(vec![]);
-    assert!(!h.app.settings.right_hold_center,"旧配置默认不开启新手势");
+    assert!(!h.app.settings.right_hold_center);
     let point=drag_handle(&h);
-    let right=|pressed|egui::Event::PointerButton{pos:point,button:egui::PointerButton::Secondary,pressed,modifiers:Default::default()};
-    h.cursor=Some(point);h.frame(vec![egui::Event::PointerMoved(point),right(true)]);h.hover(point,1.2);
-    assert_eq!(h.app.settings.island_x,Some(90.0));h.frame(vec![right(false)]);
+    let button=|pos,button,pressed|egui::Event::PointerButton{pos,button,pressed,modifiers:Default::default()};
+    let right=egui::PointerButton::Secondary;
+    h.cursor=Some(point);h.frame(vec![egui::Event::PointerMoved(point)]);
+    for _ in 0..2{h.frame(vec![button(point,right,true)]);h.frame(vec![button(point,right,false)]);}
+    assert_eq!(h.app.settings.island_x,Some(90.0));
     h.app.settings.right_hold_center=true;h.app.settings.save();
-    assert!(crate::model::Settings::load().right_hold_center);
-    h.frame(vec![right(true)]);h.hover(point,0.45);
-    assert_eq!(h.app.settings.island_x,Some(90.0),"未满 0.5 秒不触发");
-    h.hover(point,0.1);assert_eq!(h.app.settings.island_x,None);assert_eq!(crate::model::Settings::load().island_x,None);
-    h.app.settings.island_x=Some(50.0);h.hover(point,1.1);
-    assert_eq!(h.app.settings.island_x,Some(50.0),"一次按住只触发一次");
-    h.frame(vec![right(false)]);h.frame(vec![right(true)]);h.hover(point,0.3);h.frame(vec![right(false)]);h.hover(point,1.0);
-    assert_eq!(h.app.settings.island_x,Some(50.0),"短按不能触发延迟居中");
-    h.frame(vec![right(true)]);h.hover(Pos2::new(0.0,200.0),1.2);h.frame(vec![right(false)]);
-    assert_eq!(h.app.settings.island_x,Some(50.0),"离开岛体取消长按");
-    h.app.settings.right_hold_center=false;h.app.settings.save();assert!(!crate::model::Settings::load().right_hold_center);
+    h.frame(vec![button(point,right,true)]);h.hover(point,0.8);
+    assert_eq!(h.app.settings.island_x,Some(90.0),"长按不再归位");
+    h.frame(vec![button(point,right,false)]);h.hover(point,0.5);
+    h.frame(vec![button(point,right,true)]);h.frame(vec![button(point,right,false)]);
+    assert_eq!(h.app.settings.island_x,Some(90.0),"单击不归位");
+    h.frame(vec![button(point,right,true)]);h.frame(vec![button(point,right,false)]);
+    assert_eq!(h.app.settings.island_x,None);assert_eq!(crate::model::Settings::load().island_x,None);
+    h.app.settings.island_x=Some(50.0);
+    h.frame(vec![button(point,right,true)]);h.frame(vec![button(point,right,false)]);
+    assert_eq!(h.app.settings.island_x,Some(50.0),"第三击不能再次触发");
+    h.frame(vec![button(point,egui::PointerButton::Primary,true)]);h.frame(vec![button(point,egui::PointerButton::Primary,false)]);
+    h.frame(vec![button(point,right,true)]);h.frame(vec![button(point,right,false)]);
+    assert_eq!(h.app.settings.island_x,Some(50.0),"左右混击不归位");
+    h.hover(point,0.5);h.frame(vec![button(point,right,true)]);h.frame(vec![button(point,right,false)]);
+    assert_eq!(h.app.settings.island_x,Some(50.0),"过期点击不配对");
+    let far=point+egui::vec2(20.0,0.0);h.cursor=Some(far);
+    h.frame(vec![egui::Event::PointerMoved(far),button(far,right,true)]);h.frame(vec![button(far,right,false)]);
+    assert_eq!(h.app.settings.island_x,Some(50.0),"不同位置的点击不配对");
+    h.hover(point,0.5);h.cursor=Some(point);
+    h.frame(vec![button(point,right,true),button(point,right,false),button(point,right,true),button(point,right,false)]);
+    assert_eq!(h.app.settings.island_x,None,"同一渲染帧内的双击也须归位");
+    h.app.settings.island_x=Some(50.0);
+    h.frame(vec![button(point,egui::PointerButton::Primary,true),button(point,egui::PointerButton::Primary,false),button(point,right,true),button(point,right,false)]);
+    assert_eq!(h.app.settings.island_x,Some(50.0),"同帧左右混击不能归位");
+}
+
+#[test]
+fn native_double_click_survives_pointer_leaving_before_the_consuming_frame(){
+    let _g=ENV_LOCK.lock().unwrap_or_else(|e|e.into_inner());let mut h=H::new();
+    h.app.settings.right_hold_center=true;h.app.settings.island_x=Some(90.0);
+    let env=Env{t:0.1,right_double_click:Some(true),cursor:None,..Default::default()};
+    let _=h.ctx.run(egui::RawInput{screen_rect:Some(Rect::from_min_size(Pos2::ZERO,Vec2::new(crate::app::CANVAS_W,WIN_H))),..Default::default()},|ctx|{
+        egui::CentralPanel::default().show(ctx,|ui|{h.app.frame(ui,ui.max_rect(),&env);});
+    });
+    assert_eq!(h.app.settings.island_x,None);assert_eq!(crate::model::Settings::load().island_x,None);
 }
 
 #[test]
@@ -4527,6 +4573,36 @@ fn passkey_file_drag_passes_through_without_recording(){
     h.app.on_drop(vec![file.clone()]);
     assert_eq!(h.app.shelf_len(),0,"穿透时岛不应新增记录");
     assert!(file.exists());
+}
+
+#[test]
+fn native_text_image_and_virtual_file_drops_share_staging_and_passthrough(){
+    use crate::app::DropData;
+    let _g=ENV_LOCK.lock().unwrap_or_else(|e|e.into_inner());let mut h=H::new();
+    h.app.show_page(4);h.frame(vec![]);
+    h.native_hover=true;h.passkey_down=true;h.frame(vec![]);
+    assert!(h.app.passkey_passthrough);
+    h.native_drops=vec![DropData::Text("穿透不收集".into())];h.frame(vec![]);
+    assert_eq!(h.app.shelf_len(),0);
+    h.passkey_down=false;h.frame(vec![]);assert!(!h.app.passkey_passthrough);
+    h.native_drops=vec![DropData::Text("拖入文字 😀".into()),DropData::Image{rgba:vec![10,20,30,255],width:1,height:1},DropData::VirtualFile{name:"附件.txt".into(),bytes:b"attachment".to_vec()}];
+    h.frame(vec![]);assert_eq!(h.app.shelf_len(),3);
+    let staging=h.app.staging.as_ref().unwrap();
+    assert_eq!(staging.entries().iter().map(|e|e.kind).collect::<Vec<_>>(),vec![crate::staging::Kind::Text,crate::staging::Kind::Image,crate::staging::Kind::File]);
+    h.native_hover=false;h.hover(H::local(200.0,60.0),1.0);
+    assert!(h.shapes.iter().any(|s|matches!(&s.shape,egui::Shape::Text(t) if t.galley.text()=="DOC")),"文字卡片必须绘制文档图标");
+    h.app.settings.collect[crate::collect::FILE_DROP]=false;
+    h.native_drops=vec![DropData::Text("关闭不接收".into())];h.frame(vec![]);assert_eq!(h.app.shelf_len(),3);
+    assert!(h.file_drop_zone.is_none());
+}
+
+#[test]
+fn native_drag_cancel_restores_previous_page_and_key_release_restores_capture(){
+    let _g=ENV_LOCK.lock().unwrap_or_else(|e|e.into_inner());let mut h=H::new();
+    h.app.show_page(4);h.frame(vec![]);h.native_hover=true;h.frame(vec![]);assert_eq!(h.app.page,3);
+    h.passkey_down=true;h.frame(vec![]);assert!(h.app.passkey_passthrough);
+    h.passkey_down=false;h.frame(vec![]);assert!(!h.app.passkey_passthrough);
+    h.native_hover=false;h.frame(vec![]);assert_eq!(h.app.page,4);assert_eq!(h.app.shelf_len(),0);
 }
 
 #[test]

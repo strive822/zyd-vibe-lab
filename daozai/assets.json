@@ -130,6 +130,7 @@
     "src/main.rs",
     "src/model.rs",
     "src/native.rs",
+    "src/native_drop.rs",
     "src/native_auth.rs",
     "src/netease_playback.rs",
     "src/netease_timeline.rs",
@@ -239,12 +240,12 @@
     "vendor/imap-proto/src/parser/rfc5464.rs",
     "vendor/imap-proto/src/types.rs"
   ],
-  "delivery_revision": "r4",
+  "delivery_revision": "r5",
   "publishedArtifacts": [
     {
-      "url": "https://github.com/strive822/zyd-vibe-lab/releases/download/daozai-v0.6.50-r4/Daozai-Setup-v0.6.50-x64.exe",
-      "bytes": 5651613,
-      "sha256": "1189c919c8767f9997e48f2b3c7ee8f32fce6537e93eaf39b2cebd2f54510230"
+      "url": "https://github.com/strive822/zyd-vibe-lab/releases/download/daozai-v0.6.50-r5/Daozai-Setup-v0.6.50-x64.exe",
+      "bytes": 5665043,
+      "sha256": "c5242a64858546f91c34bdd17c1abbf8ae407c6288fc3b8570ad0e81e3481230"
     }
   ]
 }

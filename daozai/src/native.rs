@@ -23,6 +23,7 @@ use windows::Win32::UI::Shell::{DefSubclassProc, RemoveWindowSubclass, SetWindow
 use windows::Win32::UI::WindowsAndMessaging::*;
 
 const SUBCLASS_ID: usize = 0x4E55_5341; // "DAOZAI"
+const WM_MOUSELEAVE:u32=0x02a3; // WinUser.h; windows-rs groups it under UI::Controls.
 #[allow(dead_code)]
 const WS_EX_NOREDIRECTIONBITMAP: isize = 0x0020_0000;
 
@@ -30,6 +31,44 @@ const WS_EX_NOREDIRECTIONBITMAP: isize = 0x0020_0000;
 static HIT: OnceLock<Mutex<Vec<(i32, i32, i32, i32)>>> = OnceLock::new();
 /// 前台窗口切到别的进程时置位，由主线程消费。
 static FG_CHANGED: AtomicBool = AtomicBool::new(false);
+struct LegacyDrop {ctx:eframe::egui::Context,items:Vec<crate::app::DropData>,enabled:bool}
+type LegacyDrops=std::collections::HashMap<usize,LegacyDrop>;
+static LEGACY_DROPS:OnceLock<Mutex<LegacyDrops>>=OnceLock::new();
+
+#[derive(Default)]
+struct RightGesture {enabled:bool,press:Option<(u32,(i32,i32))>,click:Option<(u32,(i32,i32))>,fired:bool}
+thread_local!{static RIGHT_GESTURE:std::cell::RefCell<RightGesture>=std::cell::RefCell::new(RightGesture::default());}
+impl RightGesture {
+    fn event(&mut self,msg:u32,other_down:bool,point:(i32,i32),inside:bool,time:u32,delay:u32,distance:(i32,i32)){
+        let near=|a:(i32,i32),b:(i32,i32)|(a.0-b.0).abs()<=distance.0 && (a.1-b.1).abs()<=distance.1;
+        if !self.enabled || !inside || other_down || matches!(msg,WM_LBUTTONDOWN|WM_MBUTTONDOWN|WM_XBUTTONDOWN|WM_MOUSELEAVE){self.press=None;self.click=None;return;}
+        match msg {
+            WM_RBUTTONDOWN=>self.press=Some((time,point)),
+            WM_MOUSEMOVE=>if self.press.is_some_and(|(_,origin)|!near(origin,point)){self.press=None;},
+            WM_RBUTTONUP=>{
+                let Some((pressed,origin))=self.press.take() else {self.click=None;return;};
+                if time.wrapping_sub(pressed)>delay||!near(origin,point){self.click=None;return;}
+                if self.click.is_some_and(|(at,previous)|pressed.wrapping_sub(at)<=delay&&near(previous,origin)){self.fired=true;self.click=None;}else{self.click=Some((pressed,origin));}
+            }
+            _=>{}
+        }
+    }
+}
+
+/// The keyboard hook runs on the window thread. Legacy targets have no OLE hover
+/// event, so update hit transparency at key-event time, before the next paint.
+pub(crate) fn fallback_passthrough_key(held:bool){
+    let windows:Vec<_>=LEGACY_DROPS.get_or_init(Default::default).lock().unwrap_or_else(|e|e.into_inner()).iter().filter(|(_,state)|state.enabled).map(|(&hwnd,state)|(hwnd,state.ctx.clone())).collect();
+    for (hwnd,ctx) in windows {unsafe{
+        let hwnd=HWND(hwnd as *mut _);
+        windows::Win32::UI::Shell::DragAcceptFiles(hwnd,!held);
+        let style=GetWindowLongPtrW(hwnd,GWL_EXSTYLE);
+        let bits=(WS_EX_TRANSPARENT.0|WS_EX_LAYERED.0)as isize;
+        let next=if held {style|bits}else{style&!bits};
+        if next!=style{SetWindowLongPtrW(hwnd,GWL_EXSTYLE,next);}
+        ctx.request_repaint();
+    }}
+}
 
 // `WS_EX_NOREDIRECTIONBITMAP` 只能在 CreateWindowEx 时设置（运行时 SetWindowLongPtrW
 // 会回 ERROR_INVALID_PARAMETER），本项目用 GL 合成窗口，加上这一位后画面上什么都
@@ -90,6 +129,39 @@ unsafe extern "system" fn subclass(
     _id: usize,
     _data: usize,
 ) -> LRESULT {
+    if matches!(msg,WM_RBUTTONDOWN|WM_RBUTTONUP|WM_LBUTTONDOWN|WM_MBUTTONDOWN|WM_XBUTTONDOWN|WM_MOUSEMOVE|WM_MOUSELEAVE){
+        let point=((lp.0&0xffff)as u16 as i16 as i32,((lp.0>>16)&0xffff)as u16 as i16 as i32);
+        let inside=msg!=WM_MOUSELEAVE&&hit().lock().unwrap_or_else(|e|e.into_inner()).first().is_some_and(|&(l,t,r,b)|point.0>=l&&point.0<r&&point.1>=t&&point.1<b);
+        // Message timestamps retain the real intervals even when several events
+        // are handled before the next egui frame. Winit's class has no DBLCLKS.
+        let delay=windows::Win32::UI::Input::KeyboardAndMouse::GetDoubleClickTime();
+        let distance=((GetSystemMetrics(SM_CXDOUBLECLK)/2).max(1),(GetSystemMetrics(SM_CYDOUBLECLK)/2).max(1));
+        RIGHT_GESTURE.with(|state|{
+            let mut state=state.borrow_mut();state.event(msg,wp.0&0x71!=0,point,inside,GetMessageTime()as u32,delay,distance);
+        });
+    }
+    if msg==WM_DROPFILES {
+        use windows::Win32::UI::Shell::{HDROP,DragQueryFileW,DragFinish};
+        let handle=HDROP(wp.0 as *mut _);
+        let mut targets=LEGACY_DROPS.get_or_init(Default::default).lock().unwrap_or_else(|e|e.into_inner());
+        if let Some(state)=targets.get_mut(&(hwnd.0 as usize)) {
+            if !crate::native_drop::passthrough_active(){
+                let count=DragQueryFileW(handle,u32::MAX,None);
+                if count<=128 {for index in 0..count {
+                    let len=DragQueryFileW(handle,index,None);
+                    if len>0 && len<=32767 {
+                        let mut path=vec![0u16;len as usize+1];
+                        if DragQueryFileW(handle,index,Some(&mut path))==len {
+                            use std::os::windows::ffi::OsStringExt;
+                            state.items.push(crate::app::DropData::File(std::ffi::OsString::from_wide(&path[..len as usize]).into()));
+                        }
+                    }
+                }}
+            }
+            state.ctx.request_repaint();
+        }
+        DragFinish(handle);return LRESULT(0);
+    }
     if matches!(msg,WM_DWMCOMPOSITIONCHANGED|WM_DISPLAYCHANGE|WM_DWMCOLORIZATIONCOLORCHANGED)
         || (msg==WM_SHOWWINDOW && wp.0!=0) {
         // 隐藏创建到首次显示、隐藏后恢复时也要恢复透明；等框架处理完窗口状态再应用。
@@ -168,12 +240,10 @@ unsafe fn apply_style(hwnd: HWND, editing: bool, raise: bool, passthrough: bool)
     // CreateWindowEx 时设置，运行时 SetWindowLongPtrW 会回 ERROR_INVALID_PARAMETER；
     // 而给 GL/窗口渲染的 HWND 加上它之后画面完全不被合成（实测可见像素为 0）。
     // 因此这里只保留可用的 TOPMOST|TOOLWINDOW|NOACTIVATE，去掉会露在任务栏的
-    // APPWINDOW；ACCEPTFILES（winit 默认）也去掉，拖放走的是 OLE RegisterDragDrop，
-    // 不依赖 WM_DROPFILES，这样 ex style 就是 0x08000088。
+    // APPWINDOW；通常由 OLE 接收拖放，注册失败时保留 WM_DROPFILES 回退。
     // 置顶由 SetWindowPos 管理，避免样式标记与实际窗口层级脱节。
     let mut want_ex = (ex | WS_EX_TOOLWINDOW.0 as isize)
-        & !(WS_EX_APPWINDOW.0 as isize)
-        & !(WS_EX_ACCEPTFILES.0 as isize);
+        & !(WS_EX_APPWINDOW.0 as isize);
     if editing {
         want_ex &= !(WS_EX_NOACTIVATE.0 as isize);
     } else {
@@ -218,10 +288,13 @@ pub struct Window {
     hook: HWINEVENTHOOK,
     browser_state: (Option<bool>,PollClock),
     drag_capture: DragCapture,
+    drop_target: Option<crate::native_drop::Target>,
+    drop_error: Option<String>,
 }
 
 impl Window {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Option<Self> {
+        RIGHT_GESTURE.with(|state|*state.borrow_mut()=RightGesture::default());
         let RawWindowHandle::Win32(handle) = cc.window_handle().ok()?.as_raw() else { return None };
         let hwnd = HWND(handle.hwnd.get() as *mut _);
         let hook = unsafe {
@@ -238,8 +311,24 @@ impl Window {
                 WINEVENT_OUTOFCONTEXT,
             )
         };
-        Some(Self { hwnd, region: (0, 0, 0, 0), expanded: false, hook, browser_state:(None,PollClock::default()), drag_capture:DragCapture::default() })
+        let (drop_target,drop_error)=match crate::native_drop::Target::register(hwnd,cc.egui_ctx.clone()) {
+            Ok(target)=>(Some(target),None),
+            Err(error)=>{
+                eprintln!("OLE drop registration: {error}");
+                LEGACY_DROPS.get_or_init(Default::default).lock().unwrap_or_else(|e|e.into_inner()).insert(hwnd.0 as usize,LegacyDrop{ctx:cc.egui_ctx.clone(),items:Vec::new(),enabled:false});
+                (None,Some("文字和图片拖入初始化失败，文件仍可拖入；请重启岛仔".into()))
+            }
+        };
+        Some(Self { hwnd, region: (0, 0, 0, 0), expanded: false, hook, browser_state:(None,PollClock::default()), drag_capture:DragCapture::default(), drop_target,drop_error })
     }
+
+    pub fn take_drops(&mut self)->(bool,Vec<crate::app::DropData>,Option<String>){
+        if let Some(target)=&self.drop_target {return target.take();}
+        let items=LEGACY_DROPS.get_or_init(Default::default).lock().unwrap_or_else(|e|e.into_inner()).get_mut(&(self.hwnd.0 as usize)).map(|state|std::mem::take(&mut state.items)).unwrap_or_default();
+        (false,items,self.drop_error.take())
+    }
+    pub fn take_right_double_click(&self)->bool{RIGHT_GESTURE.with(|state|std::mem::take(&mut state.borrow_mut().fired))}
+    pub fn set_center_enabled(&self,enabled:bool){RIGHT_GESTURE.with(|state|{let mut state=state.borrow_mut();if state.enabled!=enabled {*state=RightGesture{enabled,..Default::default()};}});}
 
     /// 使用目标屏幕的物理坐标定位，并在缩放或屏幕连接变化后重新校正。
     /// `offset` 为用户拖动后记住的横向偏移（逻辑点），`body_width` 为岛体实际宽度；
@@ -279,6 +368,7 @@ impl Window {
         expanded: bool,
         passthrough: bool,
     ) {
+        if let Some(target)=&self.drop_target {target.enable(file_drop_zone.is_some());}
         let px = |v: f32| (v * ppp).round() as i32;
         let r = (px(region.0), px(region.1), px(region.0 + region.2), px(region.1 + region.3));
         // 仅在拖动进入感应区后扩大 OLE 接收区域，避免普通点击改变透明窗口裁剪。
@@ -308,13 +398,18 @@ impl Window {
                 }
             }
         }
+        if let Some(state)=LEGACY_DROPS.get_or_init(Default::default).lock().unwrap_or_else(|e|e.into_inner()).get_mut(&(self.hwnd.0 as usize)){state.enabled=file_drop_zone.is_some();}
+        // Fallback transparency also follows the keyboard hook synchronously.
+        let passthrough=passthrough || (self.drop_target.is_none() && file_drop_zone.is_some() && crate::native_drop::passthrough_active());
         unsafe { apply_style(self.hwnd, editing, expanded && !self.expanded, passthrough) };
+        if self.drop_target.is_none(){unsafe{windows::Win32::UI::Shell::DragAcceptFiles(self.hwnd,file_drop_zone.is_some()&&!passthrough);}}
         self.expanded = expanded;
     }
 }
 
 impl Drop for Window {
     fn drop(&mut self) {
+        if let Some(targets)=LEGACY_DROPS.get(){targets.lock().unwrap_or_else(|e|e.into_inner()).remove(&(self.hwnd.0 as usize));}
         unsafe {
             let _ = RemoveWindowSubclass(self.hwnd, Some(subclass), SUBCLASS_ID);
             if !self.hook.is_invalid() {
@@ -327,6 +422,48 @@ impl Drop for Window {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn native_double_right_click_uses_message_time_even_when_paint_is_paused(){
+        let mut state=RightGesture{enabled:true,..Default::default()};
+        for (msg,time) in [(WM_RBUTTONDOWN,0),(WM_RBUTTONUP,10),(WM_RBUTTONDOWN,900),(WM_RBUTTONUP,910)]{state.event(msg,false,(20,10),true,time,500,(4,4));}
+        assert!(!state.fired,"批量处理不能把慢速点击当双击");
+        state=RightGesture{enabled:true,..Default::default()};
+        for (msg,time) in [(WM_RBUTTONDOWN,0),(WM_RBUTTONUP,490),(WM_RBUTTONDOWN,980),(WM_RBUTTONUP,990)]{state.event(msg,false,(20,10),true,time,500,(4,4));}
+        assert!(!state.fired,"按下时间间隔决定双击，不能只比较两次松开");
+        state=RightGesture{enabled:true,..Default::default()};
+        for (msg,time) in [(WM_RBUTTONDOWN,0),(WM_RBUTTONUP,1000),(WM_RBUTTONDOWN,1100),(WM_RBUTTONUP,1110)]{state.event(msg,false,(20,10),true,time,500,(4,4));}
+        assert!(!state.fired,"积压的长按不计为一次点击");
+        state=RightGesture{enabled:true,..Default::default()};
+        for (msg,time) in [(WM_RBUTTONDOWN,0),(WM_RBUTTONUP,10),(WM_RBUTTONDOWN,100),(WM_RBUTTONUP,110)]{state.event(msg,false,(20,10),true,time,500,(4,4));}
+        assert!(state.fired);
+        state=RightGesture{enabled:true,..Default::default()};
+        for (msg,time,x) in [(WM_RBUTTONDOWN,0,20),(WM_RBUTTONUP,10,24),(WM_RBUTTONDOWN,100,28),(WM_RBUTTONUP,110,24)]{state.event(msg,false,(x,10),true,time,500,(4,4));}
+        assert!(!state.fired,"按下位置也要相邻，松开位置重合不能绕过距离限制");
+    }
+
+    #[test]
+    fn native_double_right_click_excludes_held_other_buttons_and_disabled_state(){
+        for (enabled,other) in [(true,true),(false,false)]{
+            let mut state=RightGesture{enabled,..Default::default()};
+            for (msg,time) in [(WM_RBUTTONDOWN,0),(WM_RBUTTONUP,10),(WM_RBUTTONDOWN,100),(WM_RBUTTONUP,110)]{state.event(msg,other,(20,10),true,time,500,(4,4));}
+            assert!(!state.fired);
+        }
+    }
+
+    #[test]
+    fn legacy_passthrough_key_updates_real_window_style_without_a_frame(){unsafe{
+        let hwnd=CreateWindowExW(WS_EX_NOACTIVATE|WS_EX_TOOLWINDOW,windows::core::w!("STATIC"),windows::core::w!(""),WS_POPUP,-10000,-10000,400,100,None,None,None,None).unwrap();
+        LEGACY_DROPS.get_or_init(Default::default).lock().unwrap().insert(hwnd.0 as usize,LegacyDrop{ctx:Default::default(),items:Vec::new(),enabled:true});
+        fallback_passthrough_key(true);
+        let bits=(WS_EX_LAYERED.0|WS_EX_TRANSPARENT.0)as isize;
+        assert_eq!(GetWindowLongPtrW(hwnd,GWL_EXSTYLE)&bits,bits);
+        assert_eq!(GetWindowLongPtrW(hwnd,GWL_EXSTYLE)&WS_EX_ACCEPTFILES.0 as isize,0);
+        fallback_passthrough_key(false);assert_eq!(GetWindowLongPtrW(hwnd,GWL_EXSTYLE)&bits,0);
+        assert_ne!(GetWindowLongPtrW(hwnd,GWL_EXSTYLE)&WS_EX_ACCEPTFILES.0 as isize,0,"松键同步恢复文件接收");
+        LEGACY_DROPS.get().unwrap().lock().unwrap().remove(&(hwnd.0 as usize));
+        DestroyWindow(hwnd).unwrap();
+    }}
 
     #[test]
     fn drag_capture_ignores_clicks_and_pointer_jitter() {
@@ -372,7 +509,7 @@ mod tests {
             assert!(above(cover.0,island.0),"先复现其他窗口盖住岛体");
             let foreground=GetForegroundWindow();
             let saved=hit().lock().unwrap_or_else(|e|e.into_inner()).clone();
-            let mut native=Window{hwnd:island.0,region:(0,0,0,0),expanded:false,hook:HWINEVENTHOOK::default(),browser_state:(None,PollClock::now()),drag_capture:DragCapture::default()};
+            let mut native=Window{hwnd:island.0,region:(0,0,0,0),expanded:false,hook:HWINEVENTHOOK::default(),browser_state:(None,PollClock::now()),drag_capture:DragCapture::default(),drop_target:None,drop_error:None};
             let update=|native:&mut Window,expanded|native.update((0.0,0.0,416.0,140.0),(0.0,0.0,416.0,140.0),None,None,1.0,false,expanded,false);
             update(&mut native,true);
             assert!(above(island.0,cover.0),"展开时必须重新抬高实际窗口层级，不能只检查置顶标记");

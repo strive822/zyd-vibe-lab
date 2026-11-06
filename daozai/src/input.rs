@@ -118,11 +118,13 @@ impl SwitchKeys {
     fn clear(&mut self){self.pending=None;self.used=true;}
 }
 
-/// 只有识别到文件拖拽后的新按键才接管；已放行的按下事件必须配对放行松开。
+/// 拖拽中的新按键才吞键；预先按住可穿透，但已放行的按下必须配对放行松开。
 #[derive(Default)]
-struct PassthroughKey {armed:bool,held:bool,suppressed:bool,modifiers:u16}
+struct PassthroughKey {armed:bool,held:bool,suppressed:bool,engaged:bool,modifiers:u16}
 impl PassthroughKey {
     fn captured(&self)->bool{self.held&&self.suppressed}
+    fn arm(&mut self,armed:bool){self.armed=armed;if armed&&self.held&&self.modifiers==0 {self.engaged=true;}}
+    fn active(&self)->bool{self.held&&self.modifiers==0&&(self.engaged||self.suppressed)}
     fn key(&mut self,vk:u32,scan:u32,down:bool,injected:bool)->bool{
         // 已放行的注入修饰键也影响目标应用；左右键各自记录，不能释放一侧就清掉另一侧。
         let modifier=match vk{0xa0=>1,0xa1=>2,0xa2=>4,0xa3=>8,0xa4=>16,0xa5=>32,0x5b=>64,0x5c=>128,0x10=>256,0x11=>512,0x12=>1024,_=>0};
@@ -136,7 +138,7 @@ impl PassthroughKey {
             self.suppressed
         } else {
             let suppressed=self.suppressed;
-            self.held=false;self.suppressed=false;
+            self.held=false;self.suppressed=false;self.engaged=false;
             suppressed
         }
     }
@@ -149,6 +151,7 @@ mod shortcuts {
     use windows::Win32::{Foundation::{HINSTANCE,LPARAM,LRESULT,WPARAM},System::LibraryLoader::GetModuleHandleW,UI::WindowsAndMessaging::*};
     thread_local!{static KEYS:RefCell<SwitchKeys>=RefCell::new(SwitchKeys::default());}
     thread_local!{static PASSKEY:RefCell<PassthroughKey>=RefCell::new(PassthroughKey::default());}
+    thread_local!{static REPAINT:RefCell<Option<eframe::egui::Context>>=const{RefCell::new(None)};}
     pub struct Shortcuts(HHOOK);
     impl Shortcuts {
         pub fn start()->Option<Self>{unsafe{
@@ -166,13 +169,14 @@ mod shortcuts {
             KEYS.with(|keys|*keys.borrow_mut()=SwitchKeys{held:modifiers,used:true,..Default::default()});
             Some(Self(hook))
         }}
-        pub fn arm_passthrough(&self,armed:bool){PASSKEY.with(|key|key.borrow_mut().armed=armed);}
-        pub fn passthrough_down(&self)->bool{PASSKEY.with(|key|key.borrow().captured())}
+        pub fn arm_passthrough(&self,armed:bool){PASSKEY.with(|key|key.borrow_mut().arm(armed));}
+        pub fn set_repaint_context(&self,ctx:eframe::egui::Context){REPAINT.with(|slot|*slot.borrow_mut()=Some(ctx));}
+        pub fn passthrough_down(&self)->bool{PASSKEY.with(|key|key.borrow().active())}
         pub fn allows(&self,context:(usize,usize))->bool{KEYS.with(|keys|keys.borrow_mut().allows(context,Instant::now()))}
         pub fn clear(&self){KEYS.with(|keys|keys.borrow_mut().clear());SWITCH_AT.store(0,std::sync::atomic::Ordering::Relaxed);}
     }
     impl Drop for Shortcuts {
-        fn drop(&mut self){unsafe{let _=UnhookWindowsHookEx(self.0);}PASSKEY.with(|key|*key.borrow_mut()=Default::default());}
+        fn drop(&mut self){unsafe{let _=UnhookWindowsHookEx(self.0);}PASSKEY.with(|key|*key.borrow_mut()=Default::default());REPAINT.with(|slot|*slot.borrow_mut()=None);}
     }
     unsafe extern "system" fn on_key(code:i32,wp:WPARAM,lp:LPARAM)->LRESULT{
         if code==0 {
@@ -180,7 +184,10 @@ mod shortcuts {
             let down=matches!(wp.0 as u32,WM_KEYDOWN|WM_SYSKEYDOWN);
             // 用事件维护状态：回调发生在异步按键状态更新之前，不能在这里轮询 GetAsyncKeyState。
             // https://learn.microsoft.com/en-us/windows/win32/winmsg/lowlevelkeyboardproc
-            if PASSKEY.with(|key|key.borrow_mut().key(event.vkCode,event.scanCode,down,event.flags.contains(LLKHF_INJECTED))){return LRESULT(1);}
+            let (suppressed,changed)=PASSKEY.with(|key|{let mut key=key.borrow_mut();let before=key.active();let suppressed=key.key(event.vkCode,event.scanCode,down,event.flags.contains(LLKHF_INJECTED));(suppressed,before!=key.active())});
+            if changed{REPAINT.with(|slot|{if let Some(ctx)=slot.borrow().as_ref(){ctx.request_repaint();}});}
+            crate::native::fallback_passthrough_key(PASSKEY.with(|key|{let key=key.borrow();key.held&&key.modifiers==0}));
+            if suppressed{return LRESULT(1);}
             if !event.flags.contains(LLKHF_INJECTED){
                 let foreground=GetForegroundWindow();
                 let thread=GetWindowThreadProcessId(foreground,None);
@@ -205,9 +212,13 @@ mod tests {
     fn passthrough_key_consumes_only_a_fresh_armed_press_and_its_release(){
         let mut key=PassthroughKey::default();
         assert!(!key.key(0xc0,0x29,true,false));
-        key.armed=true;
+        key.arm(true);
+        assert!(key.active(),"预先按住也能穿透，但不能追溯吞掉普通按键");
+        key.arm(false);assert!(key.active(),"穿透引起 DragLeave 后须持续到松键");
+        key.arm(true);
         assert!(!key.key(0xc0,0x29,true,false),"先按住再拖入，重复事件仍属普通输入");
         assert!(!key.key(0xc0,0x29,false,false));assert!(!key.captured());
+        assert!(!key.active());
         assert!(key.key(0xc0,0x29,true,false));assert!(key.captured());
         assert!(key.key(0xc0,0x29,true,false),"穿透期间重复按键也不能泄漏文字");
         key.armed=false;

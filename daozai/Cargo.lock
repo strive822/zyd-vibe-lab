@@ -502,6 +502,7 @@ dependencies = [
  "ureq",
  "url",
  "windows",
+ "windows-core",
 ]
 
 [[package]]

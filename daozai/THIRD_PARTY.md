@@ -11,3 +11,5 @@
 新增恢复脚本、包装测试及使用入口文档采用 MIT，Copyright (c) 2026 zhongyudi；原项目和第三方许可不变。
 
 未复制本机真实配置、凭据、审查副本、临时日志或含本机路径的交接文档。原应用内作者支持入口及素材保持上游内容。
+
+原生拖入使用现有锁定依赖 windows-rs 0.58.0（MIT / Apache-2.0），按 Microsoft 的 [Shell 数据格式](https://learn.microsoft.com/en-us/windows/win32/shell/clipboard) 和 [RegisterDragDrop](https://learn.microsoft.com/en-us/windows/win32/api/ole2/nf-ole2-registerdragdrop) 协议实现；支持 CF_HDROP、Unicode、PNG/DIB/位图与 FileGroupDescriptorW/FileContents。参考了 winit 0.30.13 的 `src/platform_impl/windows/drop_handler.rs` 的接口边界（MIT / Apache-2.0），没有复制其代码或修改全局依赖缓存。实现位于 `src/native_drop.rs`，替换只需撤销窗口注册并恢复 winit 的拖放开关。

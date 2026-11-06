@@ -70,6 +70,15 @@ impl Default for Options {
     }
 }
 
+/// Native drag payloads are copied, never moved from their source.
+#[derive(Clone, Debug)]
+pub enum DropData {
+    File(PathBuf),
+    Text(String),
+    Image { rgba: Vec<u8>, width: u32, height: u32 },
+    VirtualFile { name: String, bytes: Vec<u8> },
+}
+
 /// 每帧由外壳提供的外部世界。
 #[derive(Clone, Default)]
 pub struct Env {
@@ -106,6 +115,11 @@ pub struct Env {
     pub bt_ready: bool,
     /// 当前是否按着穿透键（用于文件拖动穿透）。
     pub passkey_down: bool,
+    pub drop_hovering: bool,
+    pub dropped: Vec<DropData>,
+    pub drop_error: Option<String>,
+    /// Windows supplies a gesture computed from message timestamps, independent of paint timing.
+    pub right_double_click: Option<bool>,
 }
 
 impl Env {
@@ -371,7 +385,8 @@ pub struct App {
 
     // 整岛拖动（贴顶左右移动，松手记住位置）
     island_drag: Option<IslandDrag>,
-    center_hold: Option<(f64, bool)>,
+    center_click: Option<(f64, Pos2)>,
+    center_press: Option<(f64, Pos2)>,
 
     // 暂存站
     pub(crate) shelf_scroll: Spring,
@@ -520,7 +535,8 @@ impl App {
             drag_a: 0.0,
             drag_saved: None,
             island_drag: None,
-            center_hold: None,
+            center_click: None,
+            center_press: None,
             shelf_scroll: Spring::new(0.0, 300.0, 0.9),
             shelf_first: 0,
             shelf_text: String::new(),
@@ -1311,7 +1327,7 @@ impl App {
         // ---------- 输入：拖放 ----------
         let (hovering_files, dropped) = ctx.input(|i| {
             (
-                self.settings.visible_pages[3] && !i.raw.hovered_files.is_empty(),
+                self.settings.visible_pages[3] && (!i.raw.hovered_files.is_empty() || env.drop_hovering),
                 i.raw.dropped_files.iter().filter_map(|f| f.path.clone()).collect::<Vec<_>>(),
             )
         });
@@ -1319,6 +1335,8 @@ impl App {
         if hovering_files && env.passkey_down { self.passkey_latched = true; }
         if !env.passkey_down { self.passkey_latched = false; }
         self.passkey_passthrough = self.passkey_latched && env.passkey_down;
+        if let Some(error)=&env.drop_error {self.say(error.clone());}
+        if !env.dropped.is_empty() {self.on_drop_data(env.dropped.clone());}
         if !dropped.is_empty() && self.settings.visible_pages[3] {
             self.on_drop(dropped);
             self.show_page(3);
@@ -1338,7 +1356,7 @@ impl App {
         self.drag_a = anim::approach(self.drag_a, if self.drag_hot { 1.0 } else { 0.0 }, 16.0, dt);
         // ---------- 输入：整岛贴顶左右拖动 ----------
         let island_drag_active = self.island_drag_step(ui, cx, top, env, hovering_files);
-        self.right_hold_center_step(ui, cx, top, env, hovering_files);
+        self.right_double_click_center_step(ui, cx, top, env, hovering_files);
         // 按住岛体（尚未移动）时先不展开，给「按住再拖」留出机会。
         let island_hold = self.island_drag.is_some() && !self.open;
 
@@ -1557,7 +1575,6 @@ impl App {
             || self.drag_hot
             || island_drag_active
             || self.island_drag.is_some()
-            || self.center_hold.is_some_and(|(_,done)|!done)
             || (self.pet_a > 0.001 && self.pet_a < 0.999)
             || !self.resident.settled()
             || self.open && self.page==3 && self.shelf_x.values().any(|s| !s.settled(68.0))
@@ -1579,7 +1596,7 @@ impl App {
             region: rel(region.intersect(ui.max_rect())),
             hit: rel(self.hit_rect(cx, top, self.progress())),
             notice_hit:notice_shape.map(|r|rel(notice_details.map_or(r,|details|r.union(details)))),
-            file_drop_zone:self.settings.visible_pages[3].then(||rel(Rect::from_min_size(Pos2::new(cx-PW/2.0,top),Vec2::new(PW,96.0)))),
+            file_drop_zone:(self.settings.visible_pages[3] && self.settings.collect[crate::collect::FILE_DROP]).then(||rel(Rect::from_min_size(Pos2::new(cx-PW/2.0,top),Vec2::new(PW,96.0)))),
             expanded: self.open,
             editing: self.is_editing(),
             passkey_passthrough: self.passkey_passthrough,
@@ -1665,20 +1682,38 @@ impl App {
         active
     }
 
-    fn right_hold_center_step(&mut self, ui:&egui::Ui, cx:f32, top:f32, env:&Env, hovering_files:bool) {
-        let (pressed,down)=ui.ctx().input(|i|(i.pointer.button_pressed(egui::PointerButton::Secondary),i.pointer.secondary_down()));
+    fn right_double_click_center_step(&mut self, ui:&egui::Ui, cx:f32, top:f32, env:&Env, hovering_files:bool) {
         let inside=env.cursor.is_some_and(|point|self.hit_rect(cx,top,self.progress()).contains(point));
-        if !self.settings.right_hold_center || !down || !inside || hovering_files || self.passkey_passthrough {
-            self.center_hold=None;
+        // Keep the persisted setting key so upgrades retain the user's opt-in.
+        if !self.settings.right_hold_center || hovering_files || self.passkey_passthrough {
+            self.center_click=None;self.center_press=None;return;
+        }
+        if let Some(clicked)=env.right_double_click {
+            self.center_click=None;self.center_press=None;
+            if clicked {self.island_drag=None;self.settings.island_x=None;self.settings.save();}
             return;
         }
-        if pressed {self.center_hold=Some((self.t,false));}
-        if let Some((at,false))=self.center_hold {
-            if self.t-at>=0.5 {
-                self.center_hold=Some((at,true));
-                self.island_drag=None;
-                self.settings.island_x=None;
-                self.settings.save();
+        if !inside {self.center_click=None;self.center_press=None;return;}
+        if ui.ctx().input(|i|[egui::PointerButton::Primary,egui::PointerButton::Middle,egui::PointerButton::Extra1,egui::PointerButton::Extra2].iter().any(|&b|i.pointer.button_down(b))){self.center_click=None;self.center_press=None;return;}
+        let options=ui.ctx().options(|o|o.input_options.clone());
+        // Process every event: both clicks may arrive in one rendered frame.
+        for event in ui.ctx().input(|i|i.raw.events.clone()) {
+            match event {
+                egui::Event::PointerButton{pos,button:egui::PointerButton::Secondary,pressed:true,..}=>{
+                    self.center_press=self.hit_rect(cx,top,self.progress()).contains(pos).then_some((self.t,pos));
+                }
+                egui::Event::PointerMoved(pos)=>{
+                    if self.center_press.is_some_and(|(_,origin)|origin.distance(pos)>options.max_click_dist){self.center_press=None;}
+                }
+                egui::Event::PointerButton{pos,button:egui::PointerButton::Secondary,pressed:false,..}=>{
+                    let valid=self.center_press.take().is_some_and(|(at,origin)|self.t-at<=options.max_click_duration&&origin.distance(pos)<=options.max_click_dist);
+                    if !valid {self.center_click=None;continue;}
+                    if self.center_click.is_some_and(|(at,origin)|self.t-at<=options.max_double_click_delay&&origin.distance(pos)<=options.max_click_dist){
+                        self.center_click=None;self.island_drag=None;self.settings.island_x=None;self.settings.save();
+                    }else{self.center_click=Some((self.t,pos));}
+                }
+                egui::Event::PointerButton{pressed:true,..}|egui::Event::PointerGone=>{self.center_press=None;self.center_click=None;}
+                _=>{}
             }
         }
     }
@@ -1879,7 +1914,8 @@ impl App {
         }
         // 邮箱页入口常驻；通知只在同一位置上叠加摇摆与小红点，不再靠临时占位（F04）。
         let bell_alert = self.t<self.notification_bell_until && !self.compact_notices();
-        if !self.effective_minimal() || bell_alert {
+        if compact_alpha>0.004 && (!self.effective_minimal() || bell_alert) {
+            let c=base.faded(compact_alpha);let base=if compact_alpha<0.8{c.ghost()}else{c};
             if let Some(x)=layout.x[bar::BELL]{
                 let x=local_cx+x;
                 let swing=if bell_alert {paint::bell_swing(self.t-self.notification_bell_at)}else{0.0};
@@ -1893,7 +1929,7 @@ impl App {
                     let size=if text.len()>1{5.8}else{7.2};
                     base.text(x+8.0,22.5,&text,size,W::Bold,if unread>0{theme::WHITE}else{theme::GRAY},H::Center);
                 }
-                if base.hit(x-14.0,3.0,28.0,25.0,"bell-mail").clicked(){self.show_page(5);}
+                if p<0.08 && base.hit(x-14.0,3.0,28.0,25.0,"bell-mail").clicked(){self.show_page(5);}
             }
         }
         if compact_alpha>0.004 {
@@ -2351,7 +2387,11 @@ impl App {
     }
 
     pub fn on_drop(&mut self, files: Vec<PathBuf>) {
-        if !self.settings.visible_pages[3] || files.is_empty() { return; }
+        self.on_drop_data(files.into_iter().map(DropData::File).collect());
+    }
+
+    pub fn on_drop_data(&mut self, items: Vec<DropData>) {
+        if !self.settings.visible_pages[3] || items.is_empty() { return; }
         if self.passkey_now && self.passkey_latched {
             // 首选机制已生效时本不该收到落点；真收到也不记录，保证穿透语义。
             self.say("穿透键生效：岛未接收该文件，请确认目标窗口已收到");
@@ -2364,7 +2404,21 @@ impl App {
             self.go(3, 1.0);
         }
         let (mut added,mut duplicate,mut failed) = (0,0,0);
-        for p in files {
+        let only_files=items.iter().all(|item|matches!(item,DropData::File(_)));
+        for item in items {
+            let p=match item {
+                DropData::File(p)=>p,
+                other=>{
+                    let result=self.staging.as_mut().ok_or_else(||std::io::Error::other("暂存不可用")).and_then(|staging|match other {
+                        DropData::Text(text)=>if text.trim().is_empty(){Err(std::io::Error::other("空文字"))}else{staging.add_text(&text,"拖入岛")},
+                        DropData::Image{rgba,width,height}=>staging.add_image(&rgba,width,height,"拖入岛"),
+                        DropData::VirtualFile{name,bytes}=>staging.add_virtual_file(&name,&bytes,"拖入岛"),
+                        DropData::File(_)=>unreachable!(),
+                    });
+                    if result.is_ok(){added+=1;}else{failed+=1;}
+                    continue;
+                }
+            };
             if !p.exists() {failed+=1;continue;}
             let key=p.display().to_string();
             if self.shelf_has_file(&key) {
@@ -2381,7 +2435,7 @@ impl App {
         }else if added==0 && duplicate==0 {"文件不存在或无法访问".into()}
         else {
             let mut parts=Vec::new();
-            if added>0{parts.push(format!("已添加 {added} 个文件"));}
+            if added>0{parts.push(if only_files{format!("已添加 {added} 个文件")}else{format!("已添加 {added} 项")});}
             if duplicate>0{parts.push(format!("{duplicate} 个已存在"));}
             if failed>0{parts.push(format!("{failed} 个无法添加"));}
             parts.join("，")

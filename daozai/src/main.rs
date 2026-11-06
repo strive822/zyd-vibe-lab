@@ -121,7 +121,7 @@ impl Shell {
             #[cfg(windows)] system_rx,
             fullscreen:None,
             input_state:daozai::input::Monitor::new(initial_input),
-            #[cfg(windows)] input_keys:daozai::input::Shortcuts::start(),
+            #[cfg(windows)] input_keys:daozai::input::Shortcuts::start().map(|keys|{keys.set_repaint_context(cc.egui_ctx.clone());keys}),
             #[cfg(windows)] incoming,
             #[cfg(windows)] hidden:false,
             #[cfg(windows)]
@@ -177,6 +177,9 @@ impl Shell {
     }
 
     fn env(&mut self, ctx: &egui::Context) -> Env {
+        #[cfg(windows)] if let Some(native)=&self.native{native.set_center_enabled(self.app.settings.right_hold_center&&!self.hidden);}
+        #[cfg(windows)] let (drop_hovering,dropped,drop_error)=self.native.as_mut().map(|n|n.take_drops()).unwrap_or_default();
+        #[cfg(not(windows))] let (drop_hovering,dropped,drop_error)=(false,Vec::new(),None);
         let (clock, today, date) = local_now();
         // 电量变化很慢，每 5 秒读一次就够
         if self.sys.2.ready(Duration::from_secs(5)) {
@@ -224,10 +227,15 @@ impl Shell {
             volume: self.system_state.volume,
             bt: self.bt.clone(),
             bt_ready: self.bt_ready,
+            drop_hovering, dropped, drop_error,
+            right_double_click: {
+                #[cfg(windows)] {self.native.as_ref().map(|n|n.take_right_double_click())}
+                #[cfg(not(windows))] {None}
+            },
             passkey_down: {
                 #[cfg(windows)] {
                     self.input_keys.as_ref().is_some_and(|keys| {
-                        keys.arm_passthrough(!self.hidden && self.app.settings.visible_pages[3] && ctx.input(|i|!i.raw.hovered_files.is_empty()));
+                        keys.arm_passthrough(!self.hidden && self.app.settings.visible_pages[3] && (drop_hovering || ctx.input(|i|!i.raw.hovered_files.is_empty())));
                         keys.passthrough_down()
                     })
                 }
@@ -619,6 +627,7 @@ fn run() -> eframe::Result<()> {
     let viewport = egui::ViewportBuilder::default()
         .with_title("岛仔").with_icon(daozai::theme::app_icon())
         .with_inner_size([app::CANVAS_W, app::WIN_H])
+        .with_drag_and_drop(!cfg!(windows))
         .with_decorations(false)
         .with_transparent(true)
         .with_active(false)

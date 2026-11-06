@@ -47,6 +47,8 @@ mod updates;
 #[cfg(windows)]
 pub mod native;
 #[cfg(windows)]
+mod native_drop;
+#[cfg(windows)]
 pub mod tray;
 
 #[cfg(test)]

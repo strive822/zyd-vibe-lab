@@ -585,7 +585,7 @@ impl App {
             match entry.kind {
                 crate::staging::Kind::Text => {
                     cc.fill(x - 22.0, 36.0 + lift, 44.0, 34.0, 8.0, Color32::from_rgb(46, 47, 52));
-                    paint::note(&cc, x, 53.0 + lift, 22.0, theme::WHITE);
+                    paint::file_glyph(&cc, paint::FileKind::Doc, x, 53.0 + lift, 28.0);
                 }
                 _ => {
                     if let Some(path) = shelf_icon_path(self, entry) {

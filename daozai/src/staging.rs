@@ -1,7 +1,7 @@
 //! 暂存站索引：`staging.json` + `staging\` 下的自有副本。
 //!
 //! 规则（方案 M2）：
-//! - 文件条目只记录用户原路径，不复制；图片/文字把副本写进 `staging\`。
+//! - 本地文件只记录原路径；文字/位图及无本地路径的附件把副本写进 `staging\`。
 //! - 先写妥副本再提交索引；索引原子写入，失败时保留上一有效状态。
 //! - `migrated` 标记区分“尚未迁移”和“有效的空索引”，清空后重启不会复活旧清单。
 //! - 索引损坏时保留现场并报错，不覆盖。
@@ -42,9 +42,11 @@ pub(crate) struct Entry {
     pub kind: Kind,
     /// 文件条目是用户原路径；文字/图片是相对 `staging\` 的副本名。
     pub path: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub owned_copy: Option<String>,
     /// 收集来源，例如“剪贴板文本”“截图文件夹”。
     pub source: String,
-    /// 副本字节数；文件条目恒为 0（不虚增占用）。
+    /// 副本字节数；外部文件引用为 0（不虚增占用）。
     pub bytes: u64,
     pub dims: Option<(u32, u32)>,
     pub preview: String,
@@ -134,6 +136,7 @@ impl Staging {
             staged.entries.push(Entry {
                 id: id_for(Kind::File, &key),
                 kind: Kind::File,
+                owned_copy: None,
                 path: key,
                 source: "旧暂存清单".into(),
                 bytes: 0,
@@ -167,7 +170,7 @@ impl Staging {
         let mut seen: Vec<PathBuf> = Vec::new();
         let mut total = 0;
         for entry in &self.index.entries {
-            if entry.kind == Kind::File {
+            if entry.kind == Kind::File && entry.owned_copy.is_none() {
                 continue;
             }
             let Some(path) = self.own_copy(entry) else { continue };
@@ -211,6 +214,7 @@ impl Staging {
         self.push(Entry {
             id: id_for(Kind::Text, &name),
             kind: Kind::Text,
+            owned_copy: None,
             path: name,
             source: source.into(),
             bytes: body.len() as u64,
@@ -257,6 +261,7 @@ impl Staging {
         self.push(Entry {
             id: id_for(Kind::Image, &name),
             kind: Kind::Image,
+            owned_copy: None,
             path: name,
             source: source.into(),
             bytes: png.len() as u64,
@@ -284,6 +289,7 @@ impl Staging {
         self.push(Entry {
             id: id_for(Kind::File, &key),
             kind: Kind::File,
+            owned_copy: None,
             path: key,
             source: source.into(),
             bytes: 0,
@@ -292,6 +298,27 @@ impl Staging {
             first_at: chrono::Utc::now().timestamp(),
             last_at: chrono::Utc::now().timestamp(),
         })
+    }
+
+    pub(crate) fn add_virtual_file(&mut self,name:&str,bytes:&[u8],source:&str)->io::Result<()> {
+        if name.is_empty() || name=="." || name==".." || name.chars().any(|c|c.is_control() || "<>:\\/?*\"|".contains(c)) || name.ends_with([' ','.']) {
+            return Err(io::Error::other("Invalid attachment name"));
+        }
+        let root=self.staging_dir();fs::create_dir_all(&root)?;
+        if is_link(&root){return Err(io::Error::other("Linked staging directory"));}
+        let folder=self.unique_copy_name("virtual","files",chrono::Utc::now().timestamp_millis());
+        let dir=root.join(&folder);fs::create_dir(&dir)?;
+        let path=dir.join(name);
+        if let Err(error)=write_atomic(&path,bytes){let _=fs::remove_dir(&dir);return Err(error);}
+        let now=chrono::Utc::now().timestamp();
+        let key=path.display().to_string();
+        self.push(Entry{id:id_for(Kind::File,&key),kind:Kind::File,path:key,owned_copy:Some(format!("{folder}/{name}")),source:source.into(),bytes:bytes.len()as u64,dims:None,preview:String::new(),first_at:now,last_at:now})
+    }
+
+    fn remove_empty_virtual_parent(&self,path:&Path){
+        if let Some(parent)=path.parent().filter(|p|p.file_name().is_some_and(|n|n.to_string_lossy().starts_with("virtual-"))) {
+            if fs::canonicalize(self.staging_dir()).ok().as_deref()==parent.parent(){let _=fs::remove_dir(parent);}
+        }
     }
 
     /// 删除一条：外部文件只移除记录，自有副本才删实体；越界一律拒绝。
@@ -328,6 +355,7 @@ impl Staging {
                 return Err(error);
             }
         }
+        if let Some((path,_))=pending {self.remove_empty_virtual_parent(&path);}
         Ok(())
     }
 
@@ -340,7 +368,7 @@ impl Staging {
         let mut survivors: Vec<Entry> = Vec::with_capacity(staged.entries.len());
         let mut pending: Vec<(usize, Entry, PathBuf, PathBuf)> = Vec::new();
         for (position, entry) in std::mem::take(&mut staged.entries).into_iter().enumerate() {
-            if entry.kind == Kind::File {
+            if entry.kind == Kind::File && entry.owned_copy.is_none() {
                 cleanup.removed += 1;
                 continue;
             }
@@ -371,7 +399,7 @@ impl Staging {
         let mut purge_failed: Vec<(usize, Entry)> = Vec::new();
         for (position, entry, path, target) in pending {
             match fs::remove_file(&target) {
-                Ok(()) => cleanup.removed += 1,
+                Ok(()) => {cleanup.removed += 1;self.remove_empty_virtual_parent(&path);},
                 Err(error) if error.kind() == io::ErrorKind::NotFound => cleanup.removed += 1,
                 Err(error) => {
                     let _ = fs::rename(&target, &path);
@@ -405,6 +433,7 @@ impl Staging {
             self.index.entries.push(Entry {
                 id: id_for(Kind::File, &key),
                 kind: Kind::File,
+                owned_copy: None,
                 path: key,
                 source: "测试".into(),
                 bytes: 0,
@@ -420,11 +449,12 @@ impl Staging {
     fn push(&mut self, entry: Entry) -> io::Result<()> {
         let mut staged = self.index.clone();
         // 提交失败时撤掉刚写的副本（外部文件条目没有副本）。
-        let copy = (entry.kind != Kind::File).then(|| self.staging_dir().join(&entry.path));
+        let copy = self.own_copy(&entry);
         staged.entries.push(entry);
         if let Err(error) = self.commit(&staged) {
             if let Some(copy) = copy {
-                let _ = fs::remove_file(copy);
+                let _ = fs::remove_file(&copy);
+                self.remove_empty_virtual_parent(&copy);
             }
             return Err(error);
         }
@@ -455,7 +485,7 @@ impl Staging {
         write_atomic(&path, body)
     }
 
-    /// 自有副本的绝对路径（图片/文字）；外部文件条目返回 None。
+    /// 自有副本的绝对路径；外部文件引用返回 None。
     pub(crate) fn copy_path(&self, entry: &Entry) -> Option<PathBuf> {
         self.own_copy(entry)
     }
@@ -471,14 +501,27 @@ impl Staging {
 
     /// 只认 `staging\` 下真实存在的自有副本；目录穿越、junction 指向外部都返回 None。
     fn own_copy(&self, entry: &Entry) -> Option<PathBuf> {
-        let rel = Path::new(&entry.path);
-        if entry.kind == Kind::File || rel.is_absolute() || rel.components().any(|part| !matches!(part, Component::Normal(_))) {
-            return None;
-        }
-        let dir = fs::canonicalize(self.staging_dir()).ok()?;
-        let path = fs::canonicalize(dir.join(rel)).ok()?;
+        let relative=if entry.kind==Kind::File {entry.owned_copy.as_deref()?}else{&entry.path};
+        let rel=Path::new(relative);
+        if rel.is_absolute() || rel.components().any(|part|!matches!(part,Component::Normal(_))) {return None;}
+        if entry.kind==Kind::File && (rel.components().count()!=2 || !relative.starts_with("virtual-")) {return None;}
+        let root=self.staging_dir();
+        // Reject reparse points at every owned path component, including the staging root.
+        let mut candidate=root.clone();
+        if is_link(&candidate) {return None;}
+        for component in rel.components(){candidate.push(component);if is_link(&candidate){return None;}}
+        let dir=fs::canonicalize(root).ok()?;
+        let path=fs::canonicalize(candidate).ok()?;
+        if entry.kind==Kind::File && fs::canonicalize(&entry.path).ok()?!=path {return None;}
         path.starts_with(&dir).then_some(path)
     }
+}
+
+fn is_link(path:&Path)->bool {
+    fs::symlink_metadata(path).is_ok_and(|meta|{
+        #[cfg(windows)] {use std::os::windows::fs::MetadataExt;meta.file_attributes()&0x400!=0}
+        #[cfg(not(windows))] {meta.file_type().is_symlink()}
+    })
 }
 
 fn preview(text: &str) -> String {
@@ -521,7 +564,7 @@ fn write_atomic(path: &Path, body: &[u8]) -> io::Result<()> {
         fs::create_dir_all(parent)?;
     }
     let tmp = path.with_extension("tmp");
-    fs::write(&tmp, body)?;
+    fs::write(&tmp, body).inspect_err(|_|{let _=fs::remove_file(&tmp);})?;
     fs::rename(&tmp, path).inspect_err(|_| {
         let _ = fs::remove_file(&tmp);
     })
@@ -533,6 +576,39 @@ mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     static SEQ: AtomicUsize = AtomicUsize::new(0);
+
+    #[test]
+    fn virtual_files_keep_names_and_cleanup_only_owned_copies(){
+        let dir=scratch("virtual");let mut staging=load(&dir);
+        let original=dir.join("original.txt");fs::write(&original,b"original").unwrap();
+        staging.add_file(&original,"test").unwrap();
+        staging.add_virtual_file("attachment.txt",b"first","test").unwrap();
+        staging.add_virtual_file("attachment.txt",b"second","test").unwrap();
+        staging.add_virtual_file("empty.txt",b"","test").unwrap();
+        assert_eq!(staging.occupancy(),11);
+        let copy=PathBuf::from(&staging.entries()[1].path);
+        assert_eq!(copy.file_name().unwrap(),"attachment.txt");
+        assert_eq!(fs::read(&copy).unwrap(),b"first");
+        let mut restarted=Staging::load(&dir).unwrap();assert_eq!(restarted.occupancy(),11);
+        let id=restarted.entries()[1].id.clone();restarted.remove(&id).unwrap();
+        assert!(!copy.exists());assert!(!copy.parent().unwrap().exists());
+        restarted.clear().unwrap();assert_eq!(fs::read(original).unwrap(),b"original");
+        assert_eq!(fs::read_dir(restarted.staging_dir()).unwrap().count(),0);
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn virtual_files_reject_traversal_and_rollback_on_index_failure(){
+        let dir=scratch("virtual-fail");let mut staging=load(&dir);
+        for name in ["../a.txt","a/b.txt","C:\\a.txt","..","a:stream","bad.","bad "]{
+            assert!(staging.add_virtual_file(name,b"content","test").is_err());
+        }
+        fs::remove_file(&staging.index_path).unwrap();fs::create_dir(&staging.index_path).unwrap();
+        assert!(staging.add_virtual_file("ok.txt",b"content","test").is_err());
+        assert!(staging.entries().is_empty());
+        assert_eq!(fs::read_dir(staging.staging_dir()).unwrap().count(),0);
+        fs::remove_dir_all(dir).unwrap();
+    }
 
     fn scratch(tag: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!("daozai-staging-{}-{}-{tag}", std::process::id(), SEQ.fetch_add(1, Ordering::Relaxed)));

@@ -347,18 +347,23 @@ fn read_dib() -> Option<Payload> {
 /// 所有 Win32 调用都已放进显式 unsafe 块，签名不需要 unsafe。
 #[cfg(windows)]
 fn read_bitmap() -> Option<Payload> {
-    use windows::Win32::Graphics::Gdi::{GetDIBits, GetDC, GetObjectW, ReleaseDC, BITMAP, BITMAPINFO, DIB_RGB_COLORS, HBITMAP};
     use windows::Win32::System::DataExchange::GetClipboardData;
     use windows::Win32::System::Ole::CF_BITMAP;
     let handle = unsafe { GetClipboardData(u32::from(CF_BITMAP.0)) }.ok()?;
-    let bitmap_handle = HBITMAP(handle.0);
+    let (rgba,width,height)=bitmap_to_rgba(windows::Win32::Graphics::Gdi::HBITMAP(handle.0))?;
+    Some(Payload::Image { rgba, width, height, screenshot: false, screenshot_path: None })
+}
+
+#[cfg(windows)]
+pub(crate) fn bitmap_to_rgba(bitmap_handle:windows::Win32::Graphics::Gdi::HBITMAP)->Option<(Vec<u8>,u32,u32)> {
+    use windows::Win32::Graphics::Gdi::{GetDIBits, GetDC, GetObjectW, ReleaseDC, BITMAP, BITMAPINFO, DIB_RGB_COLORS};
     let mut bitmap = BITMAP::default();
     if unsafe { GetObjectW(bitmap_handle, std::mem::size_of::<BITMAP>() as i32, Some(&mut bitmap as *mut _ as *mut core::ffi::c_void)) } == 0 {
         return None;
     }
     let width = bitmap.bmWidth.max(0) as u32;
     let height = bitmap.bmHeight.max(0) as u32;
-    if width == 0 || height == 0 {
+    if width == 0 || height == 0 || u64::from(width)*u64::from(height)>32*1024*1024 {
         return None;
     }
     let dc = unsafe { GetDC(None) };
@@ -384,7 +389,7 @@ fn read_bitmap() -> Option<Payload> {
             pixel[3] = 255;
         }
     }
-    Some(Payload::Image { rgba, width, height, screenshot: false, screenshot_path: None })
+    Some((rgba,width,height))
 }
 
 /// 解析 24/32 位 BI_RGB 的 DIB 字节（不含 14 字节文件头），返回 (rgba, 宽, 高)。
@@ -392,7 +397,7 @@ fn read_bitmap() -> Option<Payload> {
 /// 方向必须在取绝对值之前判定——先 abs 再判会永远当成 bottom-up，
 /// 导致 top-down 截图被上下翻转（F11）。其他位深暂不支持，返回 None（宁可少收，不乱收）。
 #[cfg_attr(not(windows), allow(dead_code))]
-fn dib_bytes_to_rgba(bytes: &[u8]) -> Option<(Vec<u8>, u32, u32)> {
+pub(crate) fn dib_bytes_to_rgba(bytes: &[u8]) -> Option<(Vec<u8>, u32, u32)> {
     if bytes.len() < 40 {
         return None;
     }
@@ -408,6 +413,7 @@ fn dib_bytes_to_rgba(bytes: &[u8]) -> Option<(Vec<u8>, u32, u32)> {
     let bottom_up = height > 0;
     let width = width as u32;
     let height = height.unsigned_abs();
+    if u64::from(width)*u64::from(height)>32*1024*1024 || header_size<40 {return None;}
     let stride = ((width * u32::from(depth)).div_ceil(32) * 4) as usize;
     let offset = header_size;
     let needed = offset + stride * height as usize;
