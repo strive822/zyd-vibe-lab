@@ -401,15 +401,16 @@ pub fn pick_files_for(title:&str,multiple:bool) -> Result<Vec<std::path::PathBuf
 fn file_data_object(path: &std::path::Path) -> Result<windows::Win32::System::Com::IDataObject> {
     unsafe {
         use windows::Win32::UI::Shell::*;
-        let wide: Vec<u16> = path
-            .as_os_str()
-            .to_string_lossy()
-            .encode_utf16()
-            .chain(Some(0))
-            .collect();
+        // canonicalize returns verbatim paths on Windows; the Shell PIDL parser rejects
+        // \\?\ prefixes. Convert disk/UNC prefixes without lossy Unicode conversion.
+        use std::os::windows::ffi::OsStrExt;
+        let mut wide:Vec<u16>=path.as_os_str().encode_wide().collect();
+        if wide.starts_with(&[92,92,63,92,85,78,67,92]) {wide.splice(..8,[92,92]);}
+        else if wide.starts_with(&[92,92,63,92]) {wide.drain(..4);}
+        wide.push(0);
         let pidl = ILCreateFromPathW(windows::core::PCWSTR(wide.as_ptr()));
         if pidl.is_null() {
-            return Err(windows::core::Error::from_win32());
+            return Err(windows::core::Error::from_hresult(windows::Win32::Foundation::E_INVALIDARG));
         }
         let result = (|| {
             let mut child = std::ptr::null_mut();
@@ -420,13 +421,66 @@ fn file_data_object(path: &std::path::Path) -> Result<windows::Win32::System::Co
         result
     }
 }
+// Shell IDataObject retains the file representation (Explorer/attachments); editors can
+// additionally request Unicode text or native image bytes. SetData owns each HGLOBAL
+// only after success. Neither this path nor SHDoDragDrop touches the clipboard.
+fn drag_data_object(path:&std::path::Path,text:Option<&str>,image:bool)->Result<windows::Win32::System::Com::IDataObject> {
+    use windows::Win32::System::Ole::{CF_UNICODETEXT,CF_DIBV5};
+    let data=file_data_object(path)?;
+    if let Some(text)=text {
+        let bytes:Vec<u8>=text.encode_utf16().chain(Some(0)).flat_map(u16::to_le_bytes).collect();
+        set_drag_bytes(&data,CF_UNICODETEXT.0,&bytes)?;
+    }
+    if image {
+        let png=std::fs::read(path).map_err(|_|windows::core::Error::from_win32())?;
+        let rgba=image::load_from_memory_with_format(&png,image::ImageFormat::Png)
+            .map_err(|_|windows::core::Error::from_hresult(windows::Win32::Foundation::E_INVALIDARG))?.to_rgba8();
+        let (width,height)=rgba.dimensions();
+        let mut dib=vec![0u8;124];
+        dib[0..4].copy_from_slice(&124u32.to_le_bytes());
+        dib[4..8].copy_from_slice(&(width as i32).to_le_bytes());
+        dib[8..12].copy_from_slice(&(-(height as i32)).to_le_bytes());
+        dib[12..14].copy_from_slice(&1u16.to_le_bytes());
+        dib[14..16].copy_from_slice(&32u16.to_le_bytes());
+        dib[16..20].copy_from_slice(&3u32.to_le_bytes()); // BI_BITFIELDS
+        dib[20..24].copy_from_slice(&(rgba.len() as u32).to_le_bytes());
+        for (offset,value) in [(40,0x00ff0000u32),(44,0x0000ff00),(48,0x000000ff),(52,0xff000000),(56,0x73524742)] {
+            dib[offset..offset+4].copy_from_slice(&value.to_le_bytes());
+        }
+        for pixel in rgba.chunks_exact(4) {dib.extend_from_slice(&[pixel[2],pixel[1],pixel[0],pixel[3]]);}
+        let format=unsafe{windows::Win32::System::DataExchange::RegisterClipboardFormatW(windows::core::w!("PNG"))};
+        if format==0 {return Err(windows::core::Error::from_win32());}
+        set_drag_bytes(&data,format as u16,&png)?;
+        set_drag_bytes(&data,CF_DIBV5.0,&dib)?;
+    }
+    Ok(data)
+}
+fn set_drag_bytes(data:&windows::Win32::System::Com::IDataObject,id:u16,bytes:&[u8])->Result<()> {
+    use windows::Win32::System::{Com::*,Memory::*};
+    use windows::Win32::Foundation::GlobalFree;
+    unsafe {
+        let handle=GlobalAlloc(GMEM_MOVEABLE,bytes.len())?;
+        let pointer=GlobalLock(handle);
+        if pointer.is_null(){let error=windows::core::Error::from_win32();let _=GlobalFree(handle);return Err(error);}
+        std::ptr::copy_nonoverlapping(bytes.as_ptr(),pointer.cast(),bytes.len());
+        let _=GlobalUnlock(handle);
+        let format=FORMATETC{cfFormat:id,dwAspect:DVASPECT_CONTENT.0,lindex:-1,tymed:TYMED_HGLOBAL.0 as u32,..Default::default()};
+        let medium=STGMEDIUM{tymed:TYMED_HGLOBAL.0 as u32,u:STGMEDIUM_0{hGlobal:handle},..Default::default()};
+        let result=data.SetData(&format,&medium,true);
+        if result.is_err(){let _=GlobalFree(handle);}
+        result
+    }
+}
 /// 原生拖出只允许复制，取消拖放不会改变暂存站与原文件。
-pub fn drag_file(path: &std::path::Path) -> Result<()> {
+pub fn drag_out(path: &std::path::Path, text: Option<&str>, image: bool) -> Result<()> {
+    // The gesture may have ended while the render command was queued. Never start
+    // a new modal drag after release (the Shell cannot infer a starting button).
+    if !crate::native::left_button_down(){return Ok(());}
     unsafe {
         use windows::Win32::System::Ole::{OleInitialize, OleUninitialize, DROPEFFECT_COPY};
         use windows::Win32::UI::Shell::SHDoDragDrop;
         let initialized = OleInitialize(None).is_ok();
-        let result = file_data_object(path)
+        let result = drag_data_object(path,text,image)
             .and_then(|data| SHDoDragDrop(None, &data, None, DROPEFFECT_COPY).map(|_| ()));
         if initialized {
             OleUninitialize();
@@ -594,4 +648,54 @@ mod avoidance_tests {
         let notepad=std::path::Path::new(r"C:\Windows\System32\notepad.exe");
         if notepad.exists(){assert!(executable_description(notepad.to_str().unwrap()).is_some());}
     }
+}
+
+
+#[cfg(test)]
+mod drag_out_tests {
+    use super::*;
+    use windows::Win32::System::{Com::*,Ole::*,Memory::*};
+    fn read(data:&IDataObject,id:u16)->Vec<u8>{unsafe{
+        let format=FORMATETC{cfFormat:id,dwAspect:DVASPECT_CONTENT.0,lindex:-1,tymed:TYMED_HGLOBAL.0 as u32,..Default::default()};
+        assert!(data.QueryGetData(&format).is_ok());
+        let mut medium=data.GetData(&format).unwrap();
+        let handle=medium.u.hGlobal;let pointer=GlobalLock(handle);
+        assert!(!pointer.is_null());let bytes=std::slice::from_raw_parts(pointer.cast::<u8>(),GlobalSize(handle)).to_vec();
+        let _=GlobalUnlock(handle);ReleaseStgMedium(&mut medium);bytes
+    }}
+    #[test]
+    fn shell_drag_object_offers_files_and_unicode_without_changing_the_source(){unsafe{
+        OleInitialize(None).unwrap();
+        let path=std::env::temp_dir().join(format!("daozai-drag-text-{}.txt",std::process::id()));
+        let body="完整中文🙂\r\n第二行";std::fs::write(&path,body).unwrap();
+        {
+            let canonical=std::fs::canonicalize(&path).unwrap();
+            let data=drag_data_object(&canonical,Some(body),false).unwrap();
+            assert!(!read(&data,CF_HDROP.0).is_empty());
+            let bytes=read(&data,CF_UNICODETEXT.0);
+            let units:Vec<_>=bytes.chunks_exact(2).map(|b|u16::from_le_bytes([b[0],b[1]])).take_while(|v|*v!=0).collect();
+            assert_eq!(String::from_utf16(&units).unwrap(),body);
+            let formats=data.EnumFormatEtc(DATADIR_GET.0 as u32).unwrap();
+            let mut list=[FORMATETC::default();32];let mut count=0;let _=formats.Next(&mut list,Some(&mut count));
+            assert!(list[..count as usize].iter().any(|f|f.cfFormat==CF_UNICODETEXT.0));
+        }
+        assert_eq!(std::fs::read_to_string(&path).unwrap(),body);std::fs::remove_file(path).unwrap();OleUninitialize();
+    }}
+    #[test]
+    fn image_drag_object_offers_png_and_alpha_preserving_dib(){unsafe{
+        OleInitialize(None).unwrap();
+        let path=std::env::temp_dir().join(format!("daozai-drag-image-{}.png",std::process::id()));
+        let rgba=vec![255,20,30,128,0,100,200,255];
+        image::save_buffer(&path,&rgba,2,1,image::ColorType::Rgba8).unwrap();let original=std::fs::read(&path).unwrap();
+        {
+            let canonical=std::fs::canonicalize(&path).unwrap();
+            let data=drag_data_object(&canonical,None,true).unwrap();
+            assert!(!read(&data,CF_HDROP.0).is_empty());
+            let png=windows::Win32::System::DataExchange::RegisterClipboardFormatW(windows::core::w!("PNG"));
+            let png_bytes=read(&data,png as u16);assert_eq!(&png_bytes[..original.len()],original);
+            let dib=read(&data,CF_DIBV5.0);assert_eq!(&dib[124..132],&[30,20,255,128,200,100,0,255]);
+            assert_eq!(i32::from_le_bytes(dib[8..12].try_into().unwrap()),-1);
+        }
+        assert_eq!(std::fs::read(&path).unwrap(),original);std::fs::remove_file(path).unwrap();OleUninitialize();
+    }}
 }

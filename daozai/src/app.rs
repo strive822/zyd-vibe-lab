@@ -146,7 +146,7 @@ pub enum Cmd {
     DisconnectNotifications,
     ToggleAutostart,
     AddFiles,
-    DragFile(PathBuf),
+    DragOut { path: PathBuf, text: Option<String>, image: bool },
     QuotaRefresh,
     QuotaConnected,
     QuotaChooseFile,
@@ -385,6 +385,7 @@ pub struct App {
 
     // 整岛拖动（贴顶左右移动，松手记住位置）
     island_drag: Option<IslandDrag>,
+    island_drag_claimed: bool,
     center_click: Option<(f64, Pos2)>,
     center_press: Option<(f64, Pos2)>,
 
@@ -415,6 +416,8 @@ pub struct App {
     pub(crate) editing: Option<usize>,
     pub(crate) buf: String,
     pub(crate) todo_input_focused: bool,
+    todo_ime_composing: bool,
+    todo_ime_enter: bool,
     pub(crate) todo_pop: Spring,
 
     // 音乐
@@ -535,6 +538,7 @@ impl App {
             drag_a: 0.0,
             drag_saved: None,
             island_drag: None,
+            island_drag_claimed: false,
             center_click: None,
             center_press: None,
             shelf_scroll: Spring::new(0.0, 300.0, 0.9),
@@ -555,6 +559,8 @@ impl App {
             reset_spin: Spring::new(0.0, 160.0, 0.82),
             adding: false,
             todo_input_focused: false,
+            todo_ime_composing: false,
+            todo_ime_enter: false,
             editing: None,
             buf: String::new(),
             todo_pop: Spring::new(0.0, 500.0, 0.45),
@@ -1144,6 +1150,8 @@ impl App {
         self.calendar.draft=None;
         self.buf.clear();
         self.todo_input_focused=false;
+        self.todo_ime_composing=false;
+        self.todo_ime_enter=false;
     }
 
     fn island_lyrics_active(&self)->bool {
@@ -1356,6 +1364,7 @@ impl App {
         self.drag_a = anim::approach(self.drag_a, if self.drag_hot { 1.0 } else { 0.0 }, 16.0, dt);
         // ---------- 输入：整岛贴顶左右拖动 ----------
         let island_drag_active = self.island_drag_step(ui, cx, top, env, hovering_files);
+        self.island_drag_claimed = island_drag_active;
         self.right_double_click_center_step(ui, cx, top, env, hovering_files);
         // 按住岛体（尚未移动）时先不展开，给「按住再拖」留出机会。
         let island_hold = self.island_drag.is_some() && !self.open;
@@ -1537,7 +1546,7 @@ impl App {
             if self.calendar.draft.is_some(){self.draw_calendar_editor(&c);}else if self.task_dialog.is_some(){self.draw_task_editor(&c);}else{self.panel_body(&c, env, &mut cmds);}
             self.toast_layer(&c,106.0);
         }
-        if (self.adding||self.editing.is_some()) && reveal > 0.9 && self.page == 4 && self.page_e() > 0.25 {
+        if self.task_dialog.is_none() && (self.adding||self.editing.is_some()) && reveal > 0.9 && self.page == 4 && self.page_e() > 0.25 {
             self.input_field(ui, origin, &mut cmds);
         }
 
@@ -1638,7 +1647,7 @@ impl App {
     }
 
     /// 整岛贴顶横向拖动：按住岛体挪动超过阈值才开始，松手记住位置。
-    /// 图标、额度环、设置齿轮的热区单独排除，按在它们上面仍是点击而不是拖岛。
+    /// 收起态图标也可起拖；跨过阈值后取消点击。展开态保留设置齿轮的点击热区。
     fn island_drag_step(&mut self, ui: &egui::Ui, cx: f32, top: f32, env: &Env, hovering_files: bool) -> bool {
         let press = ui.ctx().input(|i| i.pointer.button_pressed(egui::PointerButton::Primary).then(||i.pointer.press_origin()).flatten());
         // 窗口跟随拖动时鼠标事件可能落出窗口，实际运行用系统按键状态兜底。
@@ -1647,9 +1656,9 @@ impl App {
         let bar = Rect::from_center_size(Pos2::new(cx, top + BAR_H / 2.0), Vec2::new(width, BAR_H));
         let hit = self.hit_rect(cx, top, self.progress());
         // 从岛体顶栏空白处起拖：按下点同时落在可见岛体与命中区里，
-        // 且不在页入口/额度环/设置齿轮的热区内；图标点击仍走各自控件的点击判定。
+        // 收起态允许从图标起拖，轻点仍交给控件；展开态只排除设置齿轮。
         // 展开态也允许拖顶栏（时钟日期区域），这样悬停展开后仍能移动整岛。
-        let press_allowed = press.is_some_and(|local| bar.contains(local) && hit.contains(local) && !self.island_press_on_control(local, cx));
+        let press_allowed = press.is_some_and(|local| bar.contains(local) && hit.contains(local) && (!self.open || !self.island_press_on_control(local, cx)));
         if press_allowed && !self.is_editing() && !hovering_files && !self.passkey_passthrough {
             // 同一帧可能既按下又移动：保留事件的按下点，不能用帧末采样点吞掉第一段位移。
             if let Some(point) = press.zip(env.cursor).zip(env.cursor_screen).map(|((press,local),screen)|screen+(press-local)) {
@@ -1657,15 +1666,6 @@ impl App {
             }
         }
         let Some(mut drag) = self.island_drag.take() else { return false };
-        if !down {
-            // 用真实按键状态兜底时可能收不到松开事件：这里统一收尾并持久化。
-            if drag.active {
-                self.settings.save();
-                // 收起态拖完不要马上因为光标还在岛上而展开；移开再回来才恢复悬停展开。
-                if !self.open { self.hover_lock = true; }
-            }
-            return false;
-        }
         if let Some(point) = env.cursor_screen {
             let dx = point.x - drag.press_x;
             let dy = point.y - drag.press_y;
@@ -1676,6 +1676,15 @@ impl App {
                 let next = if target.abs() < 0.5 { None } else { Some(target) };
                 if next != self.settings.island_x { self.settings.island_x = next; }
             }
+        }
+        if !down {
+            // 用真实按键状态兜底时可能收不到松开事件：这里统一收尾并持久化。
+            if drag.active {
+                self.settings.save();
+                // 收起态拖完不要马上因为光标还在岛上而展开；移开再回来才恢复悬停展开。
+                if !self.open { self.hover_lock = true; }
+            }
+            return drag.active;
         }
         let active = drag.active;
         self.island_drag = Some(drag);
@@ -1850,6 +1859,7 @@ impl App {
         }
         if lyric_alpha>=0.997 {return;}
         let header=base.faded(1.0-lyric_alpha);
+        let header=if self.island_drag_claimed {header.ghost()} else {header};
         let base=&header;
         let m = anim::ease_in_out(smoothstep(0.0, 0.85, p));
         let clock = self.settings.clock_text(&env.clock);
@@ -2447,12 +2457,43 @@ impl App {
         }
     }
 
+    /// Snapshot before TextEdit consumes IME events. Both todo editors share this gate.
+    pub(crate) fn todo_submit_key(&mut self,ui:&egui::Ui,input_id:egui::Id)->bool {
+        let focused=ui.memory(|memory|memory.has_focus(input_id));
+        let events=ui.input(|input|input.events.clone());
+        if events.iter().any(|event|matches!(event,egui::Event::WindowFocused(false))) {
+            // A key-up can be lost during app switching; also reset egui's repeat tracking.
+            ui.input_mut(|input|{input.keys_down.remove(&egui::Key::Enter);});
+            self.todo_ime_composing=false;self.todo_ime_enter=false;return false;
+        }
+        if !focused {self.todo_ime_composing=false;self.todo_ime_enter=false;return false;}
+        let ime_frame=self.todo_ime_composing || events.iter().any(|event|matches!(event,egui::Event::Ime(egui::ImeEvent::Preedit(_) | egui::ImeEvent::Commit(_))));
+        let mut submit=false;
+        for event in &events {
+            match event {
+                egui::Event::Ime(egui::ImeEvent::Preedit(text))=>self.todo_ime_composing=!text.is_empty(),
+                egui::Event::Ime(egui::ImeEvent::Commit(_) | egui::ImeEvent::Disabled)=>self.todo_ime_composing=false,
+                egui::Event::Key{key:egui::Key::Enter,pressed,repeat,..}=>{
+                    if *pressed {
+                        if ime_frame {self.todo_ime_enter=true;}
+                        else if !self.todo_ime_enter && !repeat {submit=focused;}
+                    } else {self.todo_ime_enter=false;}
+                }
+                _=>{}
+            }
+        }
+        submit
+    }
+
     /// 待办输入框：真正的 egui 文本框，放在待办卡片顶部那一行。
     fn input_field(&mut self, ui: &mut egui::Ui, origin: Pos2, cmds: &mut Vec<Cmd>) {
         let rect = Rect::from_min_size(origin + Vec2::new(222.0, 37.0), Vec2::new(142.0, 18.0));
+        let input_id=egui::Id::new("todo-input");
+        let submit=self.todo_submit_key(ui,input_id);
         let mut buf = std::mem::take(&mut self.buf);
         let te = egui::TextEdit::singleline(&mut buf)
-            .id(egui::Id::new("todo-input"))
+            .id(input_id)
+            .return_key(None)
             .frame(false)
             .margin(egui::Margin::ZERO)
             .text_color(theme::WHITE)
@@ -2473,7 +2514,6 @@ impl App {
             resp.request_focus();
             cmds.push(Cmd::Focus);
         }
-        let submit = ui.input(|i| i.key_pressed(egui::Key::Enter));
         if submit {
             let text = self.buf.trim().to_string();
             let mut added=false;

@@ -2694,7 +2694,7 @@ fn island_drag_clamps_to_the_display_and_ignores_small_jitter(){
 }
 
 #[test]
-fn island_drag_does_not_steal_icon_clicks(){
+fn island_drag_starts_on_collapsed_icons_without_waiting_for_expansion(){
     let _g=ENV_LOCK.lock().unwrap_or_else(|e|e.into_inner());
     let mut h=H::new();
     for _ in 0..90{h.frame(vec![]);}
@@ -2703,9 +2703,11 @@ fn island_drag_does_not_steal_icon_clicks(){
     let icon=Pos2::new(x,14.0);
     press(&mut h,icon);
     drag_by(&mut h,icon,60.0);
-    assert_eq!(h.app.settings.island_x,None,"从图标起手不能拖走整岛");
+    assert_eq!(h.app.settings.island_x,Some(60.0));
+    assert!(!h.app.open);
     release(&mut h,Pos2::new(icon.x+60.0,icon.y));
-    assert_eq!(h.app.settings.island_x,None);
+    assert_eq!(h.app.settings.island_x,Some(60.0));
+    assert!(!h.app.open,"拖动不能触发图标点击");
 }
 
 #[test]
@@ -2744,7 +2746,7 @@ fn focus_entry_uses_full_slot_for_hover_click_and_drag_exclusion(){
             match action{
                 "hover"=>{h.hover(point,0.5);assert_eq!(h.app.page,1,"{ppp}x 专注图标和时间都应悬停进入专注页");},
                 "click"=>{h.click(point);assert_eq!(h.app.page,1,"{ppp}x 专注图标和时间都应可点击");},
-                _=>{press(&mut h,point);drag_by(&mut h,point,40.0);release(&mut h,point+egui::vec2(40.0,0.0));assert_eq!(h.app.settings.island_x,None,"{ppp}x 专注控件不能触发拖岛");},
+                _=>{press(&mut h,point);drag_by(&mut h,point,40.0);release(&mut h,point+egui::vec2(40.0,0.0));assert_eq!(h.app.settings.island_x,Some(40.0),"{ppp}x 专注控件也可直接拖岛");assert!(!h.app.open);},
             }
         }
     }}
@@ -5479,4 +5481,131 @@ fn bluetooth_switch_clears_notices_and_restarts_with_fresh_baseline(){
     assert!(h.app.notice.as_ref().is_none_or(|a|a.title!="蓝牙设备"));
     h.bt.clear();h.frame(vec![]);
     assert!(h.app.notice.as_ref().is_some_and(|a|a.title=="蓝牙设备") || h.app.alerts.iter().any(|a|a.title=="蓝牙设备"));
+}
+
+
+#[test]
+fn todo_ime_enter_confirms_candidates_before_saving_new_or_edited_todos(){
+    let _g=ENV_LOCK.lock().unwrap_or_else(|e|e.into_inner());
+    let key=|pressed,repeat|egui::Event::Key{key:egui::Key::Enter,physical_key:None,pressed,repeat,modifiers:Default::default()};
+    for editing in [false,true] {for order in 0..3 {
+        let mut h=H::new();h.app.show_page(4);h.hover(H::local(300.0,60.0),1.0);
+        if editing {
+            h.app.todos.items=vec![crate::model::TodoItem{text:"旧待办".into(),due:None,done_on:None,reminded:false}];
+            h.app.todos.save();h.app.editing=Some(0);h.app.buf.clear();h.app.todo_input_focused=false;
+        } else {h.click(H::local(70.0,109.0));}
+        h.frame(vec![]);h.frame(vec![]);
+        h.frame(vec![egui::Event::Ime(egui::ImeEvent::Enabled),egui::Event::Ime(egui::ImeEvent::Preedit("zhongwen".into()))]);
+        let commit=egui::Event::Ime(egui::ImeEvent::Commit("中文".into()));
+        match order {
+            0=>h.frame(vec![key(true,false),commit]),
+            1=>h.frame(vec![commit,key(true,false)]),
+            _=>{h.frame(vec![key(true,false)]);h.frame(vec![commit]);}
+        }
+        assert!(h.app.adding || h.app.editing.is_some(),"选字不能保存：edit={editing},order={order}");
+        assert_eq!(h.app.buf,"中文");assert_eq!(h.app.todos.items.len(),usize::from(editing));
+        if editing {assert_eq!(h.app.todos.items[0].text,"旧待办");}
+        h.frame(vec![key(true,true)]);assert!(h.app.adding || h.app.editing.is_some());
+        h.frame(vec![key(false,false),egui::Event::Ime(egui::ImeEvent::Disabled)]);
+        h.frame(vec![key(true,false)]);
+        assert!(!h.app.adding && h.app.editing.is_none());
+        assert_eq!(h.app.todos.items.len(),1);assert_eq!(h.app.todos.items[0].text,"中文");
+        assert_eq!(crate::model::TodoList::load().items[0].text,"中文");
+    }}
+}
+
+#[test]
+fn shelf_drag_exports_text_image_and_file_without_opening_or_removing_them(){
+    let _g=ENV_LOCK.lock().unwrap_or_else(|e|e.into_inner());
+    for kind in [crate::staging::Kind::Text,crate::staging::Kind::Image,crate::staging::Kind::File] {
+        let mut h=H::new();let file=h.dir.join("原文件.txt");std::fs::write(&file,"文件内容").unwrap();
+        let staging=h.app.staging.as_mut().unwrap();
+        match kind {
+            crate::staging::Kind::Text=>staging.add_text("完整中文🙂\n第二行","测试").unwrap(),
+            crate::staging::Kind::Image=>staging.add_image(&[255,0,0,255],1,1,"测试").unwrap(),
+            crate::staging::Kind::File=>staging.add_file(&file,"测试").unwrap(),
+        }
+        h.app.show_page(3);h.hover(H::local(200.0,45.0),1.0);h.cmds.clear();
+        let start=H::local(209.5,70.0);press(&mut h,start);drag_by(&mut h,start,30.0);
+        let exports:Vec<_>=h.cmds.iter().filter_map(|cmd|match cmd{crate::app::Cmd::DragOut{path,text,image}=>Some((path,text,image)),_=>None}).collect();
+        assert_eq!(exports.len(),1,"{kind:?} 应发出一次原生拖出：{:?}",h.cmds);
+        let (path,text,image)=exports[0];assert!(path.exists());assert_eq!(*image,kind==crate::staging::Kind::Image);
+        assert_eq!(text.as_deref(),(kind==crate::staging::Kind::Text).then_some("完整中文🙂\n第二行"));
+        release(&mut h,start+egui::vec2(30.0,0.0));
+        assert!(!h.cmds.iter().any(|cmd|matches!(cmd,crate::app::Cmd::Open(_) | crate::app::Cmd::Copy(_))));
+        assert_eq!(h.app.shelf_len(),1);assert_eq!(std::fs::read_to_string(file).unwrap(),"文件内容");
+    }
+}
+
+#[test]
+fn collapsed_icon_small_drag_does_not_also_activate_the_page(){
+    let _g=ENV_LOCK.lock().unwrap_or_else(|e|e.into_inner());let mut h=H::new();
+    for _ in 0..90{h.frame(vec![]);}
+    let icon=Pos2::new(WIN_W/2.0+h.app.resident.target.x[crate::bar_layout::page_slot(4)].unwrap(),14.0);
+    press(&mut h,icon);drag_by(&mut h,icon,3.0);release(&mut h,icon+egui::vec2(3.0,0.0));
+    assert_eq!(h.app.settings.island_x,Some(3.0));assert!(!h.app.open);
+    h.cursor=None;h.frame(vec![egui::Event::PointerGone]);h.click(icon);
+    assert_eq!(h.app.page,4);assert!(h.app.open);
+}
+
+
+#[test]
+fn island_drag_uses_final_motion_on_the_release_frame(){
+    let _g=ENV_LOCK.lock().unwrap_or_else(|e|e.into_inner());
+    for previous in [0.0,10.0] {
+        let mut h=H::new();for _ in 0..90{h.frame(vec![]);}
+        let icon=Pos2::new(WIN_W/2.0+h.app.resident.target.x[crate::bar_layout::page_slot(4)].unwrap(),14.0);
+        press(&mut h,icon);if previous!=0.0 {drag_by(&mut h,icon,previous);}
+        let end=icon+egui::vec2(if previous==0.0{3.0}else{40.0},0.0);
+        h.cursor=Some(end);h.mouse_down=Some(false);
+        h.frame(vec![egui::Event::PointerMoved(end),egui::Event::PointerButton{pos:end,button:egui::PointerButton::Primary,pressed:false,modifiers:Default::default()}]);
+        assert_eq!(h.app.settings.island_x,Some(end.x-icon.x));
+        assert_eq!(crate::model::Settings::load().island_x,h.app.settings.island_x);
+        assert!(!h.app.open,"释放帧不能误触发图标");
+    }
+}
+
+#[test]
+fn todo_ime_focus_loss_recovers_when_enter_release_is_missing(){
+    let _g=ENV_LOCK.lock().unwrap_or_else(|e|e.into_inner());let mut h=H::new();
+    h.app.show_page(4);h.hover(H::local(300.0,60.0),1.0);h.click(H::local(70.0,109.0));
+    let enter=||egui::Event::Key{key:egui::Key::Enter,physical_key:None,pressed:true,repeat:false,modifiers:Default::default()};
+    h.frame(vec![egui::Event::Ime(egui::ImeEvent::Enabled),egui::Event::Ime(egui::ImeEvent::Preedit("zhongwen".into()))]);
+    h.frame(vec![enter(),egui::Event::Ime(egui::ImeEvent::Commit("中文".into()))]);
+    h.frame(vec![egui::Event::WindowFocused(false)]);assert!(h.app.adding);assert!(h.app.todos.items.is_empty());
+    h.ctx.memory_mut(|memory|memory.request_focus(egui::Id::new("todo-input")));
+    h.frame(vec![egui::Event::WindowFocused(true)]);h.frame(vec![enter()]);
+    assert!(!h.app.adding);assert_eq!(h.app.todos.items[0].text,"中文");
+}
+
+#[test]
+fn task_edit_dialog_ime_enter_keeps_the_editor_open_until_a_second_enter(){
+    let _g=ENV_LOCK.lock().unwrap_or_else(|e|e.into_inner());let mut h=H::new();
+    h.app.todos.items=vec![crate::model::TodoItem{text:"原待办".into(),due:None,done_on:None,reminded:false}];h.app.todos.save();
+    h.app.show_page(4);h.hover(H::local(300.0,60.0),1.0);h.app.open_task_dialog(0);h.frame(vec![]);h.frame(vec![]);
+    let key=|pressed|egui::Event::Key{key:egui::Key::Enter,physical_key:None,pressed,repeat:false,modifiers:Default::default()};
+    h.frame(vec![egui::Event::Ime(egui::ImeEvent::Enabled),egui::Event::Ime(egui::ImeEvent::Preedit("zhongwen".into()))]);
+    h.frame(vec![key(true),egui::Event::Ime(egui::ImeEvent::Commit("中文".into()))]);
+    assert!(h.app.task_dialog.is_some());assert_eq!(h.app.todos.items[0].text,"原待办");
+    h.frame(vec![key(false),egui::Event::Ime(egui::ImeEvent::Disabled)]);h.frame(vec![key(true)]);
+    assert!(h.app.task_dialog.is_none());assert_eq!(h.app.todos.items[0].text,"原待办中文");
+}
+
+
+#[test]
+fn task_dialog_owns_ime_while_a_nonempty_inline_draft_is_preserved(){
+    let _g=ENV_LOCK.lock().unwrap_or_else(|e|e.into_inner());let mut h=H::new();
+    h.app.todos.items=vec![crate::model::TodoItem{text:"原待办".into(),due:None,done_on:None,reminded:false}];h.app.todos.save();
+    h.app.show_page(4);h.hover(H::local(300.0,60.0),1.0);h.click(H::local(70.0,109.0));
+    h.frame(vec![egui::Event::Text("保留行内草稿".into())]);assert!(h.app.adding);
+    h.app.open_task_dialog(0);h.frame(vec![]);h.frame(vec![]);
+    let key=|pressed|egui::Event::Key{key:egui::Key::Enter,physical_key:None,pressed,repeat:false,modifiers:Default::default()};
+    h.frame(vec![egui::Event::Ime(egui::ImeEvent::Enabled),egui::Event::Ime(egui::ImeEvent::Preedit("zhongwen".into()))]);
+    h.frame(vec![key(true)]);
+    assert!(h.app.task_dialog.is_some(),"IME Enter 不能在 Commit 前被另一输入框的重置逻辑放行");
+    assert_eq!(h.app.todos.items[0].text,"原待办");assert_eq!(h.app.buf,"保留行内草稿");
+    h.frame(vec![egui::Event::Ime(egui::ImeEvent::Commit("中文".into()))]);
+    h.frame(vec![key(false),egui::Event::Ime(egui::ImeEvent::Disabled)]);h.frame(vec![key(true)]);
+    assert!(h.app.task_dialog.is_none());assert_eq!(h.app.todos.items[0].text,"原待办中文");
+    assert!(h.app.adding);assert_eq!(h.app.buf,"保留行内草稿");assert_eq!(h.app.todos.items.len(),1);
 }

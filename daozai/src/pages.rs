@@ -597,8 +597,14 @@ impl App {
             let name = cc.fit(&name, size::SMALL, W::Semibold, 60.0);
             cc.text(x, 86.0, &name, size::SMALL, W::Semibold, theme::WHITE, H::Center);
             cc.text(x, 99.0, &meta, size::TINY, W::Regular, theme::GRAY, H::Center);
-            if r.drag_started() && entry.kind == crate::staging::Kind::File && exists {
-                cmds.push(Cmd::DragFile(std::path::PathBuf::from(&entry.path)));
+            if r.drag_started_by(egui::PointerButton::Primary) {
+                let path=if entry.kind==crate::staging::Kind::File {Some(std::path::PathBuf::from(&entry.path))}
+                    else {self.staging.as_ref().and_then(|staging|staging.copy_path(entry))};
+                if let Some(path)=path.filter(|path|path.exists()) {
+                    if entry.kind!=crate::staging::Kind::Text || text_body.is_some() {
+                        cmds.push(Cmd::DragOut{path,text:text_body.clone(),image:entry.kind==crate::staging::Kind::Image});
+                    } else {self.say("正文不可读，无法拖出");}
+                } else {self.say("内容已移动或删除，无法拖出");}
             }
             let remove = row.hit(x + 15.0, 30.0, 17.0, 18.0, ("shelf-remove", &entry.id));
             let remove_card = row.faded(a);

@@ -243,9 +243,9 @@
   "delivery_revision": "r5",
   "publishedArtifacts": [
     {
-      "url": "https://github.com/strive822/zyd-vibe-lab/releases/download/daozai-v0.6.50-r5/Daozai-Setup-v0.6.50-x64.exe",
-      "bytes": 5665043,
-      "sha256": "c5242a64858546f91c34bdd17c1abbf8ae407c6288fc3b8570ad0e81e3481230"
+      "url": "https://github.com/strive822/zyd-vibe-lab/releases/download/daozai-v0.6.50-r6/Daozai-Setup-v0.6.50-x64.exe",
+      "bytes": 5670092,
+      "sha256": "af0224109265681fd1371414587e1b536f1a1083b72b4bac667cdf826a485934"
     }
   ]
 }

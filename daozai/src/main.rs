@@ -428,9 +428,10 @@ impl eframe::App for Shell {
                 Cmd::AddFiles=>{
                     #[cfg(windows)] match daozai::system::pick_files(){Ok(files)=>if !files.is_empty(){self.app.on_drop(files);self.app.show_page(3);},Err(e)=>self.app.say(format!("无法选择文件：{}",e.code()))}
                 },
-                Cmd::DragFile(p)=>{
-                    #[cfg(windows)] if let Err(e)=daozai::system::drag_file(&p){self.app.say(format!("无法拖出文件：{}",e.code()));}
+                Cmd::DragOut{path,text,image}=>{
+                    #[cfg(windows)] if let Err(e)=daozai::system::drag_out(&path,text.as_deref(),image){self.app.say(format!("无法拖出内容：{}",e.code()));}
                     ctx.input_mut(|i| i.pointer=Default::default());
+                    ctx.request_repaint();
                 },
                 Cmd::DisconnectNotifications=>{#[cfg(windows)]{self.incoming=None;self.app.settings.read_notifications=false;self.app.settings.save();self.app.listener_status="已断开，不再读取 Windows 通知".into();}},
                 Cmd::Reveal(p)=>{let _=std::process::Command::new("explorer.exe").arg(format!("/select,{}",p.display())).spawn();},
