@@ -64,3 +64,8 @@ GitHub Windows Runner 的临时目录路径别名暴露了恢复脚本的源码�
 - EXE SHA-256 `95943fbb31d474a671b04ed208800bcf06cd059651e9750cb8b4f1baa96502f1`；安装器 5,670,092 字节，SHA-256 `af0224109265681fd1371414587e1b536f1a1083b72b4bac667cdf826a485934`。版本字段仍为 0.6.50，固定标签 `daozai-v0.6.50-r6`；旧 Release 备份后清理，Git 标签与源码历史保留。
 
 实现依据：[SHDoDragDrop](https://learn.microsoft.com/en-us/windows/win32/api/shlobj_core/nf-shlobj_core-shdodragdrop) 与 [Shell 数据对象](https://learn.microsoft.com/en-us/windows/win32/api/shlobj_core/nf-shlobj_core-shcreatedataobject) 的微软官方接口文档；复用既有 Windows Shell 能力，未引入新的第三方拖出模块。
+
+## r7 隔离候选（2026-11-16）
+
+- 从 v0.6.64 的历史中单独合入文件夹系统图标修复 12873165fa22651261c8360220aba7288c81ade6，完整上游基线仍为 v0.6.50。Windows Shell 回归验证文件夹使用系统图标、图片继续使用缩略图。
+- Cargo 测试 645 通过、53 忽略；安装包装测试 4 通过。Windows x64 发布构建和运行库检查通过。候选安装器 SHA-256 为 `8c10f31de8efc86221990ae4535a3a613ae4f16f77176549bf8122ea8e7a098c`。个人版 r6 继续作为回退版本。

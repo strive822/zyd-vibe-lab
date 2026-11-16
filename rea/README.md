@@ -39,13 +39,13 @@ REA 把分析工具交给 Agent 或命令行调用，适合研究“某个已有
 
 # 我的 REA 使用入口
 
-保留 rea-agents 6.8.0 npm 发布包使用方式。当前没有已确认的个性化 Agent 接入配置，因此恢复只准备包和说明，不自动执行 setup 或安装分析引擎。
+保留 rea-agents 6.9.0 npm 发布包使用方式。当前没有已确认的个性化 Agent 接入配置，因此恢复只准备包和说明，不自动执行 setup 或安装分析引擎。
 
 Windows PowerShell，有满足包 engines 的 Node/npm 时：
 
 ```powershell
-npx.cmd --yes rea-agents@6.8.0 --help
-npx.cmd rea-agents@6.8.0 setup
+npx.cmd --yes rea-agents@6.9.0 --help
+npx.cmd rea-agents@6.9.0 setup
 ```
 
 第一条是帮助检查；第二条按原向导先展示将修改的配置与安装计划，再由用户确认。该包允许 Node ^22.23.4、^24.22.1 或 >=26.12.1；Node 24.22.1 满足 Node 版本条件；运行时需另行在本项目内准备，但 REA 的引擎和实际目标分析需单独验证。WSL 请使用 WSL 的 Node/npm 和该环境的配置，不把 Windows 路径混进去。
@@ -56,4 +56,4 @@ npx.cmd rea-agents@6.8.0 setup
 
 ## 成品下载
 
-[固定 Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/rea-v6.8.0-r2)：固定版本 CLI 联网准备包，附 SHA256SUMS.txt。完整步骤见 [INSTALL.md](INSTALL.md)。仓库内保留源码，不保存构建包或依赖缓存。
+[固定 Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/rea-v6.9.0-r1)：固定版本 CLI 联网准备包，附 SHA256SUMS.txt。完整步骤见 [INSTALL.md](INSTALL.md)。仓库内保留源码，不保存构建包或依赖缓存。

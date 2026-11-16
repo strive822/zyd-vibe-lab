@@ -2,7 +2,7 @@
 
 ## 给人：自己动手的步骤
 
-1. 打开 [固定 Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/daozai-v0.6.50-r6)，下载 `Daozai-Setup-v0.6.50-x64.exe` 和 `SHA256SUMS.txt`。
+1. 打开 [固定 Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/daozai-v0.6.50-r7)，下载 `Daozai-Setup-v0.6.50-x64.exe` 和 `SHA256SUMS.txt`。
 2. 在下载目录执行 `Get-FileHash -Algorithm SHA256 .\Daozai-Setup-v0.6.50-x64.exe`，与校验文件逐项比对；不匹配则停止。
 3. 双击安装器，升级前退出已有实例；无需克隆开发仓库或重新编译。
 

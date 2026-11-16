@@ -4,18 +4,18 @@
   "projects": {
     "daozai": {
       "version": "0.6.50",
-      "tag": "daozai-v0.6.50-r6",
+      "tag": "daozai-v0.6.50-r7",
       "kind": "windows-installer",
       "assets": [
         {
           "name": "Daozai-Setup-v0.6.50-x64.exe",
-          "bytes": 5670092,
-          "sha256": "af0224109265681fd1371414587e1b536f1a1083b72b4bac667cdf826a485934"
+          "bytes": 5670468,
+          "sha256": "8c10f31de8efc86221990ae4535a3a613ae4f16f77176549bf8122ea8e7a098c"
         },
         {
           "name": "SHA256SUMS.txt",
           "bytes": 95,
-          "sha256": "39b4e565ad623f06ed6c2364114055260bd8654cfbf6aff8442cb229aafc978e"
+          "sha256": "031db954d57e8dabaa83c197c989aef7b535cdac3aa27561363f137e2776a0d1"
         }
       ]
     },
@@ -120,19 +120,19 @@
       ]
     },
     "rea": {
-      "version": "6.8.0",
-      "tag": "rea-v6.8.0-r2",
+      "version": "6.9.0",
+      "tag": "rea-v6.9.0-r1",
       "kind": "network-cli-installer",
       "assets": [
         {
           "name": "rea-windows.zip",
-          "bytes": 6655,
-          "sha256": "263c125c9776f0b957553d180b886e5b7e803ff19773e17c87b1a467fc9ba42d"
+          "bytes": 6632,
+          "sha256": "c03ef21c36f2151b9198c91ba3b3e708a819b4a4044ca6a92b1fe2a24d8c1ea4"
         },
         {
           "name": "SHA256SUMS.txt",
           "bytes": 82,
-          "sha256": "71dacdf28128ee5348bb9c8a87f3a5f26a079b095698d087ef391ca1f496c4f1"
+          "sha256": "5f245a4f449873d86ec4c2bf8372d61a73e8db29565d77868e84d15ed4619ec7"
         }
       ]
     },
@@ -172,18 +172,18 @@
     },
     "yt-dlp": {
       "version": "2026.10.26",
-      "tag": "yt-dlp-v2026.10.26-r3",
+      "tag": "yt-dlp-v2026.10.26-r4",
       "kind": "network-cli-installer",
       "assets": [
         {
           "name": "yt-dlp-windows.zip",
-          "bytes": 7157,
-          "sha256": "da89631130ae012528eb49fc76d7308d25cfaad7336c2ad49ce1221e82485159"
+          "bytes": 7274,
+          "sha256": "52ab728fa3e76c68da782d0490c206227209037741e3f1a9520a79ccef33cb07"
         },
         {
           "name": "SHA256SUMS.txt",
           "bytes": 85,
-          "sha256": "67497749072f60d8320e60c70017b7df36bc9f254cd7dda658cc62ff4a583153"
+          "sha256": "00af3fd51202e6e9d911fd67670959e4c4c605554c1151c893f28abdbe026ede"
         }
       ]
     }

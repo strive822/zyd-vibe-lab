@@ -2,13 +2,13 @@
 
 ## 给人：自己动手的步骤
 
-1. 打开 [固定 Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/rea-v6.8.0-r2)，下载 `rea-windows.zip` 和 `SHA256SUMS.txt`。
+1. 打开 [固定 Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/rea-v6.9.0-r1)，下载 `rea-windows.zip` 和 `SHA256SUMS.txt`。
 2. 在下载目录执行 `Get-FileHash -Algorithm SHA256 .\rea-windows.zip`，与校验文件逐项比对；不匹配则停止。
 3. 安装器直接运行；ZIP 检查没有绝对路径、越界或链接后解压到新目录，再按下面步骤使用。无需克隆开发仓库。
 
-Windows，准备包需 Python 3.11+、网络；CLI 需符合包 engines 的 Node/npm（本机 Node22.23.4 满足）。解压后双击 prepare.cmd，下载并核验 rea-agents-6.8.0.tgz 到全新 app/；不会全局安装、执行 setup 或安装分析引擎。
+Windows，准备包需 Python 3.11+、网络；CLI 需符合包 engines 的 Node/npm（本机 Node22.23.4 满足）。解压后双击 prepare.cmd，下载并核验 rea-agents-6.9.0.tgz 到全新 app/；不会全局安装、执行 setup 或安装分析引擎。
 
-包准备后按 app/README.md 检查 `npx.cmd --yes rea-agents@6.8.0 --help`。需要 setup 时先展示将新增的单个宿主配置与引擎计划，按用户已授权范围执行，保留其他配置。原 tgz 可作为 npm 的本地来源；不要用未知镜像替换锁定包。
+包准备后按 app/README.md 检查 `npx.cmd --yes rea-agents@6.9.0 --help`。需要 setup 时先展示将新增的单个宿主配置与引擎计划，按用户已授权范围执行，保留其他配置。原 tgz 可作为 npm 的本地来源；不要用未知镜像替换锁定包。
 
 不自动安装无关 Node、Java、Ghidra 等；仅分析有权处理的目标。不把帮助输出或包下载成功声称为原生分析引擎已经可用。
 

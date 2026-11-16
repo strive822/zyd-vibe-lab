@@ -26,7 +26,7 @@ Windows 10/11 x64 顶部信息岛，基于 [Renly1994/xiaotang-daozai](https://g
 
 ## 下载与使用
 
-[固定 Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/daozai-v0.6.50-r6) 提供 三类内容拖出与输入法修正版安装器与 SHA256SUMS.txt。使用步骤见 [INSTALL.md](INSTALL.md)；源码、许可与开发记录保存在仓库。
+[固定 Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/daozai-v0.6.50-r7) 提供置物架文件夹图标修正版安装器与 SHA256SUMS.txt。使用步骤见 [INSTALL.md](INSTALL.md)；源码、许可与开发记录保存在仓库。
 
 包含音乐/歌词、专注、饮水、待办、日历、邮件、暂存站及八种 AI 额度来源。此次修正版支持整岛拖动与位置保存、顶栏饮水百分比/未完成待办数/日期或星期，并使用 GLM 开放平台的斜线 Z 标识。新增任何软件复制文字、图片或文件时的“已复制”系统提示；拖动展开顶栏不再有隐藏热区，快速起拖保留第一段位移；常规设置可开启“双击右键居中”（默认关闭，保留旧开关值）。暂存站支持拖入文字、文件和图片，包括网页图片与虚拟附件；文字卡片使用文档图标。穿透键 `·` 支持先按键再拖入或拖入后按键，松键恢复接收。展开后收起栏铃铛淡出，避免与页面设置齿轮重叠。图标排序在设置内进行。
 
