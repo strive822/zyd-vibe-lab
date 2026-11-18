@@ -34,6 +34,13 @@ SECRET_PATTERNS = (
 SECRET_SCAN_EXEMPT = {
     "flyingmouse-format/tests/electron-security.test.js": "upstream security-test fixtures",
 }
+# Only the exact dummy URL userinfo used to test rejection of invalid router endpoints.
+SECRET_FIXTURE_HASHES = {
+    "agent-desktop/source/scripts/jev/run.test.mjs": {
+        "ec25b8fa54a9d7a878a86e6f38233af24d5d27d184b396136d6d7f0251d33c19",
+        "7f8183fd094a7b10753ce6a5f1a4388aa1afeda990c4134417045c78fcec9a2d",
+    },
+}
 
 
 def digest(data: bytes) -> str:
@@ -50,8 +57,11 @@ def visible_files() -> list[Path]:
 
 def secret_check(data: bytes, label: str, errors: list[str]) -> None:
     text = data.decode("utf-8", errors="replace")
+    allowed_fixtures = SECRET_FIXTURE_HASHES.get(label, ())
     for pattern in SECRET_PATTERNS:
         for match in re.finditer(pattern, text):
+            if allowed_fixtures and digest(match.group().encode("utf-8")) in allowed_fixtures:
+                continue
             line = text.count("\n", 0, match.start()) + 1
             errors.append(f"{label}:{line}: possible secret (value suppressed)")
 
@@ -97,6 +107,10 @@ def check_packages(errors: list[str]) -> None:
 
 def check_file(path: Path, known: set[Path], errors: list[str]) -> list[str]:
     label = path.relative_to(ROOT).as_posix()
+    if label == "agent-desktop/source/.claude":
+        from package_projects import verify_agent_desktop_source_alias
+        verify_agent_desktop_source_alias(path)
+        return ["upstream source alias"]
     if path.is_symlink() or not path.is_file():
         raise ValueError("missing file or unsupported symlink")
     data = path.read_bytes()
@@ -120,6 +134,10 @@ def check_file(path: Path, known: set[Path], errors: list[str]) -> list[str]:
         if not data.startswith(b"\x00\x00\x01\x00"):
             errors.append(f"{label}: invalid ICO signature")
         return checks + ["ICO signature"]
+    if path.suffix == ".mp4":
+        if len(data) < 12 or data[4:8] != b"ftyp":
+            errors.append(f"{label}: invalid MP4 signature")
+        return checks + ["MP4 signature"]
     if path.suffix in {".ttf", ".otf", ".wav"}:
         valid = (data.startswith((b"\x00\x01\x00\x00", b"true", b"OTTO")) if path.suffix in {".ttf", ".otf"}
                  else len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WAVE")

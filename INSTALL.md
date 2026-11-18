@@ -6,6 +6,7 @@
 
 | 项目 | 交付形式 | 说明 | 下载 |
 | --- | --- | --- | --- |
+| [agent-desktop](agent-desktop/README.md) | Windows x64 CLI 和 MCP 便携包 | [安装与验证](agent-desktop/INSTALL.md) | [Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/agent-desktop-v1.3.1-r1) |
 | [岛仔 Daozai](daozai/README.md) | Windows 安装器 | [安装与验证](daozai/INSTALL.md) | [Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/daozai-v0.6.50-r8) |
 | [三资产定投计算器](dca-calculator/README.md) | 网页启动包（前端已构建） | [安装与验证](dca-calculator/INSTALL.md) | [Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/dca-calculator-v1.0.0-r1) |
 | [飞鼠格式](flyingmouse-format/README.md) | 官方安装器联网安装入口 | [安装与验证](flyingmouse-format/INSTALL.md) | [Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/flyingmouse-format-v0.8.3-r1) |

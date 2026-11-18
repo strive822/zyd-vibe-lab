@@ -1,9 +1,10 @@
 # Repository rules (authoritative)
 
-This repository holds ten independent projects. Source, tests, licenses, templates and locked upstream references belong in Git. User-facing installers, runtime/launcher packages, skills and extensions belong in GitHub Releases. Never rewrite published history as part of routine cleanup.
+This repository holds eleven independent projects. Source, tests, licenses, templates and locked upstream references belong in Git. User-facing installers, runtime/launcher packages, skills and extensions belong in GitHub Releases. Never rewrite published history as part of routine cleanup.
 
 ## Repository map
 
+- agent-desktop: Rust desktop CLI and MCP. Upstream source lives in source/ with its Git tree pinned in upstream.json. The Windows x64 runtime wraps the hash-verified official executable. Verify version and a read-only window listing.
 - daozai: Rust/egui Windows app. `python -m unittest discover -s packaging_tests -v`; `cargo test --locked --all-targets --features record -- --test-threads=1`. Isolate test data; never real AppData/accounts. GLM uses zai.svg.
 - dca-calculator: FastAPI + Next.js; no trading. Backend pytest; frontend typecheck, tests and static build with DCA_EXPORT=1.
 - today-todo: zero-dependency Node service; `node --test test/api.test.js`, `node tools/contrast.js`. Never commit real data/todos.json.

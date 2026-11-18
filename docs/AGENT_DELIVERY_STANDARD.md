@@ -8,6 +8,7 @@
 
 ## 按类型打包
 
+- agent-desktop 交付 Windows x64 便携 CLI、安装说明和 Apache-2.0 许可证。程序取自 `agent-desktop/upstream.json` 固定的上游发行包；打包时复核可执行文件哈希。
 - 岛仔：已验收 GLM Z 标安装 EXE + SHA256SUMS.txt；无需便携/源码套娃包。
 - 飞鼠：轻量官方安装器入口 + 校验；联网下载并核验固定的原版安装器，不重新打包离线转换引擎。
 - DCA：静态导出的前端、Python 后端运行代码、依赖清单和 start.cmd；用户无需 Node 或前端构建。
@@ -31,7 +32,7 @@ python scripts/check_repository.py
 python scripts/package_projects.py --output <任务目录>/release --prepared <任务目录>/prepared --installer <已验收Z标安装器路径> --update-catalog
 ```
 
-prepared 下布局：dca-calculator/frontend/out、libretv/.next/standalone 和 libretv/.next/static。构建脚本拒绝仓库内输出。每项目可用 --project 单独构建。应用本体未变时可使用上版已验收且匹配固定哈希的岛仔安装器；应用改动后必须重新验收、更新打包脚本固定哈希与来源记录。
+prepared 下布局为 `agent-desktop/agent-desktop.exe`、`dca-calculator/frontend/out`、`libretv/.next/standalone` 和 `libretv/.next/static`。构建脚本拒绝仓库内输出。每项目可用 `--project` 单独构建。应用本体未变时可使用上版已验收且匹配固定哈希的岛仔安装器；应用改动后必须重新验收、更新打包脚本固定哈希与来源记录。
 
 ## 发布顺序
 

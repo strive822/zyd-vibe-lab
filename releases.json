@@ -2,6 +2,23 @@
   "schema": 1,
   "repository": "strive822/zyd-vibe-lab",
   "projects": {
+    "agent-desktop": {
+      "version": "1.3.1",
+      "tag": "agent-desktop-v1.3.1-r1",
+      "kind": "windows-cli-mcp",
+      "assets": [
+        {
+          "name": "agent-desktop-windows.zip",
+          "bytes": 1841767,
+          "sha256": "29918e930ae8d1612f7da70380d2098cf33e9e7a8d8f23d25abffc606c17c75d"
+        },
+        {
+          "name": "SHA256SUMS.txt",
+          "bytes": 92,
+          "sha256": "fb071f82bf0bb756709d82e4f53702321425b334fea382618f431885fa5ddb4d"
+        }
+      ]
+    },
     "daozai": {
       "version": "0.6.50",
       "tag": "daozai-v0.6.50-r8",

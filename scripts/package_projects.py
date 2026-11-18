@@ -17,7 +17,9 @@ EXCLUDED = {'delivery', 'packages', '.git', '.venv', 'venv', 'node_modules', '.n
             '.runtime', '.npm-cache', 'target', 'dist'}
 ARTIFACT_SUFFIXES = {'.exe', '.dll', '.zip', '.tgz', '.whl', '.pyc'}
 COMMON = {'INSTALL.md', 'LICENSE', 'LICENSE.md', 'THIRD_PARTY.md', 'THIRD_PARTY_NOTICES.md'}
+AGENT_DESKTOP_SOURCE_ALIAS = Path('agent-desktop/source/.claude')
 RUNTIME = {
+    'agent-desktop': (),
     'today-todo': ('server.js', 'package.json', 'public/', 'start.bat', 'assets/app.ico'),
     'pi-task-notify': ('package.json', 'extensions/'),
     'dca-calculator': ('backend/app/', 'backend/requirements.txt', 'backend/requirements-runtime.txt', 'runtime/'),
@@ -32,6 +34,19 @@ DATE = (2026, 11, 5, 0, 0, 0)
 def sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
+def verify_agent_desktop_source_alias(path: Path) -> None:
+    """Check the upstream source-only alias on both native and text checkouts."""
+    linked = path.is_symlink()
+    attrs = getattr(path.lstat(), 'st_file_attributes', 0)
+    target = path.with_name('.agents')
+    if linked:
+        valid_alias = path.readlink() == Path('.agents')
+    else:
+        valid_alias = path.is_file() and not attrs & 0x400 and path.read_bytes() == b'.agents'
+    if (not valid_alias or not target.is_dir() or target.is_symlink()
+            or getattr(target.lstat(), 'st_file_attributes', 0) & 0x400):
+        raise ValueError('Invalid agent-desktop source alias; expected the sibling .agents directory')
+
 def source_files(project: Path):
     if (ROOT / '.git').exists():
         result = subprocess.run(['git', 'ls-files', '--cached', '--others', '--exclude-standard', '-z', '--', project.name],
@@ -41,6 +56,9 @@ def source_files(project: Path):
         paths = sorted(project.rglob('*'))
     for path in paths:
         relative = path.relative_to(project)
+        if path == ROOT / AGENT_DESKTOP_SOURCE_ALIAS:
+            verify_agent_desktop_source_alias(path)
+            continue
         if set(relative.parts) & EXCLUDED or relative.parts[:2] == ('frontend', 'out'):
             continue
         if path.is_symlink() or (path.exists() and getattr(path.lstat(), 'st_file_attributes', 0) & 0x400):
@@ -124,6 +142,18 @@ def build(name: str, output: Path, prepared: Path | None = None, installer: Path
         (destination / 'checksums.json').unlink()
     else:
         entries = runtime_entries(name)
+        if name == 'agent-desktop':
+            if prepared is None:
+                raise ValueError('Pass --prepared with the verified agent-desktop Windows executable')
+            executable = prepared / name / 'agent-desktop.exe'
+            if executable.is_symlink() or getattr(executable.lstat(), 'st_file_attributes', 0) & 0x400:
+                raise ValueError('Linked agent-desktop executable')
+            binary = executable.read_bytes()
+            lock = json.loads((ROOT / name / 'upstream.json').read_text(encoding='utf-8'))
+            if not binary.startswith(b'MZ') or sha256(binary) != lock['windows_x64']['executable_sha256']:
+                raise ValueError('agent-desktop executable does not match the upstream lock')
+            entries['agent-desktop.exe'] = binary
+            entries['LICENSE'] = (ROOT / name / 'source/LICENSE').read_bytes()
         if name in {'dca-calculator', 'libretv'} and prepared is None:
             raise ValueError('Pass --prepared with the production web builds')
         if name == 'dca-calculator':
