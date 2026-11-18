@@ -55,6 +55,9 @@ function saved() {
 }
 
 beforeEach(() => {
+  // Use the same browser fixture on every Node version. Tests for locks install their own provider.
+  vi.stubGlobal('navigator', {});
+  vi.stubGlobal('indexedDB', undefined);
   vi.useFakeTimers();
   disk.clear();
   disk.set(KEY, JSON.stringify({ version: 8, state: {

@@ -137,7 +137,7 @@
   "src/lib/mini-progress-bar.ts": "0702e4f8f1a8958964046afdd9d517ca9f104592c488f025f27f730fe28c6cb4",
   "src/lib/mp4-transmuxer.test.ts": "3ed4686d2216b64a16d414bc855956afad3fc5363437072fc16383e8158b87ed",
   "src/lib/mp4-transmuxer.ts": "a53776119148fd502ef78e885f9247abe4959224e4f2e5e4c23caa333ade58b3",
-  "src/lib/persist-storage.test.ts": "5bfd618ace0be75ca02b44749843f6dd577b8909ec7173e73e23c1ee90310879",
+  "src/lib/persist-storage.test.ts": "a3718d5e938cfdde47694572c8d8958d70f99865db0057bf8c1074cc5fe5924e",
   "src/lib/persist-storage.ts": "522d13a5b94a16500ec99cb27be1f76c84a36126490db21890352f68df810f52",
   "src/lib/playback-recovery.test.ts": "8e4d0d198810d69183445986d67a07af7869127055df1eca180753fd2a45532b",
   "src/lib/playback-recovery.ts": "8e9bee03d5e121698ead2703e2a26408146b1826b50a1162de3111a1ef1f63db",
