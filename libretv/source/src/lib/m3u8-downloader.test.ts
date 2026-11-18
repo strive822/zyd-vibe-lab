@@ -105,6 +105,29 @@ const PLAYLIST = [
   '#EXT-X-ENDLIST',
 ].join('\n');
 
+it('直连清单用重定向后的基址解析父变量、密钥与分片地址', async () => {
+  const original = 'https://example.com/index.m3u8';
+  const parent = 'https://edge.example.com/master/index.m3u8?token=ready';
+  const variant = 'https://edge.example.com/master/child.m3u8';
+  const media = 'https://media.example.com/video/play.m3u8';
+  const response = (url: string, text: string) => Object.defineProperty(new Response(text), 'url', { value: url });
+  const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    if (String(input) === original) {
+      return response(parent, '#EXTM3U\n#EXT-X-DEFINE:QUERYPARAM="token"\n#EXT-X-STREAM-INF:BANDWIDTH=600000\nchild.m3u8');
+    }
+    expect(String(input)).toBe(variant);
+    return response(media, [
+      '#EXTM3U', '#EXT-X-DEFINE:IMPORT="token"',
+      '#EXT-X-KEY:METHOD=AES-128,URI="key-{$token}.bin"',
+      '#EXTINF:4,', 'part-{$token}.ts', '#EXT-X-ENDLIST',
+    ].join('\n'));
+  });
+  vi.stubGlobal('fetch', fetchMock);
+  const result = await parseM3u8Playlist(original);
+  expect(result.segments[0].url).toBe('https://media.example.com/video/part-ready.ts');
+  expect(result.aesConf?.uri).toBe('https://media.example.com/video/key-ready.bin');
+});
+
 /** 极简 Cache Storage 替身：只实现 runDownloadJob 用到的 match/put/keys/delete */
 function stubCaches(onPut?: () => Promise<void>): void {
   const store = new Map<string, ArrayBuffer>();
@@ -136,12 +159,28 @@ function jobOptions(overrides: Partial<DownloadJobOptions> = {}): DownloadJobOpt
     signal: new AbortController().signal,
     pause: new PauseResumeController(),
     onProgress: () => {},
-    target: { kind: 'memory', write: async () => {}, close: async () => {}, abort: async () => {} },
+    target: { kind: 'memory', filename: 't.mp4', write: async () => {}, close: async () => {}, abort: async () => {}, savedUrl: () => null },
     ...overrides,
   };
 }
 
 describe('runDownloadJob · 源站缺片与存储错误', () => {
+  it('同一任务恢复时，清单更换分片不会按旧序号复用内容', async () => {
+    stubCaches();
+    let filename = 'first.ts';
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input).endsWith('index.m3u8')) {
+        return new Response(`#EXTM3U\n#EXTINF:4,\n${filename}\n#EXT-X-ENDLIST`);
+      }
+      return new Response(new Uint8Array([String(input).endsWith('first.ts') ? 1 : 2]));
+    }));
+    await runDownloadJob(jobOptions());
+    filename = 'new.ts';
+    const write = vi.fn<DownloadJobOptions['target']['write']>(async () => {});
+    const next = jobOptions();
+    await runDownloadJob({ ...next, target: { ...next.target, write } });
+    expect(write).toHaveBeenCalledWith(new Uint8Array([2]));
+  });
   it('分片 404 视为确定性缺失：不重试、立即失败并提示换源', async () => {
     stubCaches();
     const calls: string[] = [];
@@ -168,6 +207,7 @@ describe('runDownloadJob · 源站缺片与存储错误', () => {
 
   it('5xx 仍走退避重试，重试耗尽后才失败', async () => {
     stubCaches();
+    const digest = vi.spyOn(crypto.subtle, 'digest').mockResolvedValue(new ArrayBuffer(32));
     vi.useFakeTimers();
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
@@ -183,6 +223,7 @@ describe('runDownloadJob · 源站缺片与存储错误', () => {
 
     const segCalls = fetchMock.mock.calls.filter(([input]) => String(input).endsWith('.ts'));
     expect(segCalls).toHaveLength(3);
+    digest.mockRestore();
     vi.useRealTimers();
   });
 
@@ -221,9 +262,48 @@ describe('runDownloadJob · 源站缺片与存储错误', () => {
       jobOptions({
         target: {
           kind: 'memory',
+          filename: 't.mp4',
           write: async (d) => void written.push(d.byteLength),
           close: async () => {},
           abort: async () => {},
+          savedUrl: () => null,
+        },
+        onProgress: (p) => progress.push(p),
+      })
+    );
+
+    expect(written).toHaveLength(3);
+    expect(progress.at(-1)?.status).toBe('done');
+  });
+
+  it('回归：分片数少于并发数时不越界取号（旧实现 8 个 worker 下必然 TypeError）', async () => {
+    // 并发 worker 同时停在循环顶部时 cursor 还是同一个值，旧写法先 await 再 ++，
+    // 于是 index 会越过 total 取到不存在的分片：parsed.segments[index - 1] undefined。
+    // 短片（分片数 ≤ 并发数）必然触发，长视频则在尾部偶发——默认 jobOptions 用
+    // concurrency: 1 掩盖了这条路径，所以这里显式开并发。
+    stubCaches();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith('index.m3u8')) return new Response(PLAYLIST, { status: 200 });
+        return new Response(new Uint8Array([0x47]), { status: 200 });
+      })
+    );
+    const written: number[] = [];
+    const progress: DownloadProgress[] = [];
+
+    await runDownloadJob(
+      jobOptions({
+        concurrency: 8,
+        format: 'TS',
+        target: {
+          kind: 'memory',
+          filename: 't.ts',
+          write: async (d) => void written.push(d.byteLength),
+          close: async () => {},
+          abort: async () => {},
+          savedUrl: () => null,
         },
         onProgress: (p) => progress.push(p),
       })

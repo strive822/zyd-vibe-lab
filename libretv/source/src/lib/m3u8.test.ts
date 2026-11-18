@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { parseM3u8Playlist } from './m3u8-parse';
-import { isProxiedUri, rewriteM3u8, stripAdGroups, stripLeadAdGroup } from './m3u8';
+import { HLS_CONTEXT_PARAM, HLS_VARIABLES_PARAM, isProxiedUri, parseHlsVariables, rewriteM3u8, stripAdGroups, stripLeadAdGroup } from './m3u8';
 
 const BASE = 'https://cdn.example.com/live/index.m3u8';
 
@@ -27,6 +27,91 @@ describe('rewriteM3u8', () => {
     // 非地址行保持不变
     expect(out).toContain('#EXTM3U');
     expect(out).toContain('#EXT-X-ENDLIST');
+  });
+
+  it('主播放列表里 EXT-X-MEDIA 音轨/字幕与 I 帧播放列表的 URI 也改写为代理地址', () => {
+    const input = [
+      '#EXTM3U',
+      '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aud",NAME="English",DEFAULT=YES,URI="audio/en.m3u8"',
+      '#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="sub",NAME="中文",URI="/subs/zh.m3u8"',
+      '#EXT-X-I-FRAME-STREAM-INF:BANDWIDTH=86000,URI="iframe.m3u8"',
+      '#EXT-X-STREAM-INF:BANDWIDTH=1280000,AUDIO="aud",SUBTITLES="sub"',
+      '720p.m3u8',
+    ].join('\n');
+
+    const out = rewriteM3u8(input, BASE);
+
+    expect(out).toContain('URI="/api/proxy?url=' + encodeURIComponent('https://cdn.example.com/live/audio/en.m3u8') + '"');
+    expect(out).toContain('URI="/api/proxy?url=' + encodeURIComponent('https://cdn.example.com/subs/zh.m3u8') + '"');
+    expect(out).toContain('URI="/api/proxy?url=' + encodeURIComponent('https://cdn.example.com/live/iframe.m3u8') + '"');
+    expect(out).toContain('GROUP-ID="aud",NAME="English",DEFAULT=YES,');
+  });
+
+  it('仅改写完整 URI 属性，并先解析前文定义的变量', () => {
+    const input = [
+      '#EXT-X-DEFINE:NAME="lang",VALUE="en"',
+      '#EXT-X-MEDIA:TYPE=AUDIO,NAME="contains,URI=",X-URI="unchanged",URI="tracks/{$lang}.m3u8"',
+    ].join('\n');
+    expect(rewriteM3u8(input, BASE)).toContain(
+      'NAME="contains,URI=",X-URI="unchanged",URI="/api/proxy?url=' +
+      encodeURIComponent('https://cdn.example.com/live/tracks/en.m3u8') + '&' + HLS_VARIABLES_PARAM + '='
+    );
+  });
+
+  it.each(['/api/proxy?url=', '/api/live/stream?url='])('上游变量在子列表继承且所有 URI 继续通过 %s', (prefix) => {
+    const master = [
+      '#EXT-X-DEFINE:QUERYPARAM="lang"',
+      '#EXT-X-MEDIA:TYPE=SUBTITLES,URI="subs/{$lang}.m3u8"',
+      '#EXT-X-DEFINE:NAME="base",VALUE="https://origin.example/nested"',
+      '#EXT-X-STREAM-INF:BANDWIDTH=5000',
+      'rendition/index.m3u8',
+    ].join('\n');
+    const output = rewriteM3u8(master, BASE + '?lang=zh', 0, prefix);
+    expect(output).toContain('#EXT-X-DEFINE:NAME="lang",VALUE="zh"');
+    expect(output).toContain('URI="' + prefix +
+      encodeURIComponent('https://cdn.example.com/live/subs/zh.m3u8') + '&' + HLS_VARIABLES_PARAM);
+    const variant = new URL(output.split('\n').at(-1)!, 'https://app.example');
+    const variables = parseHlsVariables(variant.searchParams.get(HLS_VARIABLES_PARAM));
+    const child = rewriteM3u8([
+      '#EXT-X-DEFINE:IMPORT="lang"',
+      '#EXT-X-DEFINE:IMPORT="base"',
+      '#EXT-X-KEY:METHOD=AES-128,URI="{$base}/keys/{$lang}"',
+      '#EXT-X-PART:DURATION=0.5,URI="partial/{$lang}.ts"',
+      '#EXT-X-PRELOAD-HINT:TYPE=PART,URI="next/{$lang}.ts"',
+      'clips/{$lang}.ts',
+      'missing/{$unknown}.ts',
+    ].join('\n'), variant.searchParams.get('url')!, 0, prefix, variables);
+    expect(child).toContain('URI="' + prefix + encodeURIComponent('https://origin.example/nested/keys/zh') + '"');
+    expect(child).toContain('URI="' + prefix + encodeURIComponent('https://cdn.example.com/live/rendition/partial/zh.ts') + '"');
+    expect(child).toContain('URI="' + prefix + encodeURIComponent('https://cdn.example.com/live/rendition/next/zh.ts') + '"');
+    expect(child).toContain(prefix + encodeURIComponent('https://cdn.example.com/live/rendition/clips/zh.ts'));
+    expect(child.split('\n').at(-1)).toMatch(/^\/api\//);
+  });
+
+  it('继承上下文超过内联限制时仍保留这次父清单的所有变量', () => {
+    const master = [
+      `#EXT-X-DEFINE:NAME="large",VALUE="${'q'.repeat(4200)}"`,
+      '#EXT-X-DEFINE:NAME="token",VALUE="short"',
+      '#EXT-X-STREAM-INF:BANDWIDTH=5000',
+      'child.m3u8',
+    ].join('\n');
+    const save = vi.fn<(values: ReadonlyMap<string, string>) => string>(() => 'snapshot-id');
+    const variant = new URL(rewriteM3u8(master, BASE, 0, undefined, undefined, save).split('\n').at(-1)!, 'https://app.example');
+    expect(variant.searchParams.get(HLS_VARIABLES_PARAM)).toBeNull();
+    expect(variant.searchParams.get(HLS_CONTEXT_PARAM)).toBe('snapshot-id');
+    expect(save).toHaveBeenCalledWith(new Map([['large', 'q'.repeat(4200)], ['token', 'short']]));
+  });
+
+  it('同级清单保留父清单变量，源站相似路径仍走直播代理', () => {
+    const input = [
+      '#EXT-X-DEFINE:IMPORT="a"',
+      '#EXT-X-PART:DURATION=0.5,URI="/api/proxy-media/{$a}.m4s"',
+      '#EXT-X-RENDITION-REPORT:URI="sibling.m3u8",LAST-MSN=1',
+    ].join('\n');
+    const output = rewriteM3u8(input, BASE, 0, '/api/live/stream?url=', new Map([['a','first'],['b','second']]));
+    expect(output).toContain(encodeURIComponent('https://cdn.example.com/api/proxy-media/first.m4s'));
+    const uri = /URI="([^"]+)"/.exec(output.split('\n').at(-1)!)![1];
+    expect(parseHlsVariables(new URL(uri, BASE).searchParams.get(HLS_VARIABLES_PARAM)).get('b')).toBe('second');
   });
 
   it('直播前缀改写为 /api/live/stream?url= 形式', () => {

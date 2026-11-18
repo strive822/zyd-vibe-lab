@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server';
+import { createHash } from 'node:crypto';
 import { guardRequest, jsonError } from '@/lib/api-guard';
 import { checkLiveUrlAllowed, isBlockedByDNS, isValidProxyUrl } from '@/lib/ssrf';
 import { fetchWithSafeRedirects } from '@/lib/fetch-utils';
-import { rewriteM3u8, LIVE_STREAM_BASE } from '@/lib/m3u8';
+import {
+  HLS_CONTEXT_PARAM, HLS_VARIABLES_PARAM, LIVE_STREAM_BASE, PROXY_BASE,
+  parseHlsVariables, rewriteM3u8,
+} from '@/lib/m3u8';
 
 /**
  * 代理目标地址的两种传入形式：
@@ -62,6 +66,40 @@ export function decodePathTarget(encodedUrl: string): string {
   try { return decodeURIComponent(encodedUrl); } catch { return encodedUrl; }
 }
 
+const HLS_CONTEXT_LIMIT = 500;
+const hlsContexts = new Map<string, ReadonlyMap<string, string>>();
+
+function rememberHlsContext(id: string, values: ReadonlyMap<string, string>): void {
+  hlsContexts.delete(id);
+  hlsContexts.set(id, values);
+  if (hlsContexts.size > HLS_CONTEXT_LIMIT) {
+    const oldest = hlsContexts.keys().next().value;
+    if (oldest !== undefined) hlsContexts.delete(oldest);
+  }
+}
+
+function saveHlsContext(variables: ReadonlyMap<string, string>): string {
+  const pairs = [...variables].sort(([a], [b]) => a.localeCompare(b, 'en'));
+  const id = createHash('sha256').update(JSON.stringify(pairs)).digest('base64url');
+  rememberHlsContext(id, hlsContexts.get(id) ?? new Map(variables));
+  return id;
+}
+
+function touchHlsContext(contextId: string): ReadonlyMap<string, string> | null {
+  const context = hlsContexts.get(contextId);
+  if (!context) return null;
+  // Cached fragments can play for hours without any request reaching this process.
+  rememberHlsContext(contextId, context);
+  return context;
+}
+
+function missingHlsContext(response: Response, json: boolean): Response {
+  void response.body?.cancel().catch(() => {});
+  const error = 'HLS 父清单上下文已失效，请重新加载';
+  const init = { status: 502, headers: { 'Cache-Control': 'no-store' } };
+  return json ? NextResponse.json({ error }, init) : new NextResponse(error, init);
+}
+
 /**
  * 通用流式代理（点播 / 图片）：
  * - 已登录会话（httpOnly cookie）→ m3u8 重写后的分片同源请求自动携带，不再有旧版丢鉴权参数的问题；
@@ -116,12 +154,19 @@ export async function handleProxyRequest(req: Request, targetUrl: string): Promi
   const contentType = response.headers.get('content-type') || '';
   const isM3u8 =
     contentType.includes('mpegurl') || contentType.includes('x-mpegurl') ||
-    targetUrl.toLowerCase().endsWith('.m3u8');
+    new URL(finalUrl).pathname.toLowerCase().endsWith('.m3u8');
+  const params = new URL(req.url).searchParams;
+  const contextId = params.get(HLS_CONTEXT_PARAM);
+  const context = contextId && !guarded ? touchHlsContext(contextId) : null;
 
   // m3u8 文本：重写为代理地址（以重定向后的最终 URL 为 base 解析相对地址）
   if (isM3u8) {
+    if (contextId && !context) return missingHlsContext(response, false);
     const text = await response.text();
-    return new NextResponse(rewriteM3u8(text, finalUrl), {
+    return new NextResponse(rewriteM3u8(
+      text, finalUrl, 0, PROXY_BASE, context ?? parseHlsVariables(params.get(HLS_VARIABLES_PARAM)),
+      guarded ? undefined : saveHlsContext, contextId ?? undefined,
+    ), {
       status: response.status,
       headers: {
         'Content-Type': 'application/vnd.apple.mpegurl',
@@ -171,6 +216,12 @@ export async function handleLiveStreamRequest(req: Request, targetUrl: string): 
 
   const verdict = await checkLiveUrlAllowed(targetUrl);
   if (!verdict.ok) return jsonError(verdict.reason, 403);
+  const requestUrl = new URL(req.url);
+  const upstreamUrl = new URL(targetUrl);
+  for (const name of ['_HLS_msn', '_HLS_part', '_HLS_skip']) {
+    const value = requestUrl.searchParams.get(name);
+    if (value !== null) upstreamUrl.searchParams.set(name, value);
+  }
 
   const controller = new AbortController();
   // 客户端断开（切台/关页）时终止上游连接，防止连接泄漏
@@ -178,13 +229,15 @@ export async function handleLiveStreamRequest(req: Request, targetUrl: string): 
   req.signal.addEventListener('abort', onClientAbort, { once: true });
 
   const headers: Record<string, string> = { 'User-Agent': UA, Accept: '*/*' };
+  const range = req.headers.get('range');
+  if (range) headers.Range = range;
 
   let response: Response;
   let finalUrl: string;
   try {
     // 客户端断开（切台/关页）时经 controller.signal 终止上游连接，防止连接泄漏
     const result = await fetchWithSafeRedirects(
-      targetUrl,
+      upstreamUrl.href,
       { headers, signal: controller.signal },
       { allowPrivate: true, headerTimeoutMs: HEADER_TIMEOUT_MS }
     );
@@ -200,7 +253,7 @@ export async function handleLiveStreamRequest(req: Request, targetUrl: string): 
   if (!response.ok && response.body) {
     // 非直播正常响应（403/404 等）：透传原始状态码便于前端与开发者工具定位
     // （一律包成 502 会掩盖「token 过期 403」与「源瞬断」的区别）
-    try { await response.body.cancel(); } catch { /* 忽略 */ }
+    void response.body.cancel().catch(() => {});
     return NextResponse.json(
       { error: `直播流上游返回 ${response.status}` },
       {
@@ -213,13 +266,20 @@ export async function handleLiveStreamRequest(req: Request, targetUrl: string): 
   const contentType = response.headers.get('content-type') || '';
   const isM3u8 =
     contentType.includes('mpegurl') || contentType.includes('x-mpegurl') ||
-    targetUrl.toLowerCase().split('?')[0].endsWith('.m3u8');
+    new URL(finalUrl).pathname.toLowerCase().endsWith('.m3u8');
+  const contextId = requestUrl.searchParams.get(HLS_CONTEXT_PARAM);
+  const context = contextId ? touchHlsContext(contextId) : null;
 
   // HLS manifest：重写变体/分片地址指向本路由，保证后续请求同源同鉴权。
   // 关键：以重定向后的最终 URL 为 base 解析相对地址（gslb 调度源 302 后路径会变）
   if (isM3u8) {
+    if (contextId && !context) return missingHlsContext(response, true);
     const text = await response.text();
-    return new NextResponse(rewriteM3u8(text, finalUrl, 0, LIVE_STREAM_BASE), {
+    return new NextResponse(rewriteM3u8(
+      text, finalUrl, 0, LIVE_STREAM_BASE,
+      context ?? parseHlsVariables(requestUrl.searchParams.get(HLS_VARIABLES_PARAM)),
+      saveHlsContext, contextId ?? undefined,
+    ), {
       status: response.status,
       headers: {
         'Content-Type': 'application/vnd.apple.mpegurl',
@@ -234,6 +294,10 @@ export async function handleLiveStreamRequest(req: Request, targetUrl: string): 
   outHeaders.set('Content-Type', ct);
   outHeaders.set('Cache-Control', 'no-store, no-transform');
   outHeaders.set('X-Accel-Buffering', 'no');
+  for (const name of ['accept-ranges', 'content-range']) {
+    const value = response.headers.get(name);
+    if (value) outHeaders.set(name, value);
+  }
 
   return new NextResponse(response.body, {
     status: response.status,

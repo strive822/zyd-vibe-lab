@@ -13,7 +13,8 @@ export const LIVE_STREAM_BASE = '/api/live/stream?url=';
 
 /** URI 已是本站代理地址（新旧两种形式：/api/proxy/…、/api/proxy?url=…、/api/live/stream/…、/api/live/stream?url=…）时不再二次改写 */
 export function isProxiedUri(uri: string): boolean {
-  return uri.startsWith('/api/proxy') || uri.startsWith('/api/live/stream');
+  return ['/api/proxy', '/api/live/stream'].some((route) =>
+    uri === route || uri.startsWith(route + '?') || uri.startsWith(route + '/'));
 }
 
 /**
@@ -35,26 +36,124 @@ export function makeAbsolute(url: string, base: string | undefined): string {
   }
 }
 
+/** 通过 URI 属性引用资源的标签：key/map，以及主播放列表里的备用音轨/字幕（EXT-X-MEDIA）和 I 帧播放列表 */
+const PLAYLIST_ATTR_TAGS = ['#EXT-X-MEDIA:', '#EXT-X-I-FRAME-STREAM-INF:', '#EXT-X-RENDITION-REPORT:'];
+const URI_ATTR_TAGS = [...PLAYLIST_ATTR_TAGS, '#EXT-X-KEY:', '#EXT-X-MAP:', '#EXT-X-SESSION-KEY:',
+  '#EXT-X-PART:', '#EXT-X-PRELOAD-HINT:', '#EXT-X-SESSION-DATA:'];
+export const HLS_DEFINE_TAG = '#EXT-X-DEFINE:';
+const ATTRIBUTE = /(^|,)([ \t]*)([A-Z0-9-]+)=("[^"]*"|[^,\r\n]*)/g;
+const VARIABLE = /\{\$([A-Za-z0-9_-]+)\}/g;
+const VARIABLE_NAME = /^[A-Za-z0-9_-]+$/;
+const MAX_VARIABLE_CONTEXT = 4096;
+export const HLS_VARIABLES_PARAM = 'hls-vars';
+export const HLS_CONTEXT_PARAM = 'hls-context';
+
+export function readHlsVariable(
+  line: string, base: string, variables: Map<string, string>, inherited: ReadonlyMap<string, string>,
+): string {
+  const attrs = new Map([...line.slice(HLS_DEFINE_TAG.length).matchAll(ATTRIBUTE)]
+    .filter((match) => match[4].startsWith('"') && match[4].endsWith('"'))
+    .map((match) => [match[3], match[4].slice(1, -1)]));
+  const name = attrs.get('NAME');
+  const value = attrs.get('VALUE');
+  if (name && value !== undefined) {
+    variables.set(name, value);
+    return line;
+  }
+  const query = attrs.get('QUERYPARAM');
+  const imported = attrs.get('IMPORT');
+  const defined = query ?? imported;
+  if (!defined || !VARIABLE_NAME.test(defined)) return line;
+  let resolved = inherited.get(defined);
+  if (query) {
+    try { resolved = new URL(base).searchParams.get(query) ?? undefined; }
+    catch { return line; }
+  }
+  if (resolved == null) return line;
+  variables.set(defined, resolved);
+  // The proxy already expands these references. Give the player an equivalent
+  // definition when the value can be represented as an HLS quoted string.
+  if (/["\r\n]/.test(resolved)) return '#';
+  return `${HLS_DEFINE_TAG}NAME="${defined}",VALUE="${resolved}"`;
+}
+
+export function expandHlsUri(uri: string, variables: ReadonlyMap<string, string>): string {
+  return uri.replace(VARIABLE, (reference, name: string) => variables.get(name) ?? reference);
+}
+
+export function parseHlsVariables(value: string | null): ReadonlyMap<string, string> {
+  const variables = new Map<string, string>();
+  if (!value || value.length > MAX_VARIABLE_CONTEXT) return variables;
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return variables;
+    for (const [key, entry] of Object.entries(parsed)) {
+      if (VARIABLE_NAME.test(key) && typeof entry === 'string') variables.set(key, entry);
+    }
+  } catch {
+    // Ignore malformed context on manually entered URLs.
+  }
+  return variables;
+}
+
 /** 将 m3u8 中的地址改写为经过本站代理的地址（分片/key/map 同样改写）。
  *  prefix 可指定代理地址基座（直播流走 /api/live/stream?url=，点播默认 /api/proxy?url=） */
 export function rewriteM3u8(
   content: string,
   baseUrl: string,
   depth = 0,
-  prefix: string = PROXY_BASE
+  prefix: string = PROXY_BASE,
+  inherited: ReadonlyMap<string, string> = new Map(),
+  saveContext?: (variables: ReadonlyMap<string, string>) => string,
+  inheritedContextId?: string,
 ): string {
   if (depth > 5) return content;
-  const lines = content.split('\n');
-  const out = lines.map((line) => {
-    if (line.startsWith('#EXT-X-KEY') || line.startsWith('#EXT-X-MAP')) {
-      return line.replace(/(URI=")([^"]+)(")/g, (m, p1: string, uri: string, p2: string) => {
-        if (isProxiedUri(uri)) return m;
-        return p1 + prefix + encodeURIComponent(makeAbsolute(uri, baseUrl)) + p2;
-      });
+  const variables = new Map<string, string>();
+  const contextIds = new Map<string, string>();
+  const proxyUri = (uri: string, playlist: boolean, sibling = false) => {
+    if (isProxiedUri(uri)) return uri;
+    const expanded = expandHlsUri(uri, variables);
+    const url = prefix + encodeURIComponent(makeAbsolute(expanded, baseUrl));
+    if (!playlist) {
+      return inheritedContextId
+        ? url + '&' + HLS_CONTEXT_PARAM + '=' + encodeURIComponent(inheritedContextId)
+        : url;
+    }
+    const contextValues = sibling && inherited.size ? inherited : variables;
+    if (contextValues.size === 0) return url;
+    const context = encodeURIComponent(JSON.stringify(Object.fromEntries(contextValues)));
+    if (context.length <= MAX_VARIABLE_CONTEXT || !saveContext) {
+      return url + '&' + HLS_VARIABLES_PARAM + '=' + context;
+    }
+    // A child must see the same values as the parent response. Use a short
+    // reference for large contexts so signed variables never need a fresh fetch.
+    let id = contextIds.get(context);
+    if (!id) {
+      id = saveContext(contextValues);
+      contextIds.set(context, id);
+    }
+    return url + '&' + HLS_CONTEXT_PARAM + '=' + encodeURIComponent(id);
+  };
+  let variant = false;
+  const out = content.split('\n').map((line) => {
+    if (line.startsWith(HLS_DEFINE_TAG)) {
+      return readHlsVariable(line, baseUrl, variables, inherited);
+    }
+    if (line.startsWith('#EXT-X-STREAM-INF:')) variant = true;
+    const tag = URI_ATTR_TAGS.find((entry) => line.startsWith(entry));
+    if (tag) {
+      return tag + line.slice(tag.length).replace(ATTRIBUTE,
+        (match, separator: string, space: string, name: string, value: string) => {
+          if (name !== 'URI' || !value.startsWith('"') || !value.endsWith('"') || value.length <= 2) return match;
+          const playlist = PLAYLIST_ATTR_TAGS.includes(tag);
+          return separator + space + name + '="' +
+            proxyUri(value.slice(1, -1), playlist, tag === '#EXT-X-RENDITION-REPORT:') + '"';
+        });
     }
     if (line.startsWith('#') || line.trim() === '') return line;
-    if (isProxiedUri(line)) return line;
-    return prefix + encodeURIComponent(makeAbsolute(line, baseUrl));
+    const url = proxyUri(line.trimEnd(), variant);
+    variant = false;
+    return url;
   });
   return out.join('\n');
 }

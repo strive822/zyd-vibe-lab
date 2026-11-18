@@ -18,7 +18,13 @@ const PlayerShell = dynamic(() => import('@/components/player-shell').then((m) =
 import { EmptyState, LoadingState, Spinner } from '@/components/states';
 import { SwitchSourceModal } from '@/components/switch-source';
 import { SkipMarkPanel } from '@/components/skip-mark-panel';
-import { skipMarkKey, validateSegment, type SkipSegment } from '@/lib/skip-marks';
+import {
+  endingTailSeconds,
+  skipMarkKey,
+  validateSegment,
+  withEndingTail,
+  type SkipSegment,
+} from '@/lib/skip-marks';
 import type { PlayerSkipApi } from '@/components/player-shell';
 import { useToast } from '@/components/toast';
 import { enqueueDownload } from '@/components/download-manager';
@@ -34,7 +40,7 @@ import {
   upsertHistory,
   db,
 } from '@/lib/db';
-import { cn } from '@/lib/utils';
+import { cn, formatTime } from '@/lib/utils';
 
 /**
  * 播放页（唯一入口，替代旧版 watch.html → player.html 跳转链）。
@@ -211,9 +217,11 @@ function WatchContent() {
 
   // 快捷键（Shift+I/O/S/E）记录片段：校验后写入
   const handleRecordSegment = useCallback(
-    (segment: SkipSegment) => {
+    (raw: SkipSegment) => {
       const duration = playerApiRef.current?.getDuration() ?? 0;
       const existing = useAppStore.getState().skipMarks[markKey]?.segments ?? [];
+      // 与面板同一套规则：片尾写入前先换算成「距结尾多长」，跨集才能各自倒算起点
+      const segment = withEndingTail(raw, duration);
       const error = validateSegment(segment, duration, existing);
       if (error) {
         toast(error, 'error');
@@ -222,13 +230,16 @@ function WatchContent() {
       useAppStore.getState().setSkipMark(markKey, [...existing, segment]);
       const label =
         segment.type === 'opening' ? '片头结束' : segment.type === 'ending' ? '片尾开始' : '中段片段';
+      const tail = endingTailSeconds(segment);
       // 中段命中时的表现取决于全局「自动跳过片段」，记完就说清楚，避免"标了却没反应"
       const hint =
         segment.type === 'middle'
           ? useAppStore.getState().autoSkipSegments
             ? '，命中时将自动跳过'
             : '，命中时显示跳过按钮'
-          : '';
+          : segment.type === 'ending' && tail !== null
+            ? `，最后 ${formatTime(tail)} 会被跳过（各集按本集时长倒算起点）`
+            : '';
       toast(`已记录${label}${hint}`, 'success');
     },
     [markKey, toast]
@@ -277,7 +288,7 @@ function WatchContent() {
   return (
     <div className="min-h-screen flex flex-col">
       <header className="sticky top-0 z-40 bg-surface/90 backdrop-blur border-b border-line">
-        <div className="max-w-7xl mx-auto px-4 h-14 flex items-center gap-3">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 h-14 flex items-center gap-1.5 sm:gap-3">
           <BackButton />
           <HomeButton />
           <div className="min-w-0">
@@ -287,7 +298,7 @@ function WatchContent() {
               {episodes.length > 0 && ` · 第 ${currentIndex + 1}/${episodes.length} 集`}
             </p>
           </div>
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex items-center gap-1.5 sm:gap-2 shrink-0">
             <button
               className="btn-ghost btn-sm"
               onClick={() => {
@@ -302,7 +313,10 @@ function WatchContent() {
                 // 这里先提示的话，用户随后取消保存位置会出现「已加入→已取消」的矛盾
               }}
             >
-              下载本集
+              {/* 手机上顶栏放不下完整按钮：只留图标，aria-label 保证可访问性 */}
+              <Icon name="download" className="w-4 h-4 sm:hidden" />
+              <span className="hidden sm:inline">下载本集</span>
+              <span className="sr-only sm:hidden">下载本集</span>
             </button>
             <button className="btn-ghost btn-sm" onClick={() => setSwitchOpen(true)}>
               切换资源
@@ -323,6 +337,8 @@ function WatchContent() {
                   autoplayNext={store.autoplayNext}
                   skipMark={skipMark}
                   autoSkipSegments={store.autoSkipSegments}
+                  volumeBoost={store.volumeBoost}
+                  miniProgressBar={store.miniProgressBar}
                   pendingStart={pendingStart}
                   onPendingStart={setPendingStart}
                   onPlayerApi={(api) => { playerApiRef.current = api; }}
@@ -452,7 +468,7 @@ function WatchContent() {
                 <EmptyState variant="plain" title={detailQuery.isError ? '获取剧集失败' : '暂无剧集信息'} />
               )
             ) : (
-              <div className="grid grid-cols-5 lg:grid-cols-4 gap-1.5 max-h-[65vh] overflow-y-auto scrollbar-thin pr-1">
+              <div className="grid grid-cols-6 sm:grid-cols-8 lg:grid-cols-4 gap-1.5 max-h-[65vh] overflow-y-auto scrollbar-thin pr-1">
                 {orderedEpisodes.map((realIndex) => (
                   <EpisodeButton
                     key={realIndex}

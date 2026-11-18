@@ -2,7 +2,7 @@ import Dexie, { type EntityTable } from 'dexie';
 import type { SourceConfig } from './types';
 // 仅类型引入：store.ts 运行时会引用本模块，反向只取类型不会形成运行时循环
 import type { LiveProbeEntry } from './store';
-import { PERSIST_KEY, flushPendingPersist } from './persist-storage';
+import { PERSIST_KEY, flushPendingPersist, readPersistedSettings, replacePersistedSettings } from './persist-storage';
 
 /**
  * IndexedDB 持久化（替代旧版 localStorage 数据库）：
@@ -63,6 +63,13 @@ export interface DownloadTaskEntry {
   /** 输出格式 */
   format: 'TS' | 'MP4';
   status: DownloadStatus;
+  attempt?: string;
+  /**
+   * 是否已确认落盘：FS Access 直写为 true；内存聚合只能「发起」浏览器下载、
+   * 拿不到任何回执，故为 false（issue #977）。旧记录没有这个字段，
+   * 按 undefined 处理——等同已完成，不再补判。
+   */
+  savedToDisk?: boolean;
   finished: number;
   total: number;
   errorNum: number;
@@ -210,9 +217,9 @@ export async function clearLiveProbeResultsDb(): Promise<void> {
 
 export async function exportConfig(): Promise<string> {
   // 导出前 flush：把节流缓冲中的最新设置落盘，避免导出的是 800ms 前的旧快照
-  flushPendingPersist();
-  const history = await db.history.toArray();
-  const settings = localStorage.getItem(PERSIST_KEY);
+  if (!await flushPendingPersist()) throw new Error('无法保存当前设置，请检查浏览器存储后重试导出');
+  const history = await db.history.orderBy('timestamp').reverse().toArray();
+  const settings = readPersistedSettings();
 
   const data: Record<string, unknown> = {
     viewingHistory: JSON.stringify(history),
@@ -234,34 +241,53 @@ export async function importConfig(content: string): Promise<void> {
   };
   if (config.name !== 'LibreTV-Settings') throw new Error('配置文件格式不正确');
   const data = config.data || {};
+  const imported: unknown = typeof data.viewingHistory === 'string' ? JSON.parse(data.viewingHistory) : undefined;
+  if (imported !== undefined && !Array.isArray(imported)) throw new Error('观看历史格式不正确');
 
   if (typeof data[PERSIST_KEY] === 'string') {
-    // 关键：先 flush 节流缓冲中的旧状态再写导入配置，否则缓冲会在
-    // 之后 flush 时用导入前的旧状态覆盖刚写入的配置（导入静默丢失）
-    flushPendingPersist();
-    localStorage.setItem(PERSIST_KEY, data[PERSIST_KEY]);
+    await replacePersistedSettings(data[PERSIST_KEY]);
   }
 
-  if (typeof data['viewingHistory'] === 'string') {
-    // 兼容旧版历史结构（含全集 URL 列表），只迁移定位信息
-    const legacy = JSON.parse(data['viewingHistory']) as Record<string, unknown>[];
-    for (const item of legacy.slice(0, MAX_HISTORY)) {
-      const sourceKey = String(item.sourceCode || item.sourceName || '');
-      const vodId = String(item.vod_id || '');
-      const title = String(item.title || '未知视频');
+  if (Array.isArray(imported) && imported.length) {
+    const now = Date.now();
+    const records = new Map<string, HistoryEntry>();
+    for (const [index, value] of imported.slice(0, MAX_HISTORY).entries()) {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) continue;
+      const item = value as Record<string, unknown>;
+      const sourceKey = String(item.sourceKey ?? item.sourceCode ?? item.sourceName ?? '');
+      const vodId = String(item.vodId ?? item.vod_id ?? '');
       if (!sourceKey || !vodId) continue;
-      const totalEpisodes = Array.isArray(item.episodes) ? item.episodes.length : 0;
-      await upsertHistory({
+      const id = `${sourceKey}_${vodId}`;
+      const totalEpisodes = typeof item.totalEpisodes === 'number' ? item.totalEpisodes :
+        Array.isArray(item.episodes) ? item.episodes.length : 0;
+      const timestamp = typeof item.timestamp === 'number' && Number.isFinite(item.timestamp) ? item.timestamp : now - index;
+      if ((records.get(id)?.timestamp ?? -Infinity) >= timestamp) continue;
+      records.set(id, {
+        id,
         sourceKey,
         vodId,
-        title,
+        title: String(item.title || '未知视频'),
+        sourceUrl: typeof item.sourceUrl === 'string' ? item.sourceUrl : undefined,
+        pic: typeof item.pic === 'string' ? item.pic : undefined,
         episodeIndex: typeof item.episodeIndex === 'number' ? item.episodeIndex : 0,
         totalEpisodes,
         playbackPosition: typeof item.playbackPosition === 'number' ? item.playbackPosition : 0,
         duration: typeof item.duration === 'number' ? item.duration : 0,
-        timestamp: typeof item.timestamp === 'number' ? item.timestamp : Date.now(),
+        timestamp,
       });
     }
+    await db.transaction('rw', db.history, async () => {
+      const existing = await db.history.bulkGet([...records.keys()]);
+      for (const prior of existing) {
+        if (prior && prior.timestamp >= records.get(prior.id)!.timestamp) records.delete(prior.id);
+      }
+      await db.history.bulkPut([...records.values()]);
+      const count = await db.history.count();
+      if (count > MAX_HISTORY) {
+        const oldest = await db.history.orderBy('timestamp').limit(count - MAX_HISTORY).primaryKeys();
+        await db.history.bulkDelete(oldest);
+      }
+    });
   }
 }
 

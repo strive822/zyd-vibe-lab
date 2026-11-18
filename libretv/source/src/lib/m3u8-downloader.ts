@@ -63,8 +63,8 @@ export interface DownloadProgress {
  */
 const DL_CHUNK_ORIGIN = 'https://dl.libretv.local';
 
-function dlChunkKey(taskId: string, index: number): string {
-  return `${DL_CHUNK_ORIGIN}/${encodeURIComponent(taskId)}/${index}`;
+function dlChunkKey(taskId: string, playlist: string, index: number): string {
+  return `${DL_CHUNK_ORIGIN}/${encodeURIComponent(taskId)}/${playlist}/${index}`;
 }
 
 /**
@@ -273,10 +273,12 @@ export async function runDownloadJob(opts: DownloadJobOptions): Promise<void> {
   let lastErr: unknown;
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      parsed = await parseM3u8Playlist(playlistUrl, 0, undefined, { stripLeadAd: true });
+      jobSignal.throwIfAborted();
+      parsed = await parseM3u8Playlist(playlistUrl, 0, undefined, { stripLeadAd: true, signal: jobSignal });
       lastErr = undefined;
       break;
     } catch (err) {
+      jobSignal.throwIfAborted();
       lastErr = err;
     }
   }
@@ -298,15 +300,19 @@ export async function runDownloadJob(opts: DownloadJobOptions): Promise<void> {
 
   // —— 无 Cache Storage（HTTP 页面 / 老浏览器）：退化为串行「边下边写」 ——
   // 没有断点、并发为 1，但功能可用；原先这条路径是直接失败的
-  if (!supportsChunkCache()) {
+  if (!supportsChunkCache() || !globalThis.crypto?.subtle) {
     await runStreamingJob({ parsed, format, aesKey, target, pause, signal: jobSignal, total, report });
     if (!jobSignal.aborted) report(total, total, 'done');
     return;
   }
 
   // —— 并发下载分片（Cache Storage 断点） ——
+  const identity = JSON.stringify([parsed.segments, parsed.mediaSequence, parsed.aesConf,
+    aesKey ? [...new Uint8Array(aesKey)] : null]);
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(identity));
+  const playlistId = [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
   const cache = await caches.open(DL_CACHE_NAME);
-  const chunkKey = (index: number) => dlChunkKey(taskId, index);
+  const chunkKey = (index: number) => dlChunkKey(taskId, playlistId, index);
   let cursor = 0;
   // 恢复：统计已有分片数作为起点
   let current = 0;
@@ -316,12 +322,16 @@ export async function runDownloadJob(opts: DownloadJobOptions): Promise<void> {
   report(current, total, 'downloading');
 
   const worker = async (): Promise<void> => {
-    while (cursor < total) {
+    while (true) {
       if (jobSignal.aborted) return;
-      await pause.waitIfPaused();
+      // 占号必须紧跟循环条件、在任何 await 之前：并发 worker 会同时停在循环顶部，
+      // 那时 cursor 还是同一个值；先 await 再 ++ 就会各自越过 total 取到不存在的
+      // 分片号——分片数 ≤ 并发数时必然发生，长视频则在尾部偶发——
+      // 表现为 parsed.segments[index - 1] 为 undefined 的 TypeError。
+      if (cursor >= total) return;
       const index = ++cursor; // 1 基
-      if (jobSignal.aborted) return;
       await pause.waitIfPaused();
+      if (jobSignal.aborted) return;
       const cached = await cache.match(new Request(chunkKey(index)));
       if (cached) {
         // 已在恢复预统计里计入，不再累加——否则续传时进度重复计数超过 100%
@@ -362,6 +372,7 @@ export async function runDownloadJob(opts: DownloadJobOptions): Promise<void> {
     for (let i = 1; i <= total; i++) {
       if (jobSignal.aborted) return;
       await pause.waitIfPaused();
+      if (jobSignal.aborted) return;
       const resp = await cache.match(new Request(chunkKey(i)));
       if (!resp) throw new Error(`分片 ${i} 缓存丢失，请重试`);
       let data = await resp.arrayBuffer();
@@ -370,11 +381,12 @@ export async function runDownloadJob(opts: DownloadJobOptions): Promise<void> {
       }
       await transmuxer.pushAndTransmux(new Uint8Array(data));
     }
-    await transmuxer.finish();
+    if (!jobSignal.aborted) await transmuxer.finish();
   } else {
     for (let i = 1; i <= total; i++) {
       if (jobSignal.aborted) return;
       await pause.waitIfPaused();
+      if (jobSignal.aborted) return;
       const resp = await cache.match(new Request(chunkKey(i)));
       if (!resp) throw new Error(`分片 ${i} 缓存丢失，请重试`);
       let data = await resp.arrayBuffer();
@@ -383,7 +395,7 @@ export async function runDownloadJob(opts: DownloadJobOptions): Promise<void> {
       }
       await target.write(new Uint8Array(data));
     }
-    await target.close();
+    if (!jobSignal.aborted) await target.close();
   }
-  report(total, total, 'done');
+  if (!jobSignal.aborted) report(total, total, 'done');
 }

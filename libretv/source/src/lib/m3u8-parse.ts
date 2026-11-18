@@ -1,4 +1,4 @@
-import { makeAbsolute, stripAdGroups, documentBaseURI } from './m3u8';
+import { documentBaseURI, expandHlsUri, HLS_DEFINE_TAG, makeAbsolute, readHlsVariable, stripAdGroups } from './m3u8';
 
 /**
  * m3u8 播放列表解析（预取器与离线下载共用）。
@@ -100,6 +100,7 @@ function parseAesConf(line: string): AesConf | undefined {
 export interface ParseOptions {
   /** 剔除广告段（URL 特征的中插段 + 片头无特征插入段）；缺省 true */
   stripLeadAd?: boolean;
+  signal?: AbortSignal;
 }
 
 /** 解析播放列表：master 递归选档，media 输出分片清单。fetch 失败 / 超限直接抛错由调用方降级 */
@@ -107,17 +108,25 @@ export async function parseM3u8Playlist(
   url: string,
   depth = 0,
   preferredHeight?: number,
-  opts?: ParseOptions
+  opts?: ParseOptions,
+  inherited: ReadonlyMap<string, string> = new Map(),
 ): Promise<ParsedPlaylist> {
   if (depth > MAX_DEPTH) throw new Error(`m3u8 嵌套超过 ${MAX_DEPTH} 层`);
   // 入参本身可能是本站根相对地址（代理形态），先锚成绝对地址再作为解析基址：
   // 否则 new URL(相对分片, 相对基址) 抛错，segments[].url 就停留在相对形式，
   // 与 hls.js 按绝对清单地址解析出的同一个分片不再是同一个缓存 key
-  const base = makeAbsolute(url, documentBaseURI());
-  const res = await fetch(base, { headers: { Accept: '*/*' } });
+  const requested = makeAbsolute(url, documentBaseURI());
+  const res = await fetch(requested, { headers: { Accept: '*/*' }, signal: opts?.signal });
   if (!res.ok) throw new Error(`m3u8 拉取失败：HTTP ${res.status}`);
+  const base = res.url || requested;
   // 剔除片头广告段要在统计时长/分片之前做，下载产物才不会带上广告
   const text = opts?.stripLeadAd === false ? await res.text() : stripAdGroups(await res.text());
+  const variables = new Map<string, string>();
+  const resolveUri = (uri: string) => {
+    const expanded = expandHlsUri(uri, variables);
+    if (expanded.includes('{$')) throw new Error('m3u8 包含未定义的地址变量');
+    return makeAbsolute(expanded, base);
+  };
 
   // —— master：收集变体，选档后递归 ——
   if (text.includes('#EXT-X-STREAM-INF')) {
@@ -125,7 +134,9 @@ export async function parseM3u8Playlist(
     let pending: { bandwidth: number; height?: number } | undefined;
     for (const raw of text.split('\n')) {
       const line = raw.trim();
-      if (line.startsWith('#EXT-X-STREAM-INF')) {
+      if (line.startsWith(HLS_DEFINE_TAG)) {
+        readHlsVariable(line, base, variables, inherited);
+      } else if (line.startsWith('#EXT-X-STREAM-INF')) {
         const bandwidth = parseInt(line.match(/BANDWIDTH=(\d+)/)?.[1] || '0', 10);
         const resolution = line.match(/RESOLUTION=(\d+)x(\d+)/);
         pending = {
@@ -136,7 +147,7 @@ export async function parseM3u8Playlist(
       }
       if (!line || line.startsWith('#')) continue;
       if (pending) {
-        const abs = makeAbsolute(line, base);
+        const abs = resolveUri(line);
         variants.push({
           url: abs,
           bandwidth: pending.bandwidth,
@@ -147,7 +158,7 @@ export async function parseM3u8Playlist(
     }
     if (!variants.length) throw new Error('master m3u8 未解析到可用档位');
     const chosen = pickVariant(variants, preferredHeight);
-    const inner = await parseM3u8Playlist(chosen.url, depth + 1, preferredHeight, opts);
+    const inner = await parseM3u8Playlist(chosen.url, depth + 1, preferredHeight, opts, variables);
     return { ...inner, variants };
   }
 
@@ -159,10 +170,14 @@ export async function parseM3u8Playlist(
   const mediaSequence = parseInt(text.match(/^#EXT-X-MEDIA-SEQUENCE:(\d+)/m)?.[1] || '0', 10) || 0;
   for (const raw of text.split('\n')) {
     const line = raw.trim();
+    if (line.startsWith(HLS_DEFINE_TAG)) {
+      readHlsVariable(line, base, variables, inherited);
+      continue;
+    }
     if (line.startsWith('#EXT-X-KEY')) {
       // 取最后一次出现的 KEY（逐段换 key 的源不在支持范围）
       const conf = parseAesConf(line);
-      if (conf) aesConf = { ...conf, uri: makeAbsolute(conf.uri, base) };
+      if (conf) aesConf = { ...conf, uri: resolveUri(conf.uri) };
       continue;
     }
     if (line.startsWith('#EXT-X-BYTERANGE')) {
@@ -174,7 +189,7 @@ export async function parseM3u8Playlist(
       continue;
     }
     if (!line || line.startsWith('#')) continue;
-    segments.push({ url: makeAbsolute(line, base), duration: pendingDuration });
+    segments.push({ url: resolveUri(line), duration: pendingDuration });
     pendingDuration = 0;
   }
   if (!segments.length) throw new Error('m3u8 未解析到分片');

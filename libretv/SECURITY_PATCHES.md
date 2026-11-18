@@ -14,6 +14,10 @@
 验证结果：类型检查、Lint、37 个测试文件 / 542 项测试、生产构建通过；生产依赖审计（`npm audit --omit=dev`）为 0 项漏洞。
 展开源码的逐文件哈希见 source-files.json；生产成品的大小和 SHA-256 见仓库根 releases.json。安装使用 npm ci，不能只替换 package.json 而沿用旧锁文件。
 
+## v2.23.2 隔离验证（2026-11-16）
+
+上游 v2.23.2（92461b5e458ba45233e1cba30b09ce0bbc0fa911）新增 undici，原个人依赖修复及启动器继续保留。复验类型检查、Lint、43 个测试文件 / 642 项测试和 standalone 生产构建，生产依赖审计为 0 项。
+
 ## 开发依赖中已知的遗留审计项
 
 2026-10-30 发布的 GHSA-g3hv-75wg-m249（minimatch glob 放大拒绝服务，11.0.1 修复，无旧版回迁）影响 eslint 工具链：

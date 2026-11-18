@@ -13,7 +13,14 @@ import {
   type DownloadProgress,
 } from '@/lib/m3u8-downloader';
 import { loadDownloadSettings, saveDownloadSettings } from '@/lib/download-settings';
-import { detectSavingCapability, pickSaveTarget } from '@/lib/download-saver';
+import {
+  detectSavingCapability,
+  pickSaveTarget,
+  releaseSavedBlob,
+  retainSavedBlob,
+  triggerBrowserDownload,
+  type SaveTarget,
+} from '@/lib/download-saver';
 import { Switch } from './settings-shared';
 
 /**
@@ -22,6 +29,8 @@ import { Switch } from './settings-shared';
  * - 并发：全局最多同时进行 3 个任务，其余排队（waiting）；
  * - 断点：已下载分片写入 Cache Storage（网络层断点）；
  *   保存目标（FS Access / 内存）活不过页面刷新，恢复时由用户点击「继续」重新选择。
+ * - 「下载完成」不等于「已保存到设备」：内存聚合只能发起浏览器下载、拿不到回执，
+ *   这类任务仅保留近期 Blob 供「保存到设备」。暂存清理或页面刷新后可「重新下载」（issue #977）。
  */
 
 const MAX_CONCURRENT_DOWNLOADS = 3;
@@ -29,6 +38,7 @@ const MAX_CONCURRENT_DOWNLOADS = 3;
 const PROGRESS_PERSIST_INTERVAL_MS = 1000;
 const ADD_TASK_EVENT = 'libretv:add-download';
 const SHOW_MANAGER_EVENT = 'libretv:show-download-manager';
+const TASK_LOCK_PREFIX = 'libretv:download:';
 export const DOWNLOADS_UPDATED_EVENT = 'libretv:downloads-updated';
 
 export interface AddDownloadPayload {
@@ -39,10 +49,28 @@ export interface AddDownloadPayload {
 
 /** 运行中的任务句柄（不进持久化） */
 interface RunningHandle {
+  attempt?: string;
   abort: AbortController;
   pause: PauseResumeController;
-  /** 恢复后需要用户重选保存位置时置 false */
-  hasTarget: boolean;
+  release: () => void;
+  completion?: Promise<void>;
+  cancelling?: boolean;
+}
+
+interface PendingTarget {
+  attempt?: string;
+  target: SaveTarget;
+  release: () => void;
+}
+
+function acquireTaskLock(id: string): Promise<(() => void) | undefined> {
+  if (!navigator.locks) return Promise.resolve(() => {});
+  return new Promise((resolve) => {
+    void navigator.locks.request(TASK_LOCK_PREFIX + id, { ifAvailable: true }, (lock) => {
+      if (!lock) { resolve(undefined); return; }
+      return new Promise<void>((release) => resolve(release));
+    }).catch(() => resolve(undefined));
+  });
 }
 
 export function DownloadManager({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
@@ -51,14 +79,25 @@ export function DownloadManager({ isOpen, onClose }: { isOpen: boolean; onClose:
   const [capability, setCapability] = useState<'fs-access' | 'memory'>('memory');
   const [chunkCache, setChunkCache] = useState(true);
   const [proxy, setProxy] = useState(false);
+  const [lockedTasks, setLockedTasks] = useState<Set<string>>(new Set());
   const running = useRef(new Map<string, RunningHandle>());
+  const pendingTargets = useRef(new Map<string, PendingTarget>());
+  /**
+   * 内存聚合任务完成后的保存目标（taskId → target）。只在本组件生命周期内有效：
+   * 页面刷新后 Blob 随之丢失，此时「保存到设备」降级为「重新下载」。
+   */
+  const savedTargets = useRef(new Map<string, SaveTarget>());
 
   const refresh = useCallback(() => {
-    void db.downloads.orderBy('createdAt').reverse().toArray().then(setTasks);
+    void db.downloads.orderBy('createdAt').reverse().toArray().then(setTasks).catch(() => {});
+    void navigator.locks?.query().then(({ held }) => setLockedTasks(new Set(held
+      ?.flatMap(({ name }) => name?.startsWith(TASK_LOCK_PREFIX) ? [name.slice(TASK_LOCK_PREFIX.length)] : []))))
+      .catch(() => {});
   }, []);
 
   const updateEntry = useCallback(async (id: string, patch: Partial<DownloadTaskEntry>) => {
-    await db.downloads.update(id, { ...patch, updatedAt: Date.now() });
+    const updated = await db.downloads.update(id, { ...patch, updatedAt: Date.now() });
+    if (!updated) throw new Error('下载任务已删除');
     refresh();
   }, [refresh]);
 
@@ -70,90 +109,78 @@ export function DownloadManager({ isOpen, onClose }: { isOpen: boolean; onClose:
 
   // —— 任务启动：选目标 → runDownloadJob ——
   const startTask = useCallback(
-    async (entry: DownloadTaskEntry, hasTarget: boolean) => {
+    async (entry: DownloadTaskEntry) => {
       if (running.current.has(entry.id)) return;
+      const pending = pendingTargets.current.get(entry.id);
+      if (!pending || pending.attempt !== entry.attempt) return;
+      const { target, release } = pending;
+      pendingTargets.current.delete(entry.id);
       const abort = new AbortController();
       const pause = new PauseResumeController();
-      running.current.set(entry.id, { abort, pause, hasTarget });
-      await updateEntry(entry.id, { status: 'downloading' });
+      const handle: RunningHandle = { abort, pause, release, attempt: entry.attempt };
+      running.current.set(entry.id, handle);
+      handle.completion = (async () => {
+        let saved = false;
+        let claimed = false;
+        const savedToDisk = target.kind === 'fs';
+        try {
+          claimed = Boolean(await db.downloads.where('id').equals(entry.id)
+            .and((task) => task.status === 'waiting' && task.attempt === entry.attempt)
+            .modify({ status: 'downloading', updatedAt: Date.now() }));
+          if (!claimed || abort.signal.aborted) return;
+          refresh();
+          let lastPersistAt = 0;
+          const onProgress = (progress: DownloadProgress) => {
+            if (abort.signal.aborted) return;
+            const patch = { total: progress.total, finished: progress.current };
+            setTasks((previous) => previous.map((task) => task.id === entry.id ? { ...task, ...patch } : task));
+            const now = Date.now();
+            if (progress.status === 'downloading' && now - lastPersistAt < PROGRESS_PERSIST_INTERVAL_MS) return;
+            lastPersistAt = now;
+            void db.downloads.update(entry.id, { ...patch, updatedAt: now }).catch(() => {});
+          };
 
-      // 进度：UI 走本地 state 实时刷新，落库按固定间隔节流。整集动辄上千分片，
-      // 逐片 updateEntry（写库 + 全量查询 + setState）会让页面越下越卡，
-      // 极端情况下长任务被浏览器判定为无响应
-      let lastPersistAt = 0;
-      const onProgress = (p: DownloadProgress) => {
-        const status = p.status === 'done' ? 'completed' : p.status === 'error' ? 'error' : 'downloading';
-        setTasks((prev) => prev.map((t) => (t.id === entry.id ? { ...t, finished: p.current, total: p.total, status } : t)));
-        const now = Date.now();
-        // 状态切换（完成/失败/处理中）必须立刻持久化，纯进度才节流
-        if (p.status === 'downloading' && now - lastPersistAt < PROGRESS_PERSIST_INTERVAL_MS) return;
-        lastPersistAt = now;
-        void db.downloads.update(entry.id, { finished: p.current, total: p.total, status, updatedAt: now });
-      };
-
-      const job = runDownloadJob({
-        taskId: entry.id,
-        url: entry.url,
-        title: entry.title,
-        format: entry.format,
-        signal: abort.signal,
-        pause,
-        // 中转开关在任务启动时取当前值：切换只影响之后开始的任务，
-        // 已在跑的任务保持原有链路，不会下到一半换源
-        proxy,
-        onProgress,
-        // hasTarget=false（刷新恢复/排队恢复）时目标已在手势内由「继续」按钮选好
-        target: (globalThis as unknown as { __dlSaveTarget?: { id: string; target: import('@/lib/download-saver').SaveTarget } }).__dlSaveTarget?.id === entry.id
-          ? (globalThis as unknown as { __dlSaveTarget: { target: import('@/lib/download-saver').SaveTarget } }).__dlSaveTarget.target
-          : {
-              // 目标已失效（页面刷新后句柄消亡）：显式报错引导用户点「继续」重选，
-              // 绝不能静默空写——否则任务会显示完成却产出空文件
-              kind: 'memory',
-              write: async () => {
-                throw new Error('保存位置已失效，请点击「继续」重新选择');
-              },
-              close: async () => {},
-              abort: async () => {},
-            },
-      });
-
-      void job
-        .then(async () => {
-          await updateEntry(entry.id, { status: 'completed' });
-          void clearDownloadChunks(entry.id);
-          toast(`《${entry.title}》下载完成`, 'success');
-        })
-        .catch(async (err: Error) => {
-          if (abort.signal.aborted) return; // 用户取消：状态已在取消处理里写好
-          await updateEntry(entry.id, { status: 'error' });
-          toast(`《${entry.title}》下载失败：${err.message}`, 'error');
-        })
-        .finally(() => {
+          await runDownloadJob({
+            taskId: entry.id, url: entry.url, title: entry.title, format: entry.format,
+            signal: abort.signal, pause, proxy: loadDownloadSettings().proxy, onProgress, target,
+          });
+          if (abort.signal.aborted) return;
+          saved = true;
+          if (!savedToDisk && target.savedUrl()) retainSavedBlob(savedTargets.current, entry.id, target);
+          await clearDownloadChunks(entry.id);
+          if (abort.signal.aborted) return;
+          await updateEntry(entry.id, { status: 'completed', savedToDisk });
+          toast(savedToDisk
+            ? `《${entry.title}》已保存到所选位置`
+            : `《${entry.title}》已生成，请在浏览器下载列表确认；没保存成功可点「保存到设备」`, 'success');
+        } catch (err) {
+          if (abort.signal.aborted) return;
+          if (claimed) await updateEntry(entry.id, { status: 'error' }).catch(() => {});
+          toast(`《${entry.title}》下载失败：${err instanceof Error ? err.message : String(err)}`, 'error');
+        } finally {
+          if (!saved) await target.abort().catch(() => {});
           running.current.delete(entry.id);
+          if (!handle.cancelling) release();
+          refresh();
           scheduleNext();
-        });
+        }
+      })();
+      await handle.completion;
     },
     // scheduleNext 刻意不进依赖：它与 startTask 相互引用，进依赖会让回调每帧重建
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [toast, updateEntry, proxy]
+    [toast, updateEntry, refresh]
   );
 
   // —— 全局并发调度 ——
   const scheduleNext = useCallback(() => {
     void (async () => {
-      const runningCount = running.current.size;
-      if (runningCount >= MAX_CONCURRENT_DOWNLOADS) return;
       const all = await db.downloads.orderBy('createdAt').toArray();
-      const waiting = all.filter((t) => t.status === 'waiting' && !running.current.has(t.id));
-      for (const t of waiting.slice(0, MAX_CONCURRENT_DOWNLOADS - runningCount)) {
-        const entry = t;
-        // 队列恢复的任务没有保存目标：以内存目标启动（分片已在本地，写出快）
-        void startTask(
-          { ...entry, format: entry.format },
-          (globalThis as { __dlSaveTarget?: { id: string } }).__dlSaveTarget?.id === entry.id
-        );
+      for (const entry of all) {
+        if (running.current.size >= MAX_CONCURRENT_DOWNLOADS) break;
+        if (entry.status === 'waiting' && pendingTargets.current.has(entry.id)) void startTask(entry);
       }
-    })();
+    })().catch(() => {});
   }, [startTask]);
 
   // —— 事件：新增任务（用户手势内触发，可安全弹文件选择器） ——
@@ -178,6 +205,7 @@ export function DownloadManager({ isOpen, onClose }: { isOpen: boolean; onClose:
           title: detail.title,
           format,
           status: 'waiting',
+          attempt: id,
           finished: 0,
           total: 0,
           errorNum: 0,
@@ -185,19 +213,32 @@ export function DownloadManager({ isOpen, onClose }: { isOpen: boolean; onClose:
           updatedAt: Date.now(),
         };
         // 用户手势内预选保存目标（FS Access 弹窗必须在手势内）
+        let target: SaveTarget;
         try {
-          const target = await pickSaveTarget(`${detail.title}.${format.toLowerCase()}`);
-          (globalThis as unknown as { __dlSaveTarget?: { id: string; target: import('@/lib/download-saver').SaveTarget } }).__dlSaveTarget = {
-            id,
-            target,
-          };
+          target = await pickSaveTarget(`${detail.title}.${format.toLowerCase()}`);
         } catch (err) {
           if (err instanceof Error && err.message.includes('取消')) {
             toast('已取消下载', 'info');
-            return;
+          } else {
+            toast('无法选择保存位置，请重试', 'error');
           }
+          return;
         }
-        await db.downloads.put(entry);
+        const release = await acquireTaskLock(id);
+        if (!release) {
+          await target.abort().catch(() => {});
+          toast('无法锁定下载任务，请重试', 'error');
+          return;
+        }
+        try {
+          await db.downloads.put(entry);
+        } catch {
+          await target.abort().catch(() => {});
+          release();
+          toast('无法添加下载任务，请重试', 'error');
+          return;
+        }
+        pendingTargets.current.set(id, { target, release, attempt: id });
         refresh();
         scheduleNext();
         toast(`《${detail.title}》已加入下载队列`, 'success');
@@ -219,7 +260,56 @@ export function DownloadManager({ isOpen, onClose }: { isOpen: boolean; onClose:
     setProxy(loadDownloadSettings().proxy);
     refresh();
     scheduleNext();
+    window.addEventListener('focus', refresh);
+    return () => window.removeEventListener('focus', refresh);
   }, [isOpen, refresh, scheduleNext]);
+
+  const queueWithTarget = async (entry: DownloadTaskEntry, patch: Partial<DownloadTaskEntry>): Promise<boolean> => {
+    if (pendingTargets.current.has(entry.id)) return false;
+    if (!navigator.locks && ['waiting', 'downloading', 'paused'].includes(entry.status)) return false;
+    let target: SaveTarget;
+    let release: (() => void) | undefined;
+    try {
+      target = await pickSaveTarget(`${entry.title}.${entry.format.toLowerCase()}`, undefined, async () => {
+        release = await acquireTaskLock(entry.id);
+        if (!release) throw new Error('另一个标签页正在处理这个任务');
+        const current = await db.downloads.get(entry.id);
+        if (!current || current.status !== entry.status || current.attempt !== entry.attempt) {
+          throw new Error('下载任务已在其他标签页更新');
+        }
+      });
+    } catch (err) {
+      release?.();
+      toast(err instanceof Error ? err.message : '无法选择保存位置，请重试', 'info');
+      refresh();
+      return false;
+    }
+    if (!release) {
+      await target.abort().catch(() => {});
+      return false;
+    }
+    const attempt = crypto.randomUUID();
+    try {
+      const queued = await db.downloads.where('id').equals(entry.id)
+        .and((task) => task.status === entry.status && task.attempt === entry.attempt && !running.current.has(entry.id))
+        .modify({ ...patch, attempt, status: 'waiting', updatedAt: Date.now() });
+      if (!queued) {
+        await target.abort().catch(() => {});
+        release();
+        refresh();
+        return false;
+      }
+    } catch {
+      await target.abort().catch(() => {});
+      release();
+      toast('无法更新下载任务，请重试', 'error');
+      return false;
+    }
+    pendingTargets.current.set(entry.id, { target, release, attempt });
+    refresh();
+    scheduleNext();
+    return true;
+  };
 
   const onToggleProxy = (next: boolean) => {
     // 以落库结果为准回写 state：存储不可用（隐私模式）时 UI 不能假装已保存
@@ -237,36 +327,102 @@ export function DownloadManager({ isOpen, onClose }: { isOpen: boolean; onClose:
       await updateEntry(entry.id, { status: 'paused' });
       return;
     }
-    if (entry.status === 'paused' || entry.status === 'waiting' || entry.status === 'error') {
-      // 恢复：需要用户手势内重选保存目标（浏览器限制）
-      try {
-        const target = await pickSaveTarget(`${entry.title}.${entry.format.toLowerCase()}`);
-        (globalThis as unknown as { __dlSaveTarget?: { id: string; target: import('@/lib/download-saver').SaveTarget } }).__dlSaveTarget = {
-          id: entry.id,
-          target,
-        };
-        if (running.current.has(entry.id)) return;
-        await updateEntry(entry.id, { status: 'waiting' });
-        scheduleNext();
-      } catch (err) {
-        if (err instanceof Error && err.message.includes('取消')) toast('已取消', 'info');
-      }
+    if (handle && entry.status === 'paused') {
+      handle.pause.resume();
+      await updateEntry(entry.id, { status: 'downloading' });
       return;
     }
-    void handle; // downloading 且无 handle：状态漂移，等待调度器自愈
+    if (entry.status === 'paused' || entry.status === 'waiting' || entry.status === 'error' || entry.status === 'downloading') {
+      // 恢复：需要用户手势内重选保存目标（浏览器限制）
+      await queueWithTarget(entry, {});
+    }
+  };
+
+  /**
+   * 重新把内存聚合产物交给浏览器（issue #977）。
+   * 浏览器仍然不给落盘回执，所以这里只说「已再次发起保存」，落没落由用户核对；
+   * 但代价从「重下整集」降为「再点一次」。
+   */
+  const onResave = (entry: DownloadTaskEntry) => {
+    const target = savedTargets.current.get(entry.id);
+    const url = target?.savedUrl();
+    if (!target || !url) {
+      toast('暂存数据已失效，请重新下载', 'error');
+      return;
+    }
+    triggerBrowserDownload(target, target.filename || `${entry.title}.${entry.format.toLowerCase()}`);
+    toast(`已再次把《${entry.title}》交给浏览器保存，请在下载列表中确认`, 'info');
+  };
+
+  /** Blob 随页面刷新丢失（内存产物不入库）：在手势内重选保存位置后整集重下 */
+  const onRedownload = async (entry: DownloadTaskEntry) => {
+    if (await queueWithTarget(entry, { finished: 0 })) {
+      const saved = savedTargets.current.get(entry.id);
+      if (saved) releaseSavedBlob(saved);
+      savedTargets.current.delete(entry.id);
+      toast(`《${entry.title}》已重新加入下载队列`, 'success');
+    }
   };
 
   const onCancel = async (entry: DownloadTaskEntry) => {
-    running.current.get(entry.id)?.abort.abort();
-    running.current.delete(entry.id);
-    await clearDownloadChunks(entry.id);
-    await db.downloads.delete(entry.id);
+    const handle = running.current.get(entry.id);
+    if (handle?.cancelling) return;
+    const pending = pendingTargets.current.get(entry.id);
+    if (!navigator.locks && !handle && !pending && ['waiting', 'downloading', 'paused'].includes(entry.status)) {
+      toast('请在处理这个任务的标签页取消', 'info');
+      return;
+    }
+    const release = handle?.release ?? pending?.release ?? await acquireTaskLock(entry.id);
+    if (!release) {
+      toast('请在处理这个任务的标签页取消', 'info');
+      refresh();
+      return;
+    }
+    pendingTargets.current.delete(entry.id);
+    if (pending) await pending.target.abort().catch(() => {});
+    if (handle) {
+      handle.cancelling = true;
+      handle.abort.abort();
+      handle.pause.resume();
+      await handle.completion;
+    }
+    // 记录删掉就没有地方再触发保存了，内存产物随之释放，避免整集字节悬在页面里
+    const saved = savedTargets.current.get(entry.id);
+    if (saved) {
+      releaseSavedBlob(saved);
+      savedTargets.current.delete(entry.id);
+    }
+    try {
+      const deleted = await db.transaction('rw', db.downloads, async () => {
+        const current = await db.downloads.get(entry.id);
+        if (!current) return false;
+        if (current.attempt !== (handle ? handle.attempt : pending ? pending.attempt : entry.attempt)) return false;
+        if (!navigator.locks && !handle && !pending &&
+            (current.status !== entry.status || ['waiting', 'downloading', 'paused'].includes(current.status))) {
+          return false;
+        }
+        await db.downloads.delete(entry.id);
+        return true;
+      });
+      if (!deleted) {
+        refresh();
+        return;
+      }
+      await clearDownloadChunks(entry.id);
+    } catch {
+      toast('无法删除下载任务，请重试', 'error');
+      return;
+    } finally {
+      release?.();
+    }
     refresh();
-    // 终态（已完成/失败）删的是记录而非终止任务；文件已保存在用户选择的位置，不受影响
+    // 终态（已完成/失败）删的是记录而非终止任务；fs 直写的文件在用户选定的位置，不受影响
     toast(
-      entry.status === 'completed' || entry.status === 'error'
-        ? `《${entry.title}》已删除下载记录`
-        : `《${entry.title}》已取消下载`,
+      saved
+        ? `《${entry.title}》已删除记录，未确认保存的暂存内容同时丢弃`
+        : entry.status === 'completed' || entry.status === 'error'
+          ? `《${entry.title}》已删除下载记录`
+          : `《${entry.title}》已取消下载`,
       'info'
     );
   };
@@ -278,6 +434,15 @@ export function DownloadManager({ isOpen, onClose }: { isOpen: boolean; onClose:
     completed: '已完成',
     error: '失败',
   };
+
+  /**
+   * 「已完成」只在能确认落盘时说：内存聚合的任务标「已生成，待保存」，
+   * 免得浏览器其实没保存、界面却报喜（issue #977）。
+   */
+  const entryLabel = (t: DownloadTaskEntry) =>
+    t.status === 'completed' && t.savedToDisk === false
+      ? savedTargets.current.has(t.id) ? '已生成，待保存' : '未确认保存，暂存已清理'
+      : statusLabel[t.status];
 
   return (
     <Drawer open={isOpen} onClose={onClose} title="下载管理" width="max-w-lg">
@@ -294,6 +459,7 @@ export function DownloadManager({ isOpen, onClose }: { isOpen: boolean; onClose:
         </div>
         <p className="text-xs text-faint">
           保存能力：{capability === 'fs-access' ? '磁盘直写（边下边存）' : '内存聚合（完成后浏览器下载）'}
+          {capability === 'memory' && '，浏览器不回报是否已保存'}
           {chunkCache ? ' · 支持断点续传' : ' · 当前环境无断点缓存（需 HTTPS 访问）'} ·
           同时进行 {Math.min(running.current.size, MAX_CONCURRENT_DOWNLOADS)}/{MAX_CONCURRENT_DOWNLOADS} 个任务
         </p>
@@ -308,12 +474,12 @@ export function DownloadManager({ isOpen, onClose }: { isOpen: boolean; onClose:
               <div className="min-w-0">
                 <p className="text-sm text-content truncate">{t.title}</p>
                 <p className="text-xs text-faint">
-                  {t.format.toUpperCase()} · {statusLabel[t.status]}
+                  {t.format.toUpperCase()} · {entryLabel(t)}
                   {t.status === 'downloading' && t.total > 0 ? ` · ${t.finished}/${t.total} 分片` : ''}
                 </p>
               </div>
               <div className="flex items-center gap-1 shrink-0">
-                {t.status === 'downloading' && (
+                {t.status === 'downloading' && running.current.has(t.id) && (
                   <button
                     type="button"
                     className="px-2 py-1 rounded bg-chip hover:bg-hover text-xs text-content transition-colors"
@@ -322,13 +488,34 @@ export function DownloadManager({ isOpen, onClose }: { isOpen: boolean; onClose:
                     暂停
                   </button>
                 )}
-                {(t.status === 'paused' || t.status === 'waiting' || t.status === 'error') && (
+                {!pendingTargets.current.has(t.id) &&
+                  (running.current.has(t.id) ? t.status === 'paused' :
+                    !lockedTasks.has(t.id) && (t.status === 'error' ||
+                      (typeof navigator !== 'undefined' && Boolean(navigator.locks) && t.status !== 'completed'))) && (
                   <button
                     type="button"
                     className="px-2 py-1 rounded bg-chip hover:bg-hover text-xs text-content transition-colors"
                     onClick={() => void onPauseResume(t)}
                   >
                     继续
+                  </button>
+                )}
+                {t.status === 'completed' && t.savedToDisk === false && savedTargets.current.has(t.id) && (
+                  <button
+                    type="button"
+                    className="px-2 py-1 rounded bg-chip hover:bg-hover text-xs text-content transition-colors"
+                    onClick={() => onResave(t)}
+                  >
+                    保存到设备
+                  </button>
+                )}
+                {t.status === 'completed' && t.savedToDisk === false && !savedTargets.current.has(t.id) && (
+                  <button
+                    type="button"
+                    className="px-2 py-1 rounded bg-chip hover:bg-hover text-xs text-content transition-colors"
+                    onClick={() => void onRedownload(t)}
+                  >
+                    重新下载
                   </button>
                 )}
                 <button
@@ -341,6 +528,13 @@ export function DownloadManager({ isOpen, onClose }: { isOpen: boolean; onClose:
                 </button>
               </div>
             </div>
+            {t.status === 'completed' && t.savedToDisk === false && (
+              <p className="text-xs text-faint">
+                {savedTargets.current.has(t.id)
+                  ? '内存聚合无法确认浏览器是否真的保存：请到浏览器下载列表核对，没保存成功就再点「保存到设备」。'
+                  : '请先在浏览器下载列表核对。暂存内容已清理，如未保存需重新下载。'}
+              </p>
+            )}
             {(t.status === 'downloading' || t.status === 'paused' || t.status === 'completed') && t.total > 0 && (
               <div className="h-1.5 rounded-full bg-chip overflow-hidden">
                 <div
