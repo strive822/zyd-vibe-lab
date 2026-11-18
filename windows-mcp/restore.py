@@ -91,11 +91,39 @@ def run(command: list[str], cwd: Path) -> None:
     })
 
 
+def apply_personal_fixes(source: Path, patch_path: Path) -> None:
+    """Apply the fixes only to the reviewed bytes of the locked upstream."""
+    records = json.loads(patch_path.read_text(encoding="utf-8"))
+    planned = {}
+    for relative, record in records.items():
+        target = (source / relative).resolve()
+        if not target.is_relative_to(source.resolve()) or target in planned:
+            raise ValueError("Invalid personal fix path: " + relative)
+        data = target.read_bytes()
+        if hashlib.sha256(data).hexdigest() != record["before"]:
+            raise ValueError("Personal fix preimage mismatch: " + relative)
+        lines = data.splitlines(keepends=True)
+        end = len(lines)
+        for start, stop, replacement in reversed(record["edits"]):
+            if not 0 <= start <= stop <= end:
+                raise ValueError("Invalid personal fix line range: " + relative)
+            lines[start:stop] = [replacement.encode("utf-8")]
+            end = start
+        updated = b"".join(lines)
+        if hashlib.sha256(updated).hexdigest() != record["after"]:
+            raise ValueError("Personal fix result mismatch: " + relative)
+        planned[target] = updated
+    for target, updated in planned.items():
+        target.write_bytes(updated)
+
+
 def install(tool: str, destination: Path, assets: dict, cache: Path):
 
     def asset(name: str) -> Path:
         return download(assets[name], cache)
-    extract_zip(asset('windows-mcp-source'), destination / 'source', strip_root=True)
+    source = destination / 'source'
+    extract_zip(asset('windows-mcp-source'), source, strip_root=True)
+    apply_personal_fixes(source, ROOT / 'profile' / 'personal-fixes.json')
     shutil.copytree(ROOT / 'profile', destination, dirs_exist_ok=True)
 
 

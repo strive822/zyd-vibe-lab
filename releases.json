@@ -171,19 +171,19 @@
       ]
     },
     "windows-mcp": {
-      "version": "0.8.8",
-      "tag": "windows-mcp-v0.8.8-r2",
+      "version": "0.8.9",
+      "tag": "windows-mcp-v0.8.9-r1",
       "kind": "network-mcp-installer",
       "assets": [
         {
           "name": "windows-mcp-windows.zip",
-          "bytes": 7588,
-          "sha256": "16c2bf7f67d36f8a5fe3bfbfc3f70ed19e76e33e3942be91346d510814a3072e"
+          "bytes": 18572,
+          "sha256": "c74d4b3e7286b5f0b67bfbed8dec6344abe94bb485439b2b906f41a50e7fdf41"
         },
         {
           "name": "SHA256SUMS.txt",
           "bytes": 90,
-          "sha256": "1225fe20f86acd80222042b8268b7edb44d70d0c982bfe7691c741c5b80ac962"
+          "sha256": "da5f808e7cf63771ec8e6ba24622eebdd09d361b09603db7a8562a2ad0ed7d3e"
         }
       ]
     },

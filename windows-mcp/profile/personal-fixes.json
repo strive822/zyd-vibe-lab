@@ -1,0 +1,627 @@
+{
+  "pyproject.toml": {
+    "after": "eb0cabdbd7316a17c3051eece19ff0b3b7cbf0ddf581bf29efd724612799d920",
+    "before": "d70d964d289fafecbd6f6989679f48111c8da6f075ef1de9f18fd13ddf9cb636",
+    "edits": [
+      [
+        21,
+        21,
+        "    \"anyio>=4\",\n"
+      ]
+    ]
+  },
+  "src/windows_mcp/__main__.py": {
+    "after": "e75fc47f6efbb2efa08c91f4c6338f01970329ce2c7f115525f22bdd5cd28ba2",
+    "before": "5cec298d9c04d54c9b840e5e9bb9221d1cdb7f09d50dda4e295964a977351e64",
+    "edits": [
+      [
+        244,
+        245,
+        "        watchdog.set_focus_callback(desktop.on_focus_change)\n"
+      ],
+      [
+        332,
+        333,
+        "    def ask_consent(seconds: int, cancelled: threading.Event) -> str:\n"
+      ],
+      [
+        335,
+        336,
+        "        if cancelled.is_set():\n            return \"error\"\n"
+      ],
+      [
+        337,
+        338,
+        "            control_overlay.set_consent(True)\n            return control_consent.ask(seconds, cancelled)\n"
+      ],
+      [
+        373,
+        374,
+        ""
+      ],
+      [
+        375,
+        376,
+        "                await notifier.close()\n"
+      ],
+      [
+        378,
+        380,
+        "                    controller.stop()\n"
+      ],
+      [
+        381,
+        387,
+        "                    try:\n                        if controller.enabled:\n                            control_overlay.stop()\n                    finally:\n                        control_loop = None\n                        logger.debug(\"Shutting down: stopping watchdog and analytics\")\n                        if watchdog:\n                            watchdog.stop()\n                        if analytics:\n                            await analytics.close()\n"
+      ]
+    ]
+  },
+  "src/windows_mcp/desktop/control.py": {
+    "after": "1c79fb684618327cfb58c9baa4e16abf9f1d99ed2f8db5511236a1acc1755bdb",
+    "before": "8b9776883602e966f454fc828f1590e312634f758c447e7f77dbe22653ed34eb",
+    "edits": [
+      [
+        67,
+        68,
+        "        self.consent_countdown_seconds = 0\n"
+      ],
+      [
+        79,
+        79,
+        "        self.focus_revision = 0\n"
+      ],
+      [
+        81,
+        81,
+        "        self._idle_lease_until: float | None = None\n"
+      ],
+      [
+        252,
+        253,
+        "        if state in (\"user\", \"unavailable\") or (previous == \"ai\" and state == \"ready\"):\n"
+      ],
+      [
+        300,
+        301,
+        "        if (\n            self._state == \"ai\"\n            and not self._active_calls\n            and self._idle_lease_until is not None\n            and now >= self._idle_lease_until\n        ):\n            return self._set_locked(\"ready\")\n"
+      ],
+      [
+        446,
+        446,
+        "                self._idle_lease_until = time.monotonic() + 15.0\n"
+      ]
+    ]
+  },
+  "src/windows_mcp/desktop/control_consent.py": {
+    "after": "bacea8a427f90811dfc11ac8dc17d29d39b3dafb52573389d4ab294b53a81b40",
+    "before": "2fd7616ac2064ef895980e621ae7df42321f906607fc125a928367010bbc6bb5",
+    "edits": [
+      [
+        11,
+        11,
+        "import time\n"
+      ],
+      [
+        14,
+        16,
+        ""
+      ],
+      [
+        18,
+        33,
+        "def ask(seconds: int, cancelled: threading.Event) -> str:\n    \"\"\"Show one request's prompt and return its answer, or error after cancellation.\"\"\"\n    if cancelled.is_set():\n        return \"error\"\n    process = subprocess.Popen(\n        # -I: never import modules from the user's working directory.\n        [sys.executable, \"-I\", __file__, str(seconds)],\n        # stdio transport: never share the MCP pipes.\n        stdin=subprocess.DEVNULL,\n        stdout=subprocess.DEVNULL,\n        stderr=subprocess.DEVNULL,\n        creationflags=getattr(subprocess, \"CREATE_NO_WINDOW\", 0),\n    )\n    deadline = time.monotonic() + seconds + 15\n"
+      ],
+      [
+        34,
+        40,
+        "        while (code := process.poll()) is None:\n            remaining = deadline - time.monotonic()\n            if remaining <= 0 or cancelled.wait(min(remaining, 0.05)):\n                return \"error\"\n        if cancelled.is_set() or time.monotonic() >= deadline:\n            return \"error\"\n        return next((answer for answer, value in _EXIT_CODES.items() if value == code), \"error\")\n    finally:\n        if process.poll() is None:\n            process.kill()\n            process.wait()\n"
+      ]
+    ]
+  },
+  "src/windows_mcp/desktop/control_win32.py": {
+    "after": "568f84634379496f8e27a6d83c2653cf3f5ae52b9c479b74921bbf2df016e750",
+    "before": "73d12a3069d8ac6aec52a1a7b740d753a613e955a6baa53844a74cd57ccb34cc",
+    "edits": [
+      [
+        3,
+        3,
+        "import logging\n"
+      ],
+      [
+        10,
+        10,
+        "logger = logging.getLogger(__name__)\n\n"
+      ],
+      [
+        14,
+        14,
+        ")\n_FOCUS_EVENT = 0x8005  # EVENT_OBJECT_FOCUS\n_WINEVENTPROC = ctypes.WINFUNCTYPE(\n    None, wintypes.HANDLE, wintypes.DWORD, wintypes.HWND, wintypes.LONG,\n    wintypes.LONG, wintypes.DWORD, wintypes.DWORD,\n"
+      ],
+      [
+        93,
+        93,
+        "_user32.SetWinEventHook.argtypes = [\n    wintypes.DWORD, wintypes.DWORD, wintypes.HMODULE, _WINEVENTPROC,\n    wintypes.DWORD, wintypes.DWORD, wintypes.DWORD,\n]\n_user32.SetWinEventHook.restype = wintypes.HANDLE\n_user32.UnhookWinEvent.argtypes = [wintypes.HANDLE]\n_user32.UnhookWinEvent.restype = wintypes.BOOL\n"
+      ],
+      [
+        263,
+        263,
+        "    @_WINEVENTPROC\n    def record_focus(_hook, _event, _hwnd, _object, _child, _thread, _time):\n        # A sequence counter records the transition without reading the window.\n        owner.focus_revision += 1\n\n"
+      ],
+      [
+        280,
+        280,
+        "    focus_hook = None\n"
+      ],
+      [
+        291,
+        291,
+        "        # Out-of-context events are delivered on the existing input monitor.\n        focus_hook = _user32.SetWinEventHook(_FOCUS_EVENT, _FOCUS_EVENT, None, record_focus, 0, 0, 0)\n        if not focus_hook:\n            logger.warning(\"Win32 focus change monitoring unavailable (error %s)\", ctypes.get_last_error())\n"
+      ],
+      [
+        328,
+        328,
+        "        if focus_hook:\n            _user32.UnhookWinEvent(focus_hook)\n"
+      ]
+    ]
+  },
+  "src/windows_mcp/desktop/service.py": {
+    "after": "b55a5c9d0ef6d62f2496ad050e43fcfda590a80c83390b4e6b125c277d397e9c",
+    "before": "9f1f061af7c487bf76337b53445a608071105f26bcd2dd6d94b500464e587577",
+    "edits": [
+      [
+        135,
+        135,
+        "    _focus_revision = 0\n\n"
+      ],
+      [
+        139,
+        139,
+        "\n    def on_focus_change(self, sender) -> None:\n        # Record the event before any COM queries or diagnostic debounce.\n        self._focus_revision += 1\n        self.tree.on_focus_change(sender)\n"
+      ],
+      [
+        876,
+        876,
+        "        field = None\n        if caret_position in (\"start\", \"end\") or text or clear or press_enter:\n            field = self._focused_element_at(x, y)\n        verify_writes = clear or press_enter\n        if verify_writes and field is None:\n            return \"Could not verify that the clicked field has keyboard focus.\"\n        focus_revision = self._focus_revision, owner.focus_revision\n"
+      ],
+      [
+        882,
+        883,
+        ""
+      ],
+      [
+        886,
+        886,
+        "            if verify_writes:\n                self._verify_field_focus(field)\n"
+      ],
+      [
+        889,
+        890,
+        "        target = field\n"
+      ],
+      [
+        891,
+        893,
+        ""
+      ],
+      [
+        898,
+        899,
+        "            if verify_writes:\n                self._paste_text(text, focus_target=target)\n            else:\n                self._paste_text(text)\n"
+      ],
+      [
+        904,
+        904,
+        "                if verify_writes and not self._has_input_focus(target):\n                    return \"Warning: focus moved while typing; remaining input was skipped.\"\n"
+      ],
+      [
+        906,
+        906,
+        "        readback_focus_verified = True\n"
+      ],
+      [
+        907,
+        908,
+        "            note, readback_focus_verified = self._read_back(target, text, clear, has_control_chars)\n            notes.append(note)\n"
+      ],
+      [
+        910,
+        910,
+        "            if (\n                not readback_focus_verified\n                or not self._has_input_focus(target)\n                or (self._focus_revision, owner.focus_revision) != focus_revision\n            ):\n                notes.append(\"Enter was skipped because focus could not be verified.\")\n                return \" \".join(note for note in notes if note)\n"
+      ],
+      [
+        926,
+        926,
+        "\n    def _has_input_focus(self, target) -> bool:\n        current = self._focused_control()\n        if target is None or current is None:\n            return False\n        try:\n            return uia.ControlsAreSame(target, current)\n        except Exception:\n            return False\n\n    def _verify_field_focus(self, target) -> None:\n        if not self._has_input_focus(target):\n            raise RuntimeError(\"Editing stopped because focus could not be verified.\")\n"
+      ],
+      [
+        1057,
+        1057,
+        "            self._verify_field_focus(control)\n"
+      ],
+      [
+        1059,
+        1061,
+        "        self._verify_field_focus(control)\n"
+      ],
+      [
+        1062,
+        1062,
+        "        self._verify_field_focus(control)\n"
+      ],
+      [
+        1065,
+        1067,
+        "                writable = pattern is not None and not pattern.IsReadOnly\n            except Exception:\n                writable = False\n            if writable:\n                owner.checkpoint_current()\n                self._verify_field_focus(control)\n                try:\n"
+      ],
+      [
+        1071,
+        1073,
+        "                except Exception:\n                    pass\n                self._verify_field_focus(control)\n"
+      ],
+      [
+        1077,
+        1083,
+        "    def _read_back(self, control, text: str, clear: bool, has_control_chars: bool) -> tuple[str, bool]:\n        \"\"\"Return the readback report and whether focus stayed confirmed.\"\"\"\n"
+      ],
+      [
+        1084,
+        1098,
+        "        if control is None or now is None:\n            return \"Could not verify the input focus for text readback.\", False\n        try:\n            same = uia.ControlsAreSame(control, now)\n        except Exception:\n            return \"Could not verify the input focus for text readback.\", False\n        if not same:\n            return \"Warning: focus moved while typing; some keystrokes may have gone elsewhere.\", False\n"
+      ],
+      [
+        1099,
+        1100,
+        "            return \"\", True\n"
+      ],
+      [
+        1101,
+        1101,
+        "        if not self._has_input_focus(control):\n            return \"Could not verify the input focus for text readback.\", False\n"
+      ],
+      [
+        1103,
+        1104,
+        "                return \"\", True\n"
+      ],
+      [
+        1105,
+        1106,
+        "                f\"Could not read the text back: the focused element is {self._describe(control)}.\", True\n"
+      ],
+      [
+        1110,
+        1111,
+        "            return f\"Field reads back '{shown}'.\", True\n"
+      ],
+      [
+        1112,
+        1114,
+        "            return f\"Warning: the field reads back '{shown}', not the typed text.\", True\n        return f\"Field reads back '{shown}'.\", True\n"
+      ],
+      [
+        1115,
+        1116,
+        "    def _paste_text(self, text: str, *, focus_target=None):\n"
+      ],
+      [
+        1136,
+        1136,
+        "            if focus_target is not None:\n                self._verify_field_focus(focus_target)\n"
+      ],
+      [
+        1571,
+        1586,
+        "                                \"depth\": depth,\n                                \"status\": status,\n                                \"bounding_box\": BoundingBox(\n                                    left=bounding_rect.left,\n                                    top=bounding_rect.top,\n                                    right=bounding_rect.right,\n                                    bottom=bounding_rect.bottom,\n                                    width=bounding_rect.width(),\n                                    height=bounding_rect.height(),\n                                ),\n                                \"handle\": child.NativeWindowHandle,\n                                \"process_id\": child.ProcessId,\n                                \"is_browser\": self.is_window_browser(child),\n                            }\n"
+      ],
+      [
+        1587,
+        1588,
+        "                    )\n                    window_handles.add(child.NativeWindowHandle)\n"
+      ]
+    ]
+  },
+  "src/windows_mcp/infrastructure/config.py": {
+    "after": "56fa6741c95142a1c96c49ad170bf6afba1185918794ebc2f6f5008edef05c7e",
+    "before": "052f84ce112e440636a3aafb3551a4d1ec8be61f77b3a4e82b67ddb6d08c16c8",
+    "edits": [
+      [
+        49,
+        51,
+        "    # Keep the existing desktop ownership policy by default; opt in to the countdown.\n    consent_countdown_seconds: int = 0\n"
+      ]
+    ]
+  },
+  "src/windows_mcp/tools/control_notifications.py": {
+    "after": "c7e9b8b469db7d2b1b17f6dc063743e73a495b6bda592740c02b401a5ab99d28",
+    "before": "4ed1c9cc3be3b41478ee59a04b419b6a4d4c914fb591d4086bd3d865596864b5",
+    "edits": [
+      [
+        12,
+        12,
+        "from anyio import CancelScope\n"
+      ],
+      [
+        169,
+        170,
+        "        ask_consent: Callable[[int, threading.Event], str] | None = None,\n"
+      ],
+      [
+        173,
+        174,
+        "        # Blocking prompt must withdraw when its cancellation event is set.\n"
+      ],
+      [
+        212,
+        213,
+        "        ask_consent = self.ask_consent\n        if ask_consent is None or not self.controller.open_consent():\n"
+      ],
+      [
+        215,
+        215,
+        "        cancelled = threading.Event()\n        start_lock = threading.Lock()\n        started = False\n\n        def ask() -> str:\n            nonlocal started\n            with start_lock:\n                if cancelled.is_set():\n                    return \"error\"\n                started = True\n            return ask_consent(self.controller.consent_countdown_seconds, cancelled)\n\n        worker = asyncio.create_task(asyncio.to_thread(ask))\n"
+      ],
+      [
+        216,
+        219,
+        "            answer = await asyncio.shield(worker)\n        except asyncio.CancelledError:\n            with start_lock:\n                cancelled.set()\n                prompt_started = started\n            if not prompt_started:\n                worker.cancel()\n                raise\n            # Hold the gate until this prompt and its overlay have closed. Ignore\n            # its answer and shield cleanup from the MCP request's cancellation scope.\n            with CancelScope(shield=True):\n                while True:\n                    try:\n                        await asyncio.shield(worker)\n                        break\n                    except asyncio.CancelledError:\n                        if worker.cancelled():\n                            break\n                    except Exception:\n                        logger.exception(\"Cancelled AI control consent prompt cleanup failed\")\n                        break\n            raise\n"
+      ]
+    ]
+  },
+  "src/windows_mcp/tools/control_status.py": {
+    "after": "5905c6dd9cefc3eb5f3d2892a8de1f498291cc143c53dff8c86e1b279eab023a",
+    "before": "194a0c851966079e97b45ac2297f7eb06d6fc1b104bb980f1fb2819dea64aaad",
+    "edits": [
+      [
+        11,
+        12,
+        "        description=\"Get desktop control owner, enabled state, gate policy, configured idle timeout and remaining user idle wait in seconds. AI control ends after 15 seconds without an active desktop call, on user takeover, or when release=true hands the desktop back. Release when desktop work is finished or waiting on the user. Settings are read-only and changes require a server restart.\",\n"
+      ]
+    ]
+  },
+  "tests/test_click_type_validation.py": {
+    "after": "f90a82bf594067581428fe297ec561b0b236459b6b62e53e7b364191acd46c72",
+    "before": "731a7c4df6e1c06eaf354ad40a7742673dcb76036b69d836cd294762d9c1eac1",
+    "edits": [
+      [
+        10,
+        10,
+        "\nfrom types import SimpleNamespace\n"
+      ],
+      [
+        80,
+        82,
+        "    # An ordinary focused edit field, without querying the real UIA tree.\n    field = SimpleNamespace(ControlType=service.uia.ControlType.EditControl)\n    monkeypatch.setattr(service.uia, \"GetFocusedControl\", lambda: field)\n    monkeypatch.setattr(service.uia, \"ControlFromPoint\", lambda x, y: field)\n    monkeypatch.setattr(service.uia, \"ControlsAreSame\", lambda a, b: a is b)\n"
+      ]
+    ]
+  },
+  "tests/test_control_config.py": {
+    "after": "ebcd5de5ba4ffc9c6474966372832a611b7af7f369eccaf6f461e2c70a7a4a8e",
+    "before": "03dc43faa7bcac9be29bc07f4b54c49d7be627eaa6f914938bf54987f6a7626a",
+    "edits": [
+      [
+        15,
+        15,
+        "    assert load_config(None).control.consent_countdown_seconds == 0\n"
+      ]
+    ]
+  },
+  "tests/test_control_consent.py": {
+    "after": "db361804e27cb7837651592caf3c0a39a93087917ec0e35f9db60d55847127ca",
+    "before": "d0c8a7d12f8948bcbe21bca7da590e2e644d4dbe605da172338434533805221a",
+    "edits": [
+      [
+        2,
+        2,
+        "import asyncio\n"
+      ],
+      [
+        3,
+        3,
+        "import threading\nfrom concurrent.futures import ThreadPoolExecutor\n"
+      ],
+      [
+        5,
+        5,
+        "from anyio import CancelScope\n"
+      ],
+      [
+        14,
+        14,
+        "    owner.consent_countdown_seconds = 10\n"
+      ],
+      [
+        81,
+        81,
+        "def test_existing_control_policy_does_not_prompt_by_default():\n    owner = control.ControlCoordinator()\n    owner._state = \"ready\"\n    assert not owner.open_consent()\n    owner.end_call(owner.begin_call(\"Click\"))\n    assert owner.release()[\"state\"] == \"ready\"\n    _physical_input(owner)\n    assert owner.status()[\"state\"] == \"user\"\n    assert not owner.would_ask()\n    with pytest.raises(ControlBlocked, match=\"USER_CONTROL\"):\n        owner.begin_call(\"Click\")\n\n\n"
+      ],
+      [
+        132,
+        133,
+        "            owner, ControlNotifier(owner), ask_consent=lambda s, cancelled: asked.append(s) or \"allow\"\n"
+      ],
+      [
+        156,
+        157,
+        "            owner, ControlNotifier(owner), ask_consent=lambda s, cancelled: asked.append(s) or answer\n"
+      ],
+      [
+        184,
+        185,
+        ""
+      ],
+      [
+        186,
+        187,
+        "    assert control_consent.ask(10, threading.Event()) == answer\n\n\ndef test_prompt_rejects_allow_observed_after_the_deadline(monkeypatch):\n    clock = [0.0]\n\n    class LateReply:\n        def poll(self):\n            clock[0] = 26.0\n            return 10\n\n    monkeypatch.setattr(\n        control_consent, \"time\", type(\"Clock\", (), {\"monotonic\": lambda: clock[0]})\n    )\n    monkeypatch.setattr(subprocess, \"Popen\", lambda *args, **kwargs: LateReply())\n    assert control_consent.ask(10, threading.Event()) == \"error\"\n\n\n@pytest.mark.asyncio\nasync def test_cancelling_consent_cleans_up_before_returning_and_discards_late_allow():\n    owner = _ready_owner()\n    started = asyncio.Event()\n    loop = asyncio.get_running_loop()\n    cleaned_up = threading.Event()\n\n    def ask(seconds, cancelled):\n        loop.call_soon_threadsafe(started.set)\n        if cancelled.wait(2):\n            cleaned_up.set()\n        return \"allow\"\n\n    gate = ControlToolGate(owner, ControlNotifier(owner), ask_consent=ask)\n    pending = asyncio.create_task(gate._request_consent())\n    await asyncio.wait_for(started.wait(), timeout=2)\n    pending.cancel()\n    with pytest.raises(asyncio.CancelledError):\n        await asyncio.wait_for(pending, timeout=3)\n\n    assert cleaned_up.is_set()\n    assert owner.status()[\"state\"] == \"ready\"\n    assert owner.open_consent()\n\n\n@pytest.mark.asyncio\nasync def test_mcp_cancel_scope_waits_for_prompt_cleanup():\n    owner = _ready_owner()\n    started = asyncio.Event()\n    loop = asyncio.get_running_loop()\n    cleaned_up = threading.Event()\n\n    def ask(seconds, cancelled):\n        loop.call_soon_threadsafe(started.set)\n        if cancelled.wait(2):\n            cleaned_up.set()\n        return \"allow\"\n\n    gate = ControlToolGate(owner, ControlNotifier(owner), ask_consent=ask)\n    with CancelScope() as scope:\n        async def cancel_request():\n            await started.wait()\n            scope.cancel()\n\n        canceller = asyncio.create_task(cancel_request())\n        await gate._request_consent()\n    await canceller\n    assert scope.cancelled_caught\n    assert cleaned_up.is_set()\n    assert owner.open_consent()\n\n\n@pytest.mark.asyncio\nasync def test_cancelling_queued_consent_does_not_wait_for_a_busy_executor():\n    owner = _ready_owner()\n    loop = asyncio.get_running_loop()\n    queued = asyncio.Event()\n    release_executor = threading.Event()\n    asked = []\n\n    class OneWorker(ThreadPoolExecutor):\n        def submit(self, fn, *args, **kwargs):\n            queued.set()\n            return super().submit(fn, *args, **kwargs)\n\n    pool = OneWorker(max_workers=1)\n    loop.set_default_executor(pool)\n    blocker = loop.run_in_executor(None, release_executor.wait, 2)\n    queued.clear()\n\n    def ask(seconds, cancelled):\n        asked.append(seconds)\n        return \"allow\"\n\n    gate = ControlToolGate(owner, ControlNotifier(owner), ask_consent=ask)\n    pending = asyncio.create_task(gate._request_consent())\n    try:\n        await asyncio.wait_for(queued.wait(), timeout=1)\n        pending.cancel()\n        with pytest.raises(asyncio.CancelledError):\n            await asyncio.wait_for(pending, timeout=0.3)\n        assert not blocker.done()\n        assert owner.open_consent()\n    finally:\n        release_executor.set()\n        await blocker\n        pool.shutdown()\n    assert asked == []\n\n\ndef test_cancelled_prompt_must_not_launch(monkeypatch):\n    def unexpected_launch(*args, **kwargs):\n        pytest.fail(\"A cancelled request must not open a prompt\")\n\n    cancelled = threading.Event()\n    cancelled.set()\n    monkeypatch.setattr(subprocess, \"Popen\", unexpected_launch)\n    assert control_consent.ask(10, cancelled) == \"error\"\n\n\ndef test_cancelled_prompt_terminates_and_reaps_its_child(monkeypatch):\n    cancelled = threading.Event()\n    effects = []\n\n    class FakeProcess:\n        def poll(self):\n            return None if not effects else 1\n\n        def kill(self):\n            effects.append(\"kill\")\n\n        def wait(self):\n            effects.append(\"wait\")\n            return 1\n\n    def launch(*args, **kwargs):\n        cancelled.set()  # Cancellation raced with child creation.\n        return FakeProcess()\n\n    monkeypatch.setattr(subprocess, \"Popen\", launch)\n    assert control_consent.ask(10, cancelled) == \"error\"\n    assert effects == [\"kill\", \"wait\"]\n"
+      ],
+      [
+        233,
+        234,
+        "def test_idle_control_expires_and_requires_new_consent(monkeypatch):\n"
+      ],
+      [
+        239,
+        240,
+        "    monkeypatch.setattr(control.time, \"monotonic\", lambda: real() + 16)\n"
+      ],
+      [
+        241,
+        242,
+        "    assert owner.status()[\"state\"] == \"ready\"\n    assert owner.open_consent()\n\n\ndef test_releasing_control_invalidates_previous_consent():\n    owner = _ready_owner()\n    assert owner.open_consent()\n    owner.close_consent(\"allow\")\n    owner.end_call(owner.begin_call(\"Click\"))\n"
+      ],
+      [
+        243,
+        245,
+        "    assert owner.release()[\"state\"] == \"ready\"\n    assert owner.open_consent()\n\n\ndef test_active_call_lease_expiry_invalidates_previous_consent(monkeypatch):\n    owner = _ready_owner()\n    assert owner.open_consent()\n    owner.close_consent(\"allow\")\n    owner.begin_call(\"Click\")\n    real = control.time.monotonic\n    monkeypatch.setattr(control.time, \"monotonic\", lambda: real() + 31)\n    assert owner.status()[\"state\"] == \"ready\"\n    assert owner.open_consent()\n"
+      ]
+    ]
+  },
+  "tests/test_control_hook_rotation.py": {
+    "after": "e317769498adb1f4b74e716bca13e33cb4779655ab6545634b71fd45cbf6d2d5",
+    "before": "b6490eddd7dbdd00d2609ead51914b2decbf3ca32fc09b956517cb0bb0326e81",
+    "edits": [
+      [
+        35,
+        35,
+        "        SetWinEventHook=lambda *args: 0,\n        UnhookWinEvent=lambda handle: True,\n"
+      ],
+      [
+        46,
+        46,
+        "\n\ndef test_native_monitor_records_focus_without_uia_watchdog(monkeypatch):\n    owner = control.ControlCoordinator()\n    events = []\n    user32 = _fake_user32([901, 902], events, on_idle=lambda *_: owner._stop.set())\n\n    def subscribe(first, last, module, callback, process, thread, flags):\n        assert first == last == control_win32._FOCUS_EVENT\n        callback(555, first, 777, 0, 0, 0, 0)\n        return 555\n\n    user32.SetWinEventHook = subscribe\n    user32.UnhookWinEvent = lambda handle: events.append((\"focus-unhook\", handle))\n    monkeypatch.setattr(control, \"_user32\", user32)\n    monkeypatch.setattr(control_win32, \"_user32\", user32)\n    control_win32.run_input_monitor(owner)\n    assert owner.focus_revision == 1\n    assert (\"focus-unhook\", 555) in events\n"
+      ]
+    ]
+  },
+  "tests/test_control_lifecycle.py": {
+    "after": "677abb5bfa11a96592585aa9ea39374ccd369acca6a161b3a6a94a2bc0933de4",
+    "before": "83fefdbfd2c58e1211890adbc6a67fa6c0fc198400ca1d552e07eceacf7bb3de",
+    "edits": [
+      [
+        2,
+        3,
+        "from contextlib import nullcontext\nfrom unittest.mock import AsyncMock, Mock\n"
+      ],
+      [
+        15,
+        16,
+        "@pytest.mark.parametrize(\"fails_on_close\", [False, True])\nasync def test_lifespan_wires_effective_settings(monkeypatch, enabled, fails_on_close):\n"
+      ],
+      [
+        33,
+        33,
+        "    if fails_on_close:\n        monkeypatch.setattr(ControlNotifier, \"close\", AsyncMock(side_effect=RuntimeError(\"notifier close\")))\n"
+      ],
+      [
+        40,
+        57,
+        "    with pytest.raises(RuntimeError, match=\"notifier close\") if fails_on_close else nullcontext():\n        async with mcp._lifespan(mcp):\n            assert owner.enabled is enabled\n            assert owner.policy == \"balanced\"\n            assert owner.idle_timeout_seconds == 2.5\n            assert owner.consent_countdown_seconds == 3\n            if enabled:\n                assert owner._health_probe is control_overlay.is_healthy\n            else:\n                assert owner.status()[\"state\"] == \"disabled\"\n                assert owner._thread is owner._watchdog is None\n                assert owner._health_probe is None\n                # Retained across calls and status queries, released at server exit.\n                owner.input_ledger.press(\n                    \"key\", lambda: None, lambda: calls.append(\"release\"), lambda: False\n                )\n                owner.status()\n                assert owner.input_ledger.pending() == (\"key\",)\n"
+      ]
+    ]
+  },
+  "tests/test_control_mcp_gate.py": {
+    "after": "b774d1601775d0fd7c1809bacbba9486d24a75a3c9e7608ef656ab07bf01d664",
+    "before": "4c79431bb4272aa2b6a5746a7e7ea4e68f11d00f7d3ce6050cb9f3b135a668eb",
+    "edits": [
+      [
+        421,
+        422,
+        "        def on_focus_change(self, sender):\n            pass\n"
+      ]
+    ]
+  },
+  "tests/test_control_recovery.py": {
+    "after": "266dcf34cd0b72a4a691aa22917f457a5b179f508b9254c089b99e2006e61929",
+    "before": "2a324d9ced04037a196cce0abcfe37a9d59a56bb10dea20b989c5cd5aaa567f9",
+    "edits": [
+      [
+        255,
+        256,
+        "    assert owner.status()[\"state\"] == \"ready\"  # Idle lease expired.\n"
+      ],
+      [
+        258,
+        259,
+        "    # An expired lease does not clear a real held key.\n"
+      ]
+    ]
+  },
+  "tests/test_multi_edit_text.py": {
+    "after": "edade5c04aedc0fbe39ee46589c2e4585e6f2cd8d4b4148439da3c31f1c6635c",
+    "before": "26dd7ee741372c0dce76bb387453b82b077afc33e753136b7024c109f6ce8fcf",
+    "edits": [
+      [
+        10,
+        10,
+        "from types import SimpleNamespace\n"
+      ],
+      [
+        29,
+        32,
+        "    fields = {\n        position: SimpleNamespace(ControlType=service.uia.ControlType.EditControl)\n        for position in ((100, 200), (100, 240))\n    }\n    focused = None\n\n    def click(x, y, *args, **kwargs):\n        nonlocal focused\n        events.append(f\"click {x},{y}\")\n        focused = fields.get((x, y))\n\n    monkeypatch.setattr(service.uia, \"Click\", click)\n"
+      ],
+      [
+        33,
+        35,
+        "    monkeypatch.setattr(service.uia, \"GetFocusedControl\", lambda: focused)\n    monkeypatch.setattr(service.uia, \"ControlFromPoint\", lambda x, y: fields.get((x, y)))\n    monkeypatch.setattr(service.uia, \"ControlsAreSame\", lambda a, b: a is b)\n"
+      ]
+    ]
+  },
+  "tests/test_type_clear_readback.py": {
+    "after": "57ad72643186f3cf06c11a10f704119cb3a4f78b02feca4b4c5b67ce4864850c",
+    "before": "8de9c53a30013cfabfc10b61f8a97aac3f3002483ac7d012b6c065fda62e8eca",
+    "edits": [
+      [
+        12,
+        12,
+        "from types import SimpleNamespace\n"
+      ],
+      [
+        305,
+        306,
+        "    assert \"Warning: focus moved while typing\" in note\n"
+      ],
+      [
+        327,
+        327,
+        "\n\ndef test_append_does_not_read_the_new_focus(\n    desktop: Desktop, focus: Callable[..., list[str]], monkeypatch: pytest.MonkeyPatch\n) -> None:\n    old = FakeField(\"start\")\n    other = FakeField(\"unrelated fixture value\", name=\"unrelated fixture name\")\n    focus(old, after_typing=other)\n    reads = []\n    monkeypatch.setattr(desktop, \"_read_value\", lambda control: reads.append(control))\n\n    note = desktop.type(loc=(100, 100), text=\"x\")\n\n    assert \"focus moved\" in note\n    assert \"unrelated fixture\" not in note\n    assert reads == []\n\n\ndef test_never_reads_back_if_focus_comparison_fails(\n    desktop: Desktop, focus: Callable[..., list[str]], monkeypatch: pytest.MonkeyPatch\n) -> None:\n    field = FakeField(\"start\")\n    focus(field)\n    calls = 0\n\n    def compare(before, after):\n        nonlocal calls\n        calls += 1\n        if calls > 1:\n            raise OSError(\"UIA comparison unavailable\")\n        return before is after\n\n    def unexpected_read(control):\n        pytest.fail(\"Input focus could not be verified\")\n\n    monkeypatch.setattr(service.uia, \"ControlsAreSame\", compare)\n    monkeypatch.setattr(desktop, \"_read_value\", unexpected_read)\n    note = desktop.type(loc=(100, 100), text=\"x\")\n    assert \"Could not verify the input focus\" in note\n"
+      ],
+      [
+        366,
+        366,
+        "\n\ndef test_clear_skips_when_click_does_not_reach_the_focused_field(desktop, focus, monkeypatch):\n    monkeypatch.setattr(desktop, \"_FOCUS_SETTLE_SECONDS\", 0)\n    clicked = FakeField(\"click target\")\n    other = FakeField(\"other field\")\n    keys = focus(other, at_click=clicked)\n\n    answer = desktop.type(loc=(100, 100), text=\"new\", clear=True)\n\n    assert keys == []\n    assert clicked.text == \"click target\"\n    assert other.text == \"other field\"\n    assert \"Could not verify\" in answer\n\n\ndef test_type_does_not_submit_a_new_focus_after_typing(desktop, focus):\n    clicked = FakeField()\n    other = FakeField(\"unchanged\")\n    keys = focus(clicked, after_typing=other)\n\n    answer = desktop.type(loc=(100, 100), text=\"X\", press_enter=True)\n\n    assert keys == [\"X\"]\n    assert clicked.text == \"X\"\n    assert other.text == \"unchanged\"\n    assert \"Enter was skipped\" in answer\n\n\ndef test_type_stops_when_focus_moves_after_clearing(desktop, focus, monkeypatch):\n    target = FakeField(\"to clear\")\n    other = FakeField(\"unchanged\")\n    keys = focus(target)\n    original = desktop._clear_field\n\n    def clear_then_move(control):\n        answer = original(control)\n        monkeypatch.setattr(service.uia, \"GetFocusedControl\", lambda: other)\n        return answer\n\n    monkeypatch.setattr(desktop, \"_clear_field\", clear_then_move)\n    note = desktop.type(loc=(100, 100), text=\"new\", clear=True)\n\n    assert \"remaining input was skipped\" in note\n    assert keys == [\"{Home}\", \"{Shift}{End}\", \"{Back}\"]\n    assert other.text == \"unchanged\"\n\n\ndef test_clear_stops_when_focus_moves_during_readback(desktop, focus, monkeypatch):\n    target = FakeField(\"to clear\", backspace_clears=False)\n    other = FakeField(\"unchanged\")\n    keys = focus(target)\n    original = desktop._read_value\n\n    def read_then_move(control):\n        value = original(control)\n        monkeypatch.setattr(service.uia, \"GetFocusedControl\", lambda: other)\n        return value\n\n    monkeypatch.setattr(desktop, \"_read_value\", read_then_move)\n    with pytest.raises(RuntimeError, match=\"focus could not be verified\"):\n        desktop.type(loc=(100, 100), text=\"new\", clear=True)\n\n    assert keys == [\"{Home}\", \"{Shift}{End}\", \"{Back}\"]\n    assert target.pattern.set_calls == []\n    assert other.text == \"unchanged\"\n\n\ndef test_type_skips_enter_if_focus_leaves_during_readback_even_if_it_returns(desktop, focus, monkeypatch):\n    target = FakeField()\n    other = FakeField(\"unchanged\")\n    keys = focus(target)\n    original = desktop._read_back\n\n    def readback_with_temporary_focus_change(*args):\n        monkeypatch.setattr(service.uia, \"GetFocusedControl\", lambda: other)\n        note = original(*args)\n        monkeypatch.setattr(service.uia, \"GetFocusedControl\", lambda: target)\n        return note\n\n    monkeypatch.setattr(desktop, \"_read_back\", readback_with_temporary_focus_change)\n    answer = desktop.type(loc=(100, 100), text=\"X\", press_enter=True)\n    assert keys == [\"X\"]\n    assert \"Enter was skipped\" in answer\n\n\n@pytest.mark.parametrize(\"event_source\", [\"win32\", \"uia\"])\ndef test_type_skips_enter_if_focus_event_reports_hop_inside_read_value(\n    desktop, focus, monkeypatch, event_source\n):\n    target = FakeField()\n    other = FakeField(\"unchanged\")\n    keys = focus(target)\n    desktop.tree = SimpleNamespace(on_focus_change=lambda sender: None)\n    original = desktop._read_value\n\n    def read_value_with_focus_hop(control):\n        if event_source == \"uia\":\n            desktop.on_focus_change(other)\n            desktop.on_focus_change(target)\n        else:\n            owner = service.get_controller()\n            monkeypatch.setattr(owner, \"focus_revision\", owner.focus_revision + 2)\n        return original(control)\n\n    monkeypatch.setattr(desktop, \"_read_value\", read_value_with_focus_hop)\n    answer = desktop.type(loc=(100, 100), text=\"X\", press_enter=True)\n    assert keys == [\"X\"]\n    assert target.text == \"X\"\n    assert \"Enter was skipped\" in answer\n\n\ndef test_type_skips_enter_if_focus_event_reports_hop_in_clear_readback(desktop, focus, monkeypatch):\n    field = FakeField(\"old\")\n    keys = focus(field)\n    owner = service.get_controller()\n    original = desktop._read_value\n\n    def read_value(control):\n        if \"{Back}\" in keys and \"X\" not in keys:\n            monkeypatch.setattr(owner, \"focus_revision\", owner.focus_revision + 2)\n        return original(control)\n\n    monkeypatch.setattr(desktop, \"_read_value\", read_value)\n    answer = desktop.type(loc=(100, 100), text=\"X\", clear=True, press_enter=True)\n    assert keys == [\"{Home}\", \"{Shift}{End}\", \"{Back}\", \"X\"]\n    assert \"Enter was skipped\" in answer\n"
+      ]
+    ]
+  },
+  "tests/test_watchdog_degradation.py": {
+    "after": "8cd5b4a6f0c3e9052e442f15b8a8c007f01814a20660f1a7bd9eaa2e83c43d30",
+    "before": "23892f2d4968b6f27ec829b5ba22934b953d27d1a62228fd8a92a24d74193274",
+    "edits": [
+      [
+        48,
+        49,
+        "        self.on_focus_change = lambda sender: None\n"
+      ],
+      [
+        121,
+        122,
+        "        assert watchdog.focus_callback == desktop.on_focus_change\n"
+      ]
+    ]
+  },
+  "uv.lock": {
+    "after": "04e1f7ed97113f4592d7dcd52a01bfd32cbb5168911cb777f54685d2e65c1903",
+    "before": "2390840f1a138bdf1bc9d813955539258219b4bb652e4d2213b07c18502b57aa",
+    "edits": [
+      [
+        1727,
+        1727,
+        "    { name = \"anyio\" },\n"
+      ],
+      [
+        1755,
+        1755,
+        "    { name = \"anyio\", specifier = \">=4\" },\n"
+      ]
+    ]
+  }
+}

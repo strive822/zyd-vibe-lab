@@ -37,6 +37,17 @@ class RestoreBoundaryTests(unittest.TestCase):
                     with zipfile.ZipFile(archive, "w") as bundle:
                         bundle.writestr(name, b"fixture")
                     packages[asset] = archive
+                if tool == "windows-mcp":
+                    manifest = {
+                        "README.md": {
+                            "before": hashlib.sha256(b"fixture").hexdigest(),
+                            "after": hashlib.sha256(b"patched fixture").hexdigest(),
+                            "edits": [[0, 1, "patched fixture"]],
+                        }
+                    }
+                    (independent / "profile/personal-fixes.json").write_text(
+                        json.dumps(manifest), encoding="utf-8"
+                    )
                 records = {entry["id"]: entry for entry in json.loads((project / "assets.json").read_text())}
                 target = directory / "restored"
                 target.mkdir()
@@ -44,6 +55,8 @@ class RestoreBoundaryTests(unittest.TestCase):
                         patch.object(module, "download", side_effect=lambda record, cache: packages.get(record["id"], binary)):
                     module.install(tool, target, records, directory / "cache")
                 self.assertTrue(any(target.iterdir()))
+                if tool == "windows-mcp":
+                    self.assertEqual((target / "source/README.md").read_bytes(), b"patched fixture")
 
     def test_source_snapshot_is_complete_and_excludes_local_state(self):
         inventory = json.loads((ROOT / 'source-files.json').read_text(encoding='utf-8'))

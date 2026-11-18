@@ -2,11 +2,11 @@
 
 ## 给人：自己动手的步骤
 
-1. 打开 [固定 Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/windows-mcp-v0.8.8-r2)，下载 `windows-mcp-windows.zip` 和 `SHA256SUMS.txt`。
+1. 打开 [固定 Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/windows-mcp-v0.8.9-r1)，下载 `windows-mcp-windows.zip` 和 `SHA256SUMS.txt`。
 2. 在下载目录执行 `Get-FileHash -Algorithm SHA256 .\windows-mcp-windows.zip`，与校验文件逐项比对；不匹配则停止。
 3. 安装器直接运行；ZIP 检查没有绝对路径、越界或链接后解压到新目录，再按下面步骤使用。无需克隆开发仓库。
 
-Windows；准备包需 Python 3.11+、可用网络，后续隔离安装需 uv。解压后双击 prepare.cmd；它按 assets.json 下载并核验固定源码到全新 app/，不启动、不注册宿主。已有 app/ 时拒绝覆盖。
+Windows；准备包需 Python 3.11+、可用网络，后续隔离安装需 uv。解压后双击 prepare.cmd，它会下载并核验固定源码、校验并应用本地修复。产物放在全新 app/，已有目录时拒绝覆盖。准备过程不启动服务或注册宿主。
 
 按 app/README.md 运行 app/install.cmd，使用固定源码的 uv.lock 和项目内 Python/环境；之后 app/start.cmd 是 stdio 入口。注册 Agent 时只新增这个服务，保留其他 MCP 配置；宿主配置必须按该宿主当前规则执行。WSL 也要通过 Windows 进程调用桌面能力。
 
