@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { handleLiveStreamRequest, handleProxyRequest } from './proxy-handlers';
 
-const { cancelStalledPlaylist } = vi.hoisted(() => ({
+const { cancelStalledPlaylist, checkLiveUrlAllowed, upstreamFetch } = vi.hoisted(() => ({
   cancelStalledPlaylist: vi.fn(() => new Promise<void>(() => {})),
+  checkLiveUrlAllowed: vi.fn<() => Promise<{ ok: true }>>().mockResolvedValue({ ok: true }),
+  upstreamFetch: vi.fn(),
 }));
 
 vi.mock('@/lib/api-guard', () => ({
@@ -11,7 +13,7 @@ vi.mock('@/lib/api-guard', () => ({
 }));
 
 vi.mock('@/lib/ssrf', () => ({
-  checkLiveUrlAllowed: async () => ({ ok: true }),
+  checkLiveUrlAllowed,
   isBlockedByDNS: async () => false,
   isValidProxyUrl: () => true,
 }));
@@ -20,6 +22,14 @@ vi.mock('@/lib/fetch-utils', () => ({
   fetchWithSafeRedirects: async (url: string) => {
     const target = new URL(url);
     const name = target.pathname;
+    upstreamFetch(url);
+    if (name === '/empty.m3u8') {
+      return { finalUrl: url, res: new Response(null, { status: 204 }) };
+    }
+    if (name === '/interrupted.m3u8') {
+      const interrupted = new ReadableStream({ start(controller) { controller.error(new Error('Disconnected')); } });
+      return { finalUrl: url, res: new Response(interrupted) };
+    }
     if (name === '/short.ts') {
       return { finalUrl: url, res: new Response('bytes', { headers: { 'Content-Type': 'video/mp2t' } }) };
     }
@@ -74,6 +84,19 @@ describe.each([
     expect(await second.text()).toContain(`NAME="signed",VALUE="${'q'.repeat(4500)}"`);
   });
 
+  it('returns an empty upstream 204 without attempting to rewrite a playlist', async () => {
+    const res = await request(path + '?url=' + encodeURIComponent('https://cdn.example.com/empty.m3u8'));
+    expect(res.status).toBe(204);
+    expect(res.headers.get('cache-control')).toContain('no-store');
+    expect(await res.text()).toBe('');
+  });
+
+  it('handles an interrupted upstream playlist body', async () => {
+    const res = await request(path + '?url=' + encodeURIComponent('https://cdn.example.com/interrupted.m3u8'));
+    expect(res.status).toBe(502);
+    expect(res.headers.get('cache-control')).toBe('no-store');
+  });
+
   it('returns a reload response without reading a stalled playlist when the parent was lost', async () => {
     cancelStalledPlaylist.mockClear();
     const res = await request(path + '?url=' + encodeURIComponent('https://cdn.example.com/stalled.m3u8') +
@@ -93,6 +116,30 @@ it('returns the live upstream error without waiting for body cancellation to fin
   expect(res.headers.get('x-live-upstream-status')).toBe('403');
   expect(res.headers.get('cache-control')).toBe('no-store');
   expect(cancelStalledPlaylist).toHaveBeenCalledOnce();
+});
+
+it('returns a rejected general playlist without reading or waiting for its body', async () => {
+  cancelStalledPlaylist.mockClear();
+  const upstream = 'https://cdn.example.com/rejected.m3u8';
+  const res = await handleProxyRequest(new Request(SITE + '/api/proxy?url=' + encodeURIComponent(upstream)), upstream);
+  expect(res.status).toBe(403);
+  expect(res.headers.get('cache-control')).toBe('no-store');
+  expect(cancelStalledPlaylist).toHaveBeenCalledOnce();
+});
+
+it('does not start a live upstream request when the client disconnects during URL validation', async () => {
+  upstreamFetch.mockClear();
+  const client = new AbortController();
+  checkLiveUrlAllowed.mockImplementationOnce(async () => {
+    client.abort();
+    return { ok: true };
+  });
+  const request = new Request(SITE + '/api/live/stream?url=' + encodeURIComponent(UPSTREAM), {
+    signal: client.signal,
+  });
+  const res = await handleLiveStreamRequest(request, UPSTREAM);
+  expect(res.status).toBe(502);
+  expect(upstreamFetch).not.toHaveBeenCalled();
 });
 
 it('evicts the least recently used parent while allowing already-expanded fragments to load', async () => {

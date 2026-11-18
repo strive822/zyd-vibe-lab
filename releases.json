@@ -109,13 +109,13 @@
       "assets": [
         {
           "name": "libretv-windows.zip",
-          "bytes": 18859452,
-          "sha256": "21c93db377758d4a68d2591b6f95d6c0e9c9b480eabfe280ee927d61359da031"
+          "bytes": 18859577,
+          "sha256": "7c637b9f370818fb68c423c3b45807f33a93f62feba48593d400617b96424683"
         },
         {
           "name": "SHA256SUMS.txt",
           "bytes": 86,
-          "sha256": "38805282a61e6260cf7e2e3da4006d8466594b89a9cfeaadda3c4685143996fa"
+          "sha256": "5f8e81c29b93b997de8233a44207f7ce907b6159c264554dd1e0918c6ff845c9"
         }
       ]
     },

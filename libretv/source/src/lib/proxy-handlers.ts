@@ -160,9 +160,22 @@ export async function handleProxyRequest(req: Request, targetUrl: string): Promi
   const context = contextId && !guarded ? touchHlsContext(contextId) : null;
 
   // m3u8 文本：重写为代理地址（以重定向后的最终 URL 为 base 解析相对地址）
-  if (isM3u8) {
+  if (isM3u8 && response.body) {
+    if (!response.ok) {
+      void response.body.cancel().catch(() => {});
+      return new NextResponse(`代理清单上游返回 ${response.status}`, {
+        status: response.status,
+        headers: { 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' },
+      });
+    }
     if (contextId && !context) return missingHlsContext(response, false);
-    const text = await response.text();
+    const text = await response.text().catch(() => null);
+    if (text === null) {
+      return new NextResponse('无法读取上游播放清单', {
+        status: 502,
+        headers: { 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' },
+      });
+    }
     return new NextResponse(rewriteM3u8(
       text, finalUrl, 0, PROXY_BASE, context ?? parseHlsVariables(params.get(HLS_VARIABLES_PARAM)),
       guarded ? undefined : saveHlsContext, contextId ?? undefined,
@@ -186,7 +199,7 @@ export async function handleProxyRequest(req: Request, targetUrl: string): Promi
   // 图片基本不变：长缓存交给浏览器与边缘 CDN（分片 / key 仍保守 1 小时）
   outHeaders.set(
     'Cache-Control',
-    contentType.startsWith('image/') ? 'public, max-age=2592000' : 'public, max-age=3600'
+    isM3u8 ? 'no-store' : contentType.startsWith('image/') ? 'public, max-age=2592000' : 'public, max-age=3600'
   );
   outHeaders.set('Access-Control-Allow-Origin', '*');
 
@@ -223,11 +236,6 @@ export async function handleLiveStreamRequest(req: Request, targetUrl: string): 
     if (value !== null) upstreamUrl.searchParams.set(name, value);
   }
 
-  const controller = new AbortController();
-  // 客户端断开（切台/关页）时终止上游连接，防止连接泄漏
-  const onClientAbort = () => controller.abort();
-  req.signal.addEventListener('abort', onClientAbort, { once: true });
-
   const headers: Record<string, string> = { 'User-Agent': UA, Accept: '*/*' };
   const range = req.headers.get('range');
   if (range) headers.Range = range;
@@ -235,10 +243,11 @@ export async function handleLiveStreamRequest(req: Request, targetUrl: string): 
   let response: Response;
   let finalUrl: string;
   try {
-    // 客户端断开（切台/关页）时经 controller.signal 终止上游连接，防止连接泄漏
+    // URL 校验期间客户端也可能断开；传入原始信号供重定向链和响应流使用。
+    req.signal.throwIfAborted();
     const result = await fetchWithSafeRedirects(
       upstreamUrl.href,
-      { headers, signal: controller.signal },
+      { headers, signal: req.signal },
       { allowPrivate: true, headerTimeoutMs: HEADER_TIMEOUT_MS }
     );
     response = result.res;
@@ -272,9 +281,15 @@ export async function handleLiveStreamRequest(req: Request, targetUrl: string): 
 
   // HLS manifest：重写变体/分片地址指向本路由，保证后续请求同源同鉴权。
   // 关键：以重定向后的最终 URL 为 base 解析相对地址（gslb 调度源 302 后路径会变）
-  if (isM3u8) {
+  if (isM3u8 && response.body) {
     if (contextId && !context) return missingHlsContext(response, true);
-    const text = await response.text();
+    const text = await response.text().catch(() => null);
+    if (text === null) {
+      return NextResponse.json({ error: '无法读取上游直播清单' }, {
+        status: 502,
+        headers: { 'Cache-Control': 'no-store' },
+      });
+    }
     return new NextResponse(rewriteM3u8(
       text, finalUrl, 0, LIVE_STREAM_BASE,
       context ?? parseHlsVariables(requestUrl.searchParams.get(HLS_VARIABLES_PARAM)),
