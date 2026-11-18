@@ -15,3 +15,7 @@
 原生拖入使用现有锁定依赖 windows-rs 0.58.0（MIT / Apache-2.0），按 Microsoft 的 [Shell 数据格式](https://learn.microsoft.com/en-us/windows/win32/shell/clipboard) 和 [RegisterDragDrop](https://learn.microsoft.com/en-us/windows/win32/api/ole2/nf-ole2-registerdragdrop) 协议实现；支持 CF_HDROP、Unicode、PNG/DIB/位图与 FileGroupDescriptorW/FileContents。参考了 winit 0.30.13 的 `src/platform_impl/windows/drop_handler.rs` 的接口边界（MIT / Apache-2.0），没有复制其代码或修改全局依赖缓存。实现位于 `src/native_drop.rs`，替换只需撤销窗口注册并恢复 winit 的拖放开关。
 
 文件夹仍走置物架原有缩略图队列。隔离候选从 [上游 1287316](https://github.com/Renly1994/xiaotang-daozai/commit/12873165fa22651261c8360220aba7288c81ade6) 三方合入 src/icons.rs 的文件夹系统图标修复，沿用本项目 MIT LICENSE。完整上游基线仍为 v0.6.50，此次未合入 v0.6.64 的其他改动。
+
+### r8 部分同步
+
+从 [上游 1c7702f](https://github.com/Renly1994/xiaotang-daozai/commit/1c7702f41547b3147e85be7022ce21dcbb4ff72b) 单独合入静止播放图标的绘制修复及光栅回归用例。完整基线仍为 v0.6.50；v0.6.65（11c52336d594d24bebc1bec865ab375626ca1e0f）是本轮比较目标，其余改动待合入。

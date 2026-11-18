@@ -2,7 +2,7 @@
 
 ## 给人：自己动手的步骤
 
-1. 打开 [固定 Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/daozai-v0.6.50-r7)，下载 `Daozai-Setup-v0.6.50-x64.exe` 和 `SHA256SUMS.txt`。
+1. 打开 [固定 Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/daozai-v0.6.50-r8)，下载 `Daozai-Setup-v0.6.50-x64.exe` 和 `SHA256SUMS.txt`。
 2. 在下载目录执行 `Get-FileHash -Algorithm SHA256 .\Daozai-Setup-v0.6.50-x64.exe`，与校验文件逐项比对；不匹配则停止。
 3. 双击安装器，升级前退出已有实例；无需克隆开发仓库或重新编译。
 
@@ -16,7 +16,7 @@ Windows 10/11 x64。下载 `Daozai-Setup-v0.6.50-x64.exe` 与 `SHA256SUMS.txt`�
 
 卡片支持用左键向外拖出三类内容，拖出只复制，暂存和原文件均保留。文字可作为 Unicode 正文或文本文件，图片提供 PNG、位图和文件格式；目标软件选择它支持的格式。收起态直接从岛体或图标横向拖动即可移动，轻点仍进入对应页面。待办的新建、行内编辑和“编辑与提醒…”均区分输入法选字 Enter 与保存 Enter；确认候选后再次按 Enter 才保存。
 
-卸载走 Windows“已安装的应用”；用户数据保留。异常回退先退出程序，再恢复事先备份的程序；不覆盖安装后新增数据。安装器 SHA-256 为 `af0224109265681fd1371414587e1b536f1a1083b72b4bac667cdf826a485934`。
+卸载走 Windows“已安装的应用”；用户数据保留。异常回退先退出程序，再恢复事先备份的程序；不覆盖安装后新增数据。安装器 SHA-256 为 `8bf0fcdcc56c853cb85dff50847acd180fa38ff21c73f7721aa50df2c2823afa`。
 
 ## 给 Agent：交给 AI 执行
 
