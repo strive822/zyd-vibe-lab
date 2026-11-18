@@ -22,8 +22,9 @@ from pathlib import Path, PurePosixPath
 from urllib.parse import unquote
 
 ROOT = Path(__file__).resolve().parents[1]
+PRIVATE_KEY_PATTERN = r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"
 SECRET_PATTERNS = (
-    r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----",
+    PRIVATE_KEY_PATTERN,
     r"\b(?:gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,})\b",
     r"\bsk-(?:proj-|svcacct-)?[A-Za-z0-9_-]{24,}\b",
     r"\b(?:AKIA|ASIA)[A-Z0-9]{16}\b",
@@ -34,12 +35,29 @@ SECRET_PATTERNS = (
 SECRET_SCAN_EXEMPT = {
     "flyingmouse-format/tests/electron-security.test.js": "upstream security-test fixtures",
 }
-# Only the exact dummy URL userinfo used to test rejection of invalid router endpoints.
+# Exact dummy URL userinfo used by endpoint validation and proxy parser fixtures.
 SECRET_FIXTURE_HASHES = {
+    "daozai/src/calendar.rs": {
+        "288a54939d6ba40b4826b0549aa6a2067e121a9d442ab22486ea3611af155091",
+    },
+    "daozai/src/relay_quota.rs": {
+        "7ddcba9e3e77c3b73ed526aa78b7b1219560d13715c1c1bfa6e4556b15e7096b",
+    },
+    "daozai/src/relay_script.rs": {
+        "fbddae166ead16d1dd67736b19403ab1ac0095e344f663573848af911a7ce273",
+    },
+    "daozai/vendor/ureq/src/proxy.rs": {
+        "77e530809b2c35131e1104f8851b8d501687febfe4135b58b2cfd11a72170d83",
+    },
     "agent-desktop/source/scripts/jev/run.test.mjs": {
         "ec25b8fa54a9d7a878a86e6f38233af24d5d27d184b396136d6d7f0251d33c19",
         "7f8183fd094a7b10753ce6a5f1a4388aa1afeda990c4134417045c78fcec9a2d",
     },
+}
+# Synthetic TLS keys are allowed only in exact upstream test files, across checkout line endings.
+PRIVATE_KEY_FIXTURE_FILES = {
+    "daozai/src/calendar/tls_test_certificates.json": "f1c8428c30047f8c29ea3887ea41d6cc815d85280821322a9513d8d9be17534a",
+    "daozai/vendor/ureq/tests/https-agent.rs": "886100aed5e2603e50b6582d09dff2dce1f5c5cda2beb9481fb716bdf5697686",
 }
 
 
@@ -58,7 +76,10 @@ def visible_files() -> list[Path]:
 def secret_check(data: bytes, label: str, errors: list[str]) -> None:
     text = data.decode("utf-8", errors="replace")
     allowed_fixtures = SECRET_FIXTURE_HASHES.get(label, ())
+    fixture_hash = PRIVATE_KEY_FIXTURE_FILES.get(label)
     for pattern in SECRET_PATTERNS:
+        if fixture_hash and pattern == PRIVATE_KEY_PATTERN and fixture_hash == digest(data.replace(b"\r\n", b"\n")):
+            continue
         for match in re.finditer(pattern, text):
             if allowed_fixtures and digest(match.group().encode("utf-8")) in allowed_fixtures:
                 continue
@@ -120,6 +141,10 @@ def check_file(path: Path, known: set[Path], errors: list[str]) -> list[str]:
     if path.suffix in {".zip", ".ofd"}:
         zip_check(path, errors)
         return checks + ["ZIP CRC/paths", "package/source SHA-256"]
+    if path.suffix == ".webp":
+        if len(data) < 12 or data[:4] != b"RIFF" or data[8:12] != b"WEBP":
+            errors.append(f"{label}: invalid WebP signature")
+        return checks + ["image signature"]
     if path.suffix in {".png", ".gif", ".jpg", ".jpeg"}:
         signatures = {".png": (b"\x89PNG\r\n\x1a\n",), ".gif": (b"GIF87a", b"GIF89a"),
                       ".jpg": (b"\xff\xd8\xff",), ".jpeg": (b"\xff\xd8\xff",)}

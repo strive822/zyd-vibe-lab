@@ -17,7 +17,11 @@ pub(crate) const WATER: usize = MUSIC + 4;
 pub(crate) const SHELF: usize = MUSIC + 5;
 pub(crate) const TODO: usize = MUSIC + 6;
 pub(crate) const CAL: usize = MUSIC + 7;
-const SLOTS: usize = CAL + 1;
+pub(crate) const WEATHER: usize = CAL + 1;
+pub(crate) const WEATHER_WIDTH: f32 = 38.0;
+const SLOTS: usize = WEATHER + 1;
+
+pub(crate) fn quota_slot(position: usize) -> usize { QUOTA + position }
 const ICON: f32 = 18.0;
 const GAP: f32 = 10.0;
 const MARGIN: f32 = 16.0;
@@ -26,19 +30,20 @@ const WIDTHS: [f32; SLOTS] = [
     44.0, 20.0,
     RING, RING, RING, RING, RING, RING, RING, RING,
     14.0, crate::focus_bar::WIDTH, 20.0, 32.0,
-    ICON, ICON, ICON, ICON,
+    ICON, ICON, ICON, ICON, WEATHER_WIDTH,
 ];
 
 /// 可排序的常驻槽：六个原有组件 + 四个页入口（铃铛固定收尾，不参与排序）。
-pub(crate) const ORDER: [usize;10]=[BATTERY,PET,CLOCK,QUOTA,MUSIC,FOCUS,WATER,SHELF,TODO,CAL];
-pub(crate) const DEFAULT_ORDER: [usize;10]=ORDER;
+const PREVIOUS_ORDER: [usize; 10] = [BATTERY, PET, CLOCK, QUOTA, MUSIC, FOCUS, WATER, SHELF, TODO, CAL];
+pub(crate) const DEFAULT_ORDER: [usize; 11] = [BATTERY, PET, CLOCK, WEATHER, QUOTA, MUSIC, FOCUS, WATER, SHELF, TODO, CAL];
+pub(crate) const ORDER: [usize; 11] = DEFAULT_ORDER;
 pub(crate) fn valid_order(order:&[usize])->bool {
     order.len()==ORDER.len() && ORDER.iter().all(|slot|order.iter().filter(|value|*value==slot).count()==1)
 }
 /// 页槽 → 页号（与 `page_slot` 互逆）。
 /// 邮箱用铃铛槽（不再只在通知时存在），AI 额度用额度组首槽：
 /// 无账号时该槽变作「连接 AI」入口，不会因为通知/无账号而消失（F04）。
-pub(crate) fn slot_page(slot:usize)->Option<usize>{(0..8).find(|page|page_slot(*page)==slot)}
+pub(crate) fn slot_page(slot:usize)->Option<usize>{(0..9).find(|page|page_slot(*page)==slot)}
 /// v0.6.40 的六个常驻槽旧编号 → 当前稳定槽。
 /// 旧编号：0 时钟、1 电量、2 额度、6 音乐、7 专注、9 吉祥物。
 /// 后来在专注与吉祥物之间插入额度组与四个页入口，数字整体后移，
@@ -46,31 +51,41 @@ pub(crate) fn slot_page(slot:usize)->Option<usize>{(0..8).find(|page|page_slot(*
 pub(crate) const LEGACY_SIX: [(usize, usize); 6] = [(0, CLOCK), (1, BATTERY), (2, QUOTA), (6, MUSIC), (7, FOCUS), (9, PET)];
 
 /// 旧配置只存六个组件：先把旧编号翻译成稳定槽，再按 `page_order` 补齐新增页入口。
-pub(crate) fn migrate_order(order:&[usize],pages:[usize;8])->Option<Vec<usize>> {
+pub(crate) fn migrate_order(order:&[usize],pages: impl AsRef<[usize]>)->Option<Vec<usize>> {
     if valid_order(order){return Some(order.to_vec());}
+    let insert_weather = |mut order: Vec<usize>| {
+        if let Some(clock) = order.iter().position(|slot| *slot == CLOCK) {
+            order.insert(clock + 1, WEATHER);
+        }
+        order
+    };
+    if order.len() == PREVIOUS_ORDER.len() && PREVIOUS_ORDER.iter().all(|slot| order.iter().filter(|value| *value == slot).count() == 1) {
+        return Some(insert_weather(order.to_vec()));
+    }
+    let pages = pages.as_ref();
     if order.len()!=6{return None;}
     // 兼容两种来源：已是新编号的六值，或真正的旧编号。
-    let translated: Vec<usize> = if ORDER[..6].iter().all(|slot|order.iter().filter(|value|*value==slot).count()==1) {
+    let translated: Vec<usize> = if PREVIOUS_ORDER[..6].iter().all(|slot|order.iter().filter(|value|*value==slot).count()==1) {
         order.to_vec()
     } else {
         order.iter().map(|value|LEGACY_SIX.iter().find(|(old,_)|old==value).map(|(_,new)|*new)).collect::<Option<Vec<_>>>()?
     };
-    if !ORDER[..6].iter().all(|slot|translated.iter().filter(|value|*value==slot).count()==1){return None;}
+    if !PREVIOUS_ORDER[..6].iter().all(|slot|translated.iter().filter(|value|*value==slot).count()==1){return None;}
     let mut out=translated;
     for (rank,&page) in pages.iter().enumerate() {
         let slot=page_slot(page);
-        if !ORDER[6..].contains(&slot){continue;}
+        if !PREVIOUS_ORDER[6..].contains(&slot){continue;}
         let at=pages[..rank].iter().rev().filter_map(|p|out.iter().position(|v|*v==page_slot(*p))).next().map(|index|index+1)
             .or_else(||pages[rank+1..].iter().filter_map(|p|out.iter().position(|v|*v==page_slot(*p))).next())
             .unwrap_or(out.len());
         out.insert(at,slot);
     }
-    Some(out)
+    Some(insert_weather(out))
 }
 
 /// 页顺序（`settings.page_order`）→ 常驻页槽。日程固定用 CAL。
 /// 八个页号全部有稳定槽：音乐/专注/饮水/暂存/待办/邮箱/额度/日程。
-pub(crate) fn page_slot(page:usize)->usize{match page{0=>MUSIC,1=>FOCUS,2=>WATER,3=>SHELF,4=>TODO,5=>BELL,6=>QUOTA,7=>CAL,_=>usize::MAX}}
+pub(crate) fn page_slot(page:usize)->usize{match page{0=>MUSIC,1=>FOCUS,2=>WATER,3=>SHELF,4=>TODO,5=>BELL,6=>QUOTA,7=>CAL,8=>WEATHER,_=>usize::MAX}}
 
 pub(crate) fn animations_enabled()->bool {
     #[cfg(windows)] {
@@ -89,12 +104,14 @@ pub(crate) fn animations_enabled()->bool {
 pub(crate) struct Layout {
     pub width: f32,
     pub x: [Option<f32>; SLOTS],
+    pub widths: [f32; SLOTS],
 }
 
 impl Layout {
     /// `_bell` 保留在签名里只为不改调用方：铃铛自 F04 起常驻（`pages[5]`），
     /// 通知状态不再参与布局，否则通知会把额度组或功能页顶掉。
-    pub fn new(battery:bool,quotas:usize,pages:[bool;8],_bell:bool,pet:bool)->Self {
+    pub fn new(battery: bool, quotas: usize, pages: impl AsRef<[bool]>, _bell: bool, pet: bool) -> Self {
+        let pages = pages.as_ref();
         fn place(cursor:&mut f32,width:f32)->f32 {let x=*cursor+width/2.0;*cursor+=width+GAP;x}
         let mut x=[None;SLOTS];let mut cursor=MARGIN;
         let count=quotas.min(MAX_QUOTA);
@@ -105,6 +122,7 @@ impl Layout {
                 CLOCK=>{
                     if pet {x[PET]=Some(place(&mut cursor,WIDTHS[PET]));}
                     x[slot]=Some(place(&mut cursor,WIDTHS[slot]));
+                    if pages.get(8) == Some(&true) { x[WEATHER] = Some(place(&mut cursor, WEATHER_WIDTH)); }
                 },
                 QUOTA if count>0&&pages[6]=>{
                     let width=count as f32*27.0+(count.saturating_sub(1)) as f32*7.0;
@@ -127,22 +145,36 @@ impl Layout {
         if pages[5] {x[BELL]=Some(place(&mut cursor,WIDTHS[BELL]));}
         let width=cursor-GAP+MARGIN;
         for value in x.iter_mut().flatten() {*value-=width/2.0;}
-        Self {width:width.max(96.0),x}
+        Self {width:width.max(96.0),x,widths:WIDTHS}
     }
-    pub fn widen_clock(&mut self, extra:f32) {
-        let clock=self.x[CLOCK].unwrap();
-        for (slot,x) in self.x.iter_mut().enumerate() {
-            if slot!=CLOCK { if let Some(x)=x { *x+=if *x<clock {-extra/2.0}else{extra/2.0}; } }
+    pub fn quota_slots(&self) -> impl Iterator<Item = usize> { QUOTA..=MORE }
+    pub fn widen(&mut self, slot: usize, extra: f32) {
+        if extra <= 0.0 { return; }
+        let Some(center) = self.x.get(slot).copied().flatten() else { return; };
+        for (index, position) in self.x.iter_mut().enumerate() {
+            if index == slot { continue; }
+            if let Some(x) = position { *x += if *x < center { -extra / 2.0 } else { extra / 2.0 }; }
         }
-        self.width+=extra;
+        self.widths[slot] += extra;
+        self.width += extra;
+    }
+    pub fn balance_tail(&mut self, position: usize, extra: f32) {
+        if position < MAX_QUOTA { self.widen(quota_slot(position), extra); }
+    }
+    pub fn widen_clock(&mut self, extra: f32) { self.widen(CLOCK, extra); }
+    pub fn hide_clock(&mut self) {
+        let Some(center) = self.x[CLOCK].take() else { return; };
+        let removed = self.widths[CLOCK] + GAP;
+        self.width = (self.width - removed).max(96.0);
+        for x in self.x.iter_mut().flatten() { *x += if *x < center { removed / 2.0 } else { -removed / 2.0 }; }
     }
     pub fn reorder(&mut self,order:&[usize]) {
         if !valid_order(order){return;}
         let original=self.x;let mut cursor=-self.width/2.0+MARGIN;
         for slot in order.iter().copied().chain(std::iter::once(BELL)) {
             let slots:Vec<usize>=if slot==QUOTA{(QUOTA..=MORE).collect()}else{vec![slot]};
-            let left=slots.iter().filter_map(|&i|original[i].map(|x|x-WIDTHS[i]/2.0)).fold(f32::INFINITY,f32::min);
-            let right=slots.iter().filter_map(|&i|original[i].map(|x|x+WIDTHS[i]/2.0)).fold(f32::NEG_INFINITY,f32::max);
+            let left=slots.iter().filter_map(|&i|original[i].map(|x|x-self.widths[i]/2.0)).fold(f32::INFINITY,f32::min);
+            let right=slots.iter().filter_map(|&i|original[i].map(|x|x+self.widths[i]/2.0)).fold(f32::NEG_INFINITY,f32::max);
             if !left.is_finite(){continue;}
             for i in slots {if let Some(x)=original[i]{self.x[i]=Some(cursor+x-left);}}
             cursor+=right-left+GAP;
@@ -151,13 +183,13 @@ impl Layout {
     /// 圆环换边经过时钟时，暂时淡出时钟，避免移动中相互遮挡。
     pub fn clearance(&self,slot:usize)->f32 {
         let Some(x)=self.x[slot] else{return 0.0;};
-        let distance=self.x[QUOTA..=MORE].iter().flatten().map(|other|(other-x).abs()).fold(f32::INFINITY,f32::min);
+        let distance=self.quota_slots().filter_map(|i|self.x[i].map(|other|(other-x).abs()-(self.widths[i]-RING)/2.0)).fold(f32::INFINITY,f32::min);
         let quota=if slot==CLOCK {smoothstep(32.0,42.0,distance)}else{smoothstep(22.0,34.0,distance)};
         quota*self.pet_clearance(slot)
     }
     pub fn pet_clearance(&self,slot:usize)->f32 {
         match (self.x[slot],self.x[PET]) {
-            (Some(x),Some(pet))=>smoothstep(WIDTHS[slot]/2.0+14.0,WIDTHS[slot]/2.0+24.0,(x-pet).abs()),
+            (Some(x),Some(pet))=>smoothstep(self.widths[slot]/2.0+14.0,self.widths[slot]/2.0+24.0,(x-pet).abs()),
             _=>1.0,
         }
     }
@@ -196,8 +228,33 @@ mod tests {
     fn only(pages:&[usize])->[bool;8]{let mut v=[false;8];for p in pages{v[*p]=true;}v}
 
     #[test]
+    fn old_personal_order_keeps_existing_slots_and_gains_weather() {
+        let mut previous = PREVIOUS_ORDER;
+        previous.reverse();
+        let migrated = migrate_order(&previous, [0,1,2,3,4,5,6,7,8]).unwrap();
+        assert!(valid_order(&migrated));
+        assert_eq!(migrated.iter().copied().filter(|slot| *slot != WEATHER).collect::<Vec<_>>(), previous);
+        assert!(migrated.windows(2).any(|pair| pair == [CLOCK, WEATHER]));
+    }
+
+    #[test]
+    fn weather_widens_without_overlap_and_can_be_moved() {
+        let mut layout = Layout::new(true, 8, [true;9], false, true);
+        let mut order = DEFAULT_ORDER;
+        order.swap(0, 3);
+        layout.reorder(&order);
+        layout.widen(WEATHER, 14.0);
+        layout.balance_tail(7, 26.0);
+        layout.hide_clock();
+        assert!(layout.x[WEATHER].unwrap() < layout.x[PET].unwrap());
+        let mut bounds = layout.x.iter().zip(layout.widths).filter_map(|(x, w)| x.map(|x| (x-w/2.0,x+w/2.0))).collect::<Vec<_>>();
+        bounds.sort_by(|lhs, rhs| lhs.0.total_cmp(&rhs.0));
+        assert!(bounds.windows(2).all(|pair| pair[1].0 - pair[0].1 >= 6.9));
+    }
+
+    #[test]
     fn clock_12h_keeps_components_separate_in_custom_orders(){
-        for order in [DEFAULT_ORDER,[FOCUS,MUSIC,QUOTA,CLOCK,PET,BATTERY,WATER,SHELF,TODO,CAL]] {
+        for order in [DEFAULT_ORDER,[FOCUS,MUSIC,QUOTA,CLOCK,WEATHER,PET,BATTERY,WATER,SHELF,TODO,CAL]] {
             for quotas in 0..=5 {
                 let mut layout=Layout::new(true,quotas,[true;8],false,true);
                 layout.reorder(&order);layout.widen_clock(40.0);
@@ -216,7 +273,7 @@ mod tests {
     fn custom_order_preserves_groups_and_hidden_positions(){
         assert!(!valid_order(&[0,0,2,6,7,9]));
         assert!(!valid_order(&[0,1,2]));
-        let order=[FOCUS,MUSIC,QUOTA,CLOCK,PET,BATTERY,CAL,TODO,SHELF,WATER];
+        let order=[FOCUS,MUSIC,QUOTA,CLOCK,WEATHER,PET,BATTERY,CAL,TODO,SHELF,WATER];
         for battery in [false,true]{for count in 0..=5 {
             let mut layout=Layout::new(battery,count,only(&[0,1,2,3,4,6,7]),false,true);
             let width=layout.width;layout.reorder(&order);

@@ -1,356 +1,259 @@
-//! WorkBuddy 积分：计费请求头经本机 DPAPI 保存，只发给计费服务。
-//!
-//! 端点为待核对项（`copilot.tencent.com/v2/billing/meter/get-user-resource`）。
-//! 官网字段可能变化，因此解析按常见命名容错；拿不到积分就报错，不把失败画成 0。
-use super::{Snapshot, Window};
+//! WorkBuddy 官方客户端积分汇总，浏览器授权连接。
+use super::{Account,Snapshot};
 use serde_json::Value;
-
-pub(crate) const ENDPOINT: &str =
-    "https://www.workbuddy.cn/billing/meter/get-user-resource-summary";
-
-/// 只接受 Cookie / Authorization 两种头，其余行忽略，避免把无关 Cookie 发出去。
-pub(crate) fn normalize(raw: &str) -> Result<String, String> {
-    let mut kept = Vec::new();
-    let mut has_auth = false;
-    for line in raw.lines() {
-        let line = line.trim();
-        if line.is_empty() {
-            continue;
+use std::{io::Read,sync::mpsc,time::Duration};
+#[derive(Clone,Debug)]
+#[derive(serde::Serialize,serde::Deserialize)]
+pub struct Credits {pub remaining:f64,pub packages:Vec<(String,f64)>}
+impl Credits {
+    pub fn compact(&self)->String{super::deepseek::Balance{currency:"CNY".into(),total:self.remaining,granted:0.0,topped_up:0.0}.compact().trim_start_matches('¥').to_owned()}
+    pub fn full(&self)->String{let text=super::deepseek::Balance{currency:"CNY".into(),total:self.remaining,granted:0.0,topped_up:0.0}.full(self.remaining);text.trim_start_matches('¥').trim_end_matches('0').trim_end_matches('.').to_owned()}
+}
+pub fn parse(value:&Value)->Result<Snapshot,String>{
+    if value["code"].as_i64()!=Some(0){return Err("WorkBuddy 积分接口暂未返回结果，请稍后重试".into());}
+    let data=&value["data"];let rows=data["Packages"].as_array().ok_or("积分接口缺少资源包数据")?;
+    let mut packages=Vec::new();let mut remaining=0.0;
+    for row in rows{
+        let amount=row["CycleRemainCapacity"].as_f64().or_else(||row["CycleRemainCapacity"].as_str().and_then(|s|s.parse().ok())).filter(|n|n.is_finite()&&*n>=0.0).ok_or("积分余额字段无效")?;
+        remaining+=amount;packages.push((row["PackageCode"].as_str().unwrap_or_default().into(),amount));
+    }
+    if !remaining.is_finite(){return Err("积分余额超出范围".into());}
+    if let Some(groups)=data["CreditGroups"].as_array(){
+        packages.clear();for group in groups{
+            let label=match group["Kind"].as_str(){Some("plan_base")=>"套餐",Some("plan_bonus")=>"加赠",Some("addon")=>"加量包",Some("benefit")=>"赠送",_=>continue};
+            if let Some(amount)=group["CycleRemainCapacity"].as_f64().or_else(||group["CycleRemainCapacity"].as_str().and_then(|s|s.parse::<f64>().ok())).filter(|n|n.is_finite()&&*n>0.0){packages.push((label.into(),amount));}
         }
-        let Some((name, value)) = line.split_once(':') else {
-            return Err("请粘贴「名称: 值」形式的请求头".into());
-        };
-        if value.trim().is_empty() {
-            return Err(format!("请求头 {} 没有值", name.trim()));
-        }
-        // 认证头至少要有 Cookie 或 Authorization；只有 x-client-platform 不算连接（F17）。
-        match name.trim().to_ascii_lowercase().as_str() {
-            "cookie" | "authorization" => {
-                has_auth = true;
-                kept.push(format!("{}: {}", name.trim(), value.trim()))
+    }else{packages.clear();}
+    Ok(Snapshot{plan:data["SubscriptionPackageName"].as_str().unwrap_or_default().into(),credits:Some(Credits{remaining,packages}),at:chrono::Utc::now().timestamp(),..Default::default()})
+}
+fn valid_origin(origin:&str)->bool{matches!(origin,"https://www.codebuddy.cn"|"https://www.workbuddy.cn")}
+fn slot(uid:&str)->String{ring::digest::digest(&ring::digest::SHA256,uid.as_bytes()).as_ref().iter().map(|b|format!("{b:02x}")).collect()}
+#[derive(serde::Serialize,serde::Deserialize)]
+struct Session { origin:String, ua:String, cookie:String, #[serde(default)] auth:Option<Auth> }
+#[derive(serde::Serialize,serde::Deserialize)]
+#[serde(rename_all="camelCase")]
+struct Auth{
+    access_token:String,
+    #[serde(default)] refresh_token:String,
+    #[serde(default)] domain:String,
+    #[serde(default)] uid:String,
+}
+
+fn session_path(id:&str)->Result<std::path::PathBuf,String>{
+    if id.len()!=64 || !id.bytes().all(|c|c.is_ascii_hexdigit()){return Err("WorkBuddy 账号标识无效".into());}
+    Ok(crate::model::config_dir().join("credentials").join(format!("workbuddy-{id}.bin")))
+}
+fn save_session(id:&str,session:&Session)->Result<(),String>{
+    let path=session_path(id)?;
+    let bytes=serde_json::to_vec(session).map_err(|_|"登录会话无效")?;
+    let encrypted=super::gemini::protect(&bytes,true)?;
+    std::fs::create_dir_all(path.parent().unwrap()).and_then(|_|crate::model::atomic_write(&path,&encrypted)).map_err(|_|"无法保存 WorkBuddy 登录会话".into())
+}
+pub fn forget(account:&Account){
+    if let Some(path)=account.slot.as_deref().and_then(|id|session_path(id).ok()){let _=std::fs::remove_file(path);}
+}
+const SUMMARY:&str="/billing/meter/get-user-resource-summary";
+enum Failure { Transport, Expired, Message(String) }
+impl Failure {
+    fn message(self)->String{match self{Self::Transport=>"暂时无法连接 WorkBuddy 官网".into(),Self::Expired=>"官网登录已过期，请重新连接 WorkBuddy".into(),Self::Message(s)=>s}}
+}
+fn api(agent:&ureq::Agent,session:&Session,path:&str)->Result<Value,Failure>{
+    let url=format!("{}{path}",session.origin);
+    let mut req=agent.request(if path==SUMMARY{"POST"}else{"GET"},&url)
+        .set("User-Agent",&session.ua).set("Cookie",&session.cookie).set("Accept","application/json").set("X-Client-Platform","web");
+    if let Some(auth)=&session.auth{
+        req=req.set("Authorization",&format!("Bearer {}",auth.access_token)).set("X-User-Id",&auth.uid).set("X-Domain",&auth.domain);
+    }
+    let response=if path==SUMMARY{req.set("Content-Type","application/json").send_string("{}")}else{req.call()}.map_err(|e|match e{
+        ureq::Error::Status(401,_)=>Failure::Expired,
+        ureq::Error::Status(code,_)=>Failure::Message(format!("WorkBuddy 官网返回 {code}，请稍后重试")),
+        _=>Failure::Transport
+    })?;
+    serde_json::from_reader(response.into_reader().take(2*1024*1024)).map_err(|_|Failure::Message("WorkBuddy 官网返回了无效数据".into()))
+}
+fn verified(agent:&ureq::Agent,s:&Session,id:&str)->Result<Snapshot,Failure>{
+    if let Some(auth)=&s.auth{
+        if slot(&auth.uid)!=id{return Err(Failure::Message("WorkBuddy 授权账号不匹配".into()));}
+        return parse(&api(agent,s,SUMMARY)?).map_err(Failure::Message);
+    }
+    let profile=api(agent,s,"/console/account")?;
+    let uid=profile.pointer("/data/uid").and_then(Value::as_str).ok_or_else(||Failure::Message("官网未返回 WorkBuddy 账号信息".into()))?;
+    if slot(uid)!=id || profile.pointer("/data/isCurrentOneIdEnterprise")==Some(&Value::Bool(true)){
+        return Err(Failure::Message("官网账号与已绑定的个人账号不一致".into()));
+    }
+    parse(&api(agent,s,SUMMARY)?).map_err(Failure::Message)
+}
+fn query(agent:&ureq::Agent,s:&Session,id:&str)->Result<Snapshot,Failure>{
+    if !valid_origin(&s.origin){return Err(Failure::Message("WorkBuddy 登录来源无效".into()));}
+    with_transport_retry(agent,&s.origin,|agent|verified(agent,s,id))
+}
+fn with_transport_retry<T>(agent:&ureq::Agent,origin:&str,request:impl Fn(&ureq::Agent)->Result<T,Failure>)->Result<T,Failure>{
+    let result=request(agent);
+    if !matches!(result,Err(Failure::Transport)){return result;}
+    // 仅在本地代理映射到基准测试地址且连接失败时重新解析；TLS 仍校验原官网域名。
+    use std::net::{Ipv4Addr,SocketAddr,ToSocketAddrs};
+    let host=origin.trim_start_matches("https://");
+    let mapped=(host,443).to_socket_addrs().ok().is_some_and(|mut addresses|addresses.any(|a|matches!(a,SocketAddr::V4(v) if v.ip().octets()[0]==198 && matches!(v.ip().octets()[1],18|19))));
+    if !mapped{return result;}
+    let lookup=format!("https://dns.alidns.com/resolve?name={host}&type=A");
+    let dns=agent.get(&lookup).call().map_err(|_|Failure::Transport)?;
+    let data:Value=serde_json::from_reader(dns.into_reader().take(65536)).map_err(|_|Failure::Transport)?;
+    let ips:Vec<_>=data["Answer"].as_array().into_iter().flatten().filter(|r|r["type"]==1).filter_map(|r|r["data"].as_str()?.parse::<Ipv4Addr>().ok()).map(|ip|SocketAddr::from((ip,443))).collect();
+    if ips.is_empty(){return result;}
+    let endpoint=format!("{host}:443");
+    let direct=ureq::AgentBuilder::new().try_proxy_from_env(false).timeout(Duration::from_secs(12)).redirects(0)
+        .resolver(move |name:&str|if name==endpoint{Ok(ips.clone())}else{Err(std::io::Error::other("官网地址不匹配"))}).build();
+    request(&direct)
+}
+// 只读取客户端当前会话；未知加密格式交给独立官网登录，不改写客户端文件。
+fn local_snapshot(agent:&ureq::Agent,expected:Option<&str>)->Result<(String,Snapshot),String>{
+    let base=std::env::var_os("LOCALAPPDATA").ok_or("未找到本机用户目录")?;
+    let path=std::path::PathBuf::from(base).join("CodeBuddyExtension/Data/Public/auth/workbuddy-desktop-ai.info");
+    if path.with_extension("info.logged-out").exists(){return Err("WorkBuddy 客户端已退出登录".into());}
+    let raw=std::fs::read(&path).map_err(|_|"未找到 WorkBuddy 客户端登录")?;
+    let root:Value=serde_json::from_slice(&raw).map_err(|_|"无法读取 WorkBuddy 客户端登录")?;
+    let uid=root.pointer("/account/uid").and_then(Value::as_str).ok_or("客户端尚未登录")?;
+    let id=slot(uid);
+    if expected.is_some_and(|s|s!=id){return Err("客户端当前账号与已绑定账号不同".into());}
+    if root.pointer("/account/isCurrentOneIdEnterprise")==Some(&Value::Bool(true)){return Err("请使用 WorkBuddy 个人账号".into());}
+    let token=root.pointer("/auth/accessToken").and_then(Value::as_str).filter(|s|!s.is_empty()).ok_or("客户端登录已加密，请通过官网连接")?;
+    let domain=root.pointer("/auth/domain").and_then(Value::as_str).unwrap_or_default();
+    let response=agent.post("https://www.codebuddy.cn/billing/meter/get-user-resource-summary")
+        .set("Authorization",&format!("Bearer {token}")).set("X-User-Id",uid).set("X-Domain",domain)
+        .set("Content-Type","application/json").send_string("{}").map_err(|_|"暂时无法使用客户端登录查询积分")?;
+    let value:Value=serde_json::from_reader(response.into_reader().take(2*1024*1024)).map_err(|_|"客户端积分响应无效")?;
+    Ok((id,parse(&value)?))
+}
+fn refresh_auth(agent:&ureq::Agent,session:&Session)->Result<Auth,Failure>{
+    let auth=session.auth.as_ref().ok_or(Failure::Expired)?;
+    let response=with_transport_retry(agent,&session.origin,|agent|{
+        agent.post(&format!("{}/v2/plugin/auth/token/refresh",session.origin))
+            .set("X-Refresh-Token",&auth.refresh_token).set("X-Auth-Refresh-Source","plugin")
+            .set("X-Domain",&auth.domain).set("Content-Type","application/json").send_string("{}")
+            .map_err(|e|match e{
+                ureq::Error::Transport(_)=>Failure::Transport,
+                ureq::Error::Status(401|403,_)=>Failure::Expired,
+                _=>Failure::Message("WorkBuddy 登录服务暂不可用，请稍后重试".into()),
+            })
+    })?;
+    let value:Value=serde_json::from_reader(response.into_reader().take(2*1024*1024)).map_err(|_|Failure::Message("WorkBuddy 刷新响应无效".into()))?;
+    let mut next:Auth=serde_json::from_value(value["data"].clone()).map_err(|_|Failure::Message("WorkBuddy 授权已失效，请重新连接".into()))?;
+    next.uid=auth.uid.clone();
+    if next.refresh_token.is_empty(){next.refresh_token=auth.refresh_token.clone();}
+    if next.domain.is_empty(){next.domain=auth.domain.clone();}
+    if next.access_token.is_empty(){return Err(Failure::Message("WorkBuddy 未返回有效刷新凭据".into()));}
+    Ok(next)
+}
+pub fn fetch(agent:&ureq::Agent,account:&Account)->Result<Snapshot,(String,u64)>{
+    let id=account.slot.as_deref().ok_or(("请连接 WorkBuddy 浏览器账号".into(),0))?;
+    if let Ok((_,snapshot))=local_snapshot(agent,Some(id)){return Ok(snapshot);}
+    let path=session_path(id).map_err(|e|(e,0))?;
+    match std::fs::read(&path){
+        Ok(bytes)=>{
+            let raw=super::gemini::protect(&bytes,false).map_err(|e|(e,30))?;
+            let mut session:Session=serde_json::from_slice(&raw).map_err(|_|("保存的 WorkBuddy 会话无效，请重新连接".into(),0))?;
+            match query(agent,&session,id){
+                Ok(snapshot)=>return Ok(snapshot),
+                Err(Failure::Expired)=>{
+                    if session.auth.as_ref().is_some_and(|a|!a.refresh_token.is_empty()){
+                        match refresh_auth(agent,&session){
+                            Ok(next)=>{
+                                session.auth=Some(next);
+                                // 刷新令牌可能轮换，先保存，再查询积分，避免网络中断丢失新令牌。
+                                if std::fs::read(&path).ok().as_deref()==Some(bytes.as_slice()){
+                                    save_session(id,&session).map_err(|e|(e,30))?;
+                                }
+                                return query(agent,&session,id).map_err(|e|(e.message(),30));
+                            },
+                            Err(Failure::Expired)=>{},
+                            Err(e)=>return Err((e.message(),30)),
+                        }
+                    }
+                },
+                Err(e)=>return Err((e.message(),30))
             }
-            "x-client-platform" => kept.push(format!("{}: {}", name.trim(), value.trim())),
-            _ => {}
-        }
+        },
+        Err(e) if e.kind()==std::io::ErrorKind::NotFound=>{},
+        Err(_)=>return Err(("无法读取已保存的 WorkBuddy 会话".into(),30))
     }
-    if !has_auth {
-        return Err("请粘贴包含 Cookie 或 Authorization 的计费请求头".into());
-    }
-    Ok(kept.join("\n"))
+    Err(("WorkBuddy 登录已过期或尚未连接，请点击重新连接".into(),60))
 }
-
-pub(crate) fn header_pairs(raw: &str) -> Vec<(String, String)> {
-    raw.lines()
-        .filter_map(|line| line.split_once(':'))
-        .map(|(name, value)| (name.trim().to_string(), value.trim().to_string()))
-        .collect()
-}
-
-fn blob_path(id: &str) -> std::path::PathBuf {
-    crate::model::config_dir().join(format!("workbuddy-{id}.bin"))
-}
-
-pub(crate) fn store_header(id: &str, raw: &str) -> Result<(), String> {
-    let header = normalize(raw)?;
-    let blob = protect(header.as_bytes())?;
-    crate::model::atomic_write(&blob_path(id), &blob).map_err(|_| "无法保存计费请求头".to_string())
-}
-
-pub(crate) fn load_header(id: &str) -> Result<String, String> {
-    let raw = std::fs::read(blob_path(id)).map_err(|_| "没有保存计费请求头".to_string())?;
-    let plain = unprotect(&raw)?;
-    String::from_utf8(plain).map_err(|_| "保存的请求头已损坏".to_string())
-}
-
-pub(crate) fn forget_header(id: &str) {
-    let _ = std::fs::remove_file(blob_path(id));
-}
-
-fn find_number(value: &Value, keys: &[&str]) -> Option<f64> {
-    keys.iter().find_map(|key| {
-        let raw = value.get(*key)?;
-        raw.as_f64()
-            .or_else(|| raw.as_str()?.trim().parse().ok())
-            .filter(|number| number.is_finite())
-    })
-}
-
-fn find_text(value: &Value, keys: &[&str]) -> Option<String> {
-    keys.iter().find_map(|key| {
-        let raw = value.get(*key)?;
-        raw.as_str()
-            .map(str::trim)
-            .filter(|text| !text.is_empty())
-            .map(str::to_owned)
-    })
-}
-
-fn points_text(points: f64) -> String {
-    if (points.fract()).abs() < f64::EPSILON {
-        format!("{points:.0}")
-    } else {
-        format!("{points:.1}")
-    }
-}
-
-/// 成功、零积分与失败必须分开：没有积分字段算失败，积分恰好为 0 是有效快照。
-///
-/// 官网真实返回：`data.TotalCredits` + `data.CreditGroups[]` + `data.SubscriptionPackageName`。
-pub(crate) fn parse(value: &Value) -> Result<Snapshot, String> {
-    if let Some(code) = value.get("code").or_else(|| value.get("errcode")).and_then(Value::as_i64) {
-        if code != 0 {
-            let message = value.get("message").or_else(|| value.get("msg")).and_then(Value::as_str).unwrap_or("计费服务返回错误");
-            return Err(format!("{message}（{code}）"));
-        }
-    }
-    if value.get("success").and_then(Value::as_bool) == Some(false) {
-        return Err("计费请求未通过，请重新粘贴请求头".into());
-    }
-    let data = value.get("data").filter(|data| data.is_object()).unwrap_or(value);
-    let points = find_number(data, &["TotalCredits", "totalCredits", "points", "remaining_points", "remain_points", "available_points", "left_points", "total_points", "balance", "credit", "score"])
-        .ok_or_else(|| "计费服务没有返回积分".to_string())?;
-    if points < 0.0 {
-        return Err("计费服务返回了无效的积分".into());
-    }
-    let plan = find_text(data, &["SubscriptionPackageName", "subscriptionPackageName", "plan_name", "package_name", "plan", "package", "product_name", "tier", "resource_name"]).unwrap_or_default();
-    let mut snapshot = Snapshot {
-        plan: if plan.is_empty() { "WorkBuddy".into() } else { plan.clone() },
-        at: chrono::Utc::now().timestamp(),
-        ..Default::default()
-    };
-    snapshot.windows.push(Window {
-        label: "积分".into(),
-        seconds: None,
-        remaining: if points > 0.0 { 100.0 } else { 0.0 },
-        reset: None,
-        text: Some(points_text(points)),
-    });
-    // 明细：额度分组（套餐基础/赠送/购买/平台奖励），每组给出剩余与总量。
-    if let Some(groups) = data.get("CreditGroups").and_then(Value::as_array) {
-        for group in groups {
-            let remain = find_number(group, &["CycleRemainCapacity", "remaining"]);
-            let total = find_number(group, &["CycleTotalCapacity", "total"]);
-            let name = find_text(group, &["Name", "name"]).unwrap_or_default();
-            let (Some(remain), Some(total)) = (remain, total) else { continue };
-            if total <= 0.0 && remain <= 0.0 { continue; }
-            let percent = if total > 0.0 { (remain / total * 100.0).clamp(0.0, 100.0) as f32 } else { 0.0 };
-            snapshot.extra.push(Window {
-                label: format!("{} · 共 {}", if name.is_empty() { "积分" } else { &name }, points_text(total)),
-                seconds: None,
-                remaining: percent,
-                reset: None,
-                text: Some(points_text(remain)),
-            });
-        }
-    }
-    if snapshot.extra.is_empty() {
-        let total = find_number(data, &["Total", "total", "quota", "limit", "monthly_points"]).filter(|total| *total > 0.0);
-        match total {
-            Some(total) => snapshot.extra.push(Window {
-                label: format!("套餐 {} · 共 {}", if plan.is_empty() { "WorkBuddy" } else { &plan }, points_text(total)),
-                seconds: None,
-                remaining: (points / total * 100.0).clamp(0.0, 100.0) as f32,
-                reset: None,
-                text: Some(points_text(points)),
-            }),
-            None if !plan.is_empty() => snapshot.extra.push(Window { label: format!("套餐 {plan}"), seconds: None, remaining: 0.0, reset: None, text: None }),
-            None => {}
-        }
-    }
-    Ok(snapshot)
-}
-
 #[cfg(windows)]
-fn protect(plain: &[u8]) -> Result<Vec<u8>, String> {
-    use windows::Win32::Security::Cryptography::{
-        CryptProtectData, CRYPTPROTECT_UI_FORBIDDEN, CRYPT_INTEGER_BLOB,
-    };
-    let input = CRYPT_INTEGER_BLOB {
-        cbData: plain.len() as u32,
-        pbData: plain.as_ptr() as *mut u8,
-    };
-    let mut output = CRYPT_INTEGER_BLOB::default();
-    unsafe {
-        CryptProtectData(
-            &input,
-            None,
-            None,
-            None,
-            None,
-            CRYPTPROTECT_UI_FORBIDDEN,
-            &mut output,
-        )
+#[path="workbuddy_login.rs"]
+mod login;
+
+pub struct Connected {pub slot:String,pub label:String,pub snapshot:Snapshot}
+pub struct Connect {rx:mpsc::Receiver<Result<Connected,String>>,cancel:std::sync::Arc<std::sync::atomic::AtomicBool>}
+impl Drop for Connect {fn drop(&mut self){self.cancel.store(true,std::sync::atomic::Ordering::Relaxed);}}
+impl Connect {
+    pub fn start(alias:String,expected:Option<String>)->Self{
+        let(tx,rx)=mpsc::channel();
+        let cancel=std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let worker_cancel=cancel.clone();
+        std::thread::spawn(move||{let result=(||{
+            let local=local_snapshot(&super::http_agent(),expected.as_deref());
+            #[cfg(windows)]
+            let (slot,snapshot)=match local{
+                Ok(result)=>result,
+                Err(_)=>login::connect(expected.as_deref(),worker_cancel)?,
+            };
+            #[cfg(not(windows))]
+            let (slot,snapshot):(String,Snapshot)=return Err("WorkBuddy 登录暂仅支持 Windows".into());
+            Ok(Connected{slot,label:if alias.trim().is_empty(){"WorkBuddy".into()}else{alias.trim().into()},snapshot})
+        })();let _=tx.send(result);});Self{rx,cancel}
     }
-    .map_err(|_| "无法加密请求头（DPAPI）".to_string())?;
-    let bytes =
-        unsafe { std::slice::from_raw_parts(output.pbData, output.cbData as usize) }.to_vec();
-    unsafe {
-        windows::Win32::Foundation::LocalFree(windows::Win32::Foundation::HLOCAL(
-            output.pbData as *mut _,
-        ));
-    }
-    let mut blob = b"DPAPI".to_vec();
-    blob.extend_from_slice(&bytes);
-    Ok(blob)
+    pub fn poll(&self)->Option<Result<Connected,String>>{self.rx.try_recv().ok()}
 }
-
-#[cfg(not(windows))]
-fn protect(_: &[u8]) -> Result<Vec<u8>, String> {
-    Err("仅支持 Windows 的本地加密".into())
-}
-
-#[cfg(windows)]
-fn unprotect(blob: &[u8]) -> Result<Vec<u8>, String> {
-    use windows::Win32::Security::Cryptography::{
-        CryptUnprotectData, CRYPTPROTECT_UI_FORBIDDEN, CRYPT_INTEGER_BLOB,
-    };
-    let data = blob
-        .strip_prefix(b"DPAPI")
-        .ok_or_else(|| "请求头不是本机加密格式".to_string())?;
-    let input = CRYPT_INTEGER_BLOB {
-        cbData: data.len() as u32,
-        pbData: data.as_ptr() as *mut u8,
-    };
-    let mut output = CRYPT_INTEGER_BLOB::default();
-    unsafe {
-        CryptUnprotectData(
-            &input,
-            None,
-            None,
-            None,
-            None,
-            CRYPTPROTECT_UI_FORBIDDEN,
-            &mut output,
-        )
-    }
-    .map_err(|_| "请求头无法解密，请重新粘贴".to_string())?;
-    let bytes =
-        unsafe { std::slice::from_raw_parts(output.pbData, output.cbData as usize) }.to_vec();
-    unsafe {
-        windows::Win32::Foundation::LocalFree(windows::Win32::Foundation::HLOCAL(
-            output.pbData as *mut _,
-        ));
-    }
-    Ok(bytes)
-}
-
-#[cfg(not(windows))]
-fn unprotect(_: &[u8]) -> Result<Vec<u8>, String> {
-    Err("仅支持 Windows 的本地加密".into())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
+#[cfg(test)]mod tests{
+    use super::*;use serde_json::json;
     #[test]
-    fn headers_keep_only_cookie_and_authorization() {
-        let raw = "Accept: */*\r\nCookie: sid=abc; uid=42\r\nAuthorization: Bearer tok\r\nSec-Fetch-Site: same-origin";
-        let kept = normalize(raw).unwrap();
-        assert_eq!(kept, "Cookie: sid=abc; uid=42\nAuthorization: Bearer tok");
-        let pairs = header_pairs(&kept);
-        assert_eq!(pairs.len(), 2);
-        assert_eq!(pairs[0].0, "Cookie");
+    fn workbuddy_old_cookie_sessions_remain_readable(){
+        let session:Session=serde_json::from_value(json!({"origin":"https://www.codebuddy.cn","ua":"test","cookie":"session=test"})).unwrap();
+        assert!(session.auth.is_none());
+        assert_eq!(session.cookie,"session=test");
     }
-
     #[test]
-    fn unrelated_or_malformed_headers_are_rejected() {
-        assert!(
-            normalize("Accept: */*").is_err(),
-            "没有 Cookie/Authorization 不能保存"
-        );
-        assert!(normalize("Cookie sid=abc").is_err(), "缺少冒号要报格式错误");
-        assert!(normalize("Cookie:").is_err(), "空值要报错");
+    #[ignore="手动验证默认浏览器官网登录，需用户完成登录"]
+    fn workbuddy_login_without_extension(){
+        let config=super::super::Config::load();
+        let expected=config.accounts.iter().find(|a|a.enabled&&a.provider==super::super::Provider::WorkBuddy).and_then(|a|a.slot.as_deref());
+        let cancel=std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let result=if let Ok(state)=std::env::var("DAOZAI_TEST_WORKBUDDY_STATE"){
+            login::wait_for_login(&super::super::http_agent(),&state,expected,cancel)
+        }else{login::connect(expected,cancel)};
+        let (id,snapshot)=result.expect("官网登录");
+        assert!(snapshot.credits.is_some());
+        let bytes=std::fs::read(session_path(&id).unwrap()).unwrap();
+        let session:Session=serde_json::from_slice(&super::super::gemini::protect(&bytes,false).unwrap()).unwrap();
+        assert!(query(&super::super::http_agent(),&session,&id).map_err(Failure::message).unwrap().credits.is_some());
     }
-
     #[test]
-    fn points_parse_and_zero_is_not_an_error() {
-        let snapshot = parse(
-            &serde_json::json!({"code":0,"data":{"points":1280,"total":2000,"package_name":"Pro"}}),
-        )
-        .unwrap();
-        assert_eq!(snapshot.windows.len(), 1);
-        assert_eq!(snapshot.windows[0].text.as_deref(), Some("1280"));
-        assert_eq!(snapshot.windows[0].remaining, 100.0);
-        assert_eq!(snapshot.plan, "Pro");
-        assert!(snapshot.extra[0].label.contains("共 2000"));
-
-        let zero = parse(&serde_json::json!({"data":{"points":0,"plan":"Free"}})).unwrap();
-        assert_eq!(zero.windows[0].text.as_deref(), Some("0"));
-        assert_eq!(
-            zero.windows[0].remaining, 0.0,
-            "零积分画空环，但仍是一条有效数据"
-        );
-        assert_eq!(zero.plan, "Free");
+    #[ignore="手动验证官网登录续期并保存新会话"]
+    fn workbuddy_refresh_saved_login(){
+        let config=super::super::Config::load();
+        let a=config.accounts.iter().find(|a|a.enabled&&a.provider==super::super::Provider::WorkBuddy).unwrap();
+        let id=a.slot.as_deref().unwrap();
+        let bytes=std::fs::read(session_path(id).unwrap()).unwrap();
+        let mut session:Session=serde_json::from_slice(&super::super::gemini::protect(&bytes,false).unwrap()).unwrap();
+        let agent=super::super::http_agent();
+        session.auth=Some(refresh_auth(&agent,&session).map_err(Failure::message).unwrap());
+        save_session(id,&session).unwrap();
+        assert!(fetch(&agent,a).unwrap().credits.is_some());
     }
-
-
     #[test]
-    fn real_summary_payload_shows_total_and_groups() {
-        let snapshot = parse(&serde_json::json!({
-            "code": 0, "msg": "OK",
-            "data": {
-                "TotalCredits": "2407.60000128",
-                "SubscriptionPackageName": "体验版",
-                "IsPaidUser": false,
-                "CreditGroups": [
-                    {"Kind": "plan_base", "Name": "套餐基础积分", "CycleTotalCapacity": "500", "CycleRemainCapacity": "500", "CycleUsedCapacity": "0"},
-                    {"Kind": "plan_bonus", "Name": "套餐赠送积分", "CycleTotalCapacity": "0", "CycleRemainCapacity": "0", "CycleUsedCapacity": "0"},
-                    {"Kind": "benefit", "Name": "平台奖励积分", "CycleTotalCapacity": "3900", "CycleRemainCapacity": "1907.60000128", "CycleUsedCapacity": "1992.39999872"}
-                ]
-            }
-        })).unwrap();
-        assert_eq!(snapshot.plan, "体验版");
-        assert_eq!(snapshot.windows[0].text.as_deref(), Some("2407.6"), "环内显示总积分");
-        assert_eq!(snapshot.windows[0].remaining, 100.0);
-        assert_eq!(snapshot.extra.len(), 2, "零额度的分组不占一行");
-        assert!(snapshot.extra[0].label.contains("套餐基础积分"));
-        assert_eq!(snapshot.extra[0].text.as_deref(), Some("500"));
-        assert!(snapshot.extra[1].label.contains("平台奖励积分"));
-        assert_eq!(snapshot.extra[1].text.as_deref(), Some("1907.6"));
-        assert!((snapshot.extra[1].remaining - 48.91).abs() < 0.1, "剩余占比 1907.6/3900");
+    #[ignore="只使用已保存的官网会话验证积分，不连接浏览器"]
+    fn workbuddy_saved_session_without_browser(){
+        let config=super::super::Config::load();
+        let a=config.accounts.iter().find(|a|a.enabled&&a.provider==super::super::Provider::WorkBuddy).unwrap();
+        let id=a.slot.as_deref().unwrap();
+        let bytes=std::fs::read(session_path(id).unwrap()).unwrap();
+        let s:Session=serde_json::from_slice(&super::super::gemini::protect(&bytes,false).unwrap()).unwrap();
+        let snapshot=query(&super::super::http_agent(),&s,id).map_err(Failure::message).unwrap();
+        assert!(snapshot.credits.is_some());
     }
-
-    #[test]
-    fn zero_total_credits_is_still_valid() {
-        let snapshot = parse(&serde_json::json!({"code":0,"data":{"TotalCredits":"0","SubscriptionPackageName":"体验版","CreditGroups":[]}})).unwrap();
-        assert_eq!(snapshot.windows[0].text.as_deref(), Some("0"));
-        assert_eq!(snapshot.windows[0].remaining, 0.0);
-    }
-
-    #[test]
-    fn failure_shapes_are_errors_not_zero_points() {
-        assert!(parse(&serde_json::json!({"code":401,"msg":"session expired"})).is_err());
-        assert!(parse(&serde_json::json!({"success":false})).is_err());
-        assert!(
-            parse(&serde_json::json!({"data":{}})).is_err(),
-            "没有积分字段必须报错"
-        );
-        assert!(parse(&serde_json::json!({"data":{"points":-5}})).is_err());
-    }
-
-    #[test]
-    fn text_numbers_and_string_points_are_accepted() {
-        let snapshot = parse(&serde_json::json!({"data":{"points":"12.5","plan":"Lite"}})).unwrap();
-        assert_eq!(snapshot.windows[0].text.as_deref(), Some("12.5"));
-        assert_eq!(snapshot.plan, "Lite");
-    }
-
-    #[cfg(windows)]
-    #[test]
-    fn header_is_encrypted_at_rest_and_round_trips() {
-        let id = format!("workbuddy-test-{}", std::process::id());
-        store_header(&id, "Cookie: sid=secret-value").unwrap();
-        let path = blob_path(&id);
-        let raw = std::fs::read(&path).unwrap();
-        assert!(raw.starts_with(b"DPAPI"));
-        assert!(
-            !raw.windows(6).any(|window| window == b"secret"),
-            "落盘内容不能出现明文"
-        );
-        assert_eq!(load_header(&id).unwrap(), "Cookie: sid=secret-value");
-        forget_header(&id);
-        assert!(!path.exists());
-        assert!(load_header(&id).is_err());
+    #[test]fn workbuddy_sums_valid_packages_and_rejects_missing_balance(){
+        let s=parse(&json!({"code":0,"data":{"Packages":[{"PackageCode":"base","CycleRemainCapacity":"1200"},{"PackageCode":"gift","CycleRemainCapacity":80}]}})).unwrap();let c=s.credits.unwrap();assert_eq!(c.remaining,1280.0);assert_eq!(c.compact(),"1.28k");assert_eq!(c.full(),"1,280");
+        for v in [json!({"code":0}),json!({"code":401}),json!({"code":0,"data":{"Packages":[{}]}}),json!({"code":0,"data":{"Packages":[{"CycleRemainCapacity":-1}]}})]{assert!(parse(&v).is_err());}
+        assert_eq!(parse(&json!({"code":0,"data":{"Packages":[]}})).unwrap().credits.unwrap().remaining,0.0);
     }
 }

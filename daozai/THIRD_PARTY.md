@@ -2,9 +2,9 @@
 
 | 内容 | 固定来源 | 处理 |
 | --- | --- | --- |
-| 岛仔 Daozai | [Renly1994/xiaotang-daozai](https://github.com/Renly1994/xiaotang-daozai/tree/b93dd84fc9bdb95978fef72ffb7068bdf47ac5a9)，v0.6.50 commit `b93dd84fc9bdb95978fef72ffb7068bdf47ac5a9` | MIT，保留原作者“小唐的Token and Daozai contributors”及 [LICENSE](LICENSE)；个人整合源快照 `07022995c16ab65353c11d38b61e1120ce5c18ef`，本仓库按目录跟踪后续修改 |
+| 岛仔 Daozai | [Renly1994/xiaotang-daozai](https://github.com/Renly1994/xiaotang-daozai/tree/11c52336d594d24bebc1bec865ab375626ca1e0f)，v0.6.65 commit `11c52336d594d24bebc1bec865ab375626ca1e0f` | MIT，保留原作者“小唐的Token and Daozai contributors”及 [LICENSE](LICENSE)；个人整合源快照 `07022995c16ab65353c11d38b61e1120ce5c18ef`，本仓库按目录跟踪后续修改 |
 | AI 品牌图标 | Lobe Icons commit `ea434b96e75813517b377825e01c0df61dee8836`，`packages/static-svg/icons/zai.svg` 等 | MIT，出处与许可见 [图标说明](assets/ai-icons/README.md) |
-| 本地 vendor 补丁与其他素材 | eframe 0.31.1、imap 2.4.1、imap-proto 0.10.2 等锁定版本 | 保留原 license；见 [依赖说明](docs/DEPENDENCIES.md)、[第三方声明](THIRD_PARTY_NOTICES.txt) 和各 vendor 目录 |
+| 本地 vendor 补丁与其他素材 | eframe 和 egui 0.31.1、imap 2.4.1、imap-proto 0.10.2、ureq 2.12.1 | 保留原 license；见 [依赖说明](docs/DEPENDENCIES.md)、[第三方声明](THIRD_PARTY_NOTICES.txt) 和各 vendor 目录 |
 
 个人修改包含八家额度整合、暂存站修复、整岛拖动、顶栏信息入口、饮水/待办/日历显示及 GLM Z 标修正。具体行为与验证边界见 [交付记录](docs/RELEASE-0.6.50-personal.md)。README/INSTALL 与恢复脚本是本合集的使用入口，不将第三方项目冒充为自研项目；版权与商标仍归各权利人。
 
@@ -14,8 +14,8 @@
 
 原生拖入使用现有锁定依赖 windows-rs 0.58.0（MIT / Apache-2.0），按 Microsoft 的 [Shell 数据格式](https://learn.microsoft.com/en-us/windows/win32/shell/clipboard) 和 [RegisterDragDrop](https://learn.microsoft.com/en-us/windows/win32/api/ole2/nf-ole2-registerdragdrop) 协议实现；支持 CF_HDROP、Unicode、PNG/DIB/位图与 FileGroupDescriptorW/FileContents。参考了 winit 0.30.13 的 `src/platform_impl/windows/drop_handler.rs` 的接口边界（MIT / Apache-2.0），没有复制其代码或修改全局依赖缓存。实现位于 `src/native_drop.rs`，替换只需撤销窗口注册并恢复 winit 的拖放开关。
 
-文件夹仍走置物架原有缩略图队列。隔离候选从 [上游 1287316](https://github.com/Renly1994/xiaotang-daozai/commit/12873165fa22651261c8360220aba7288c81ade6) 三方合入 src/icons.rs 的文件夹系统图标修复，沿用本项目 MIT LICENSE。完整上游基线仍为 v0.6.50，此次未合入 v0.6.64 的其他改动。
+文件夹仍走置物架原有缩略图队列。隔离候选从 [上游 1287316](https://github.com/Renly1994/xiaotang-daozai/commit/12873165fa22651261c8360220aba7288c81ade6) 三方合入 src/icons.rs 的文件夹系统图标修复，沿用本项目 MIT LICENSE。当时的完整上游基线为 v0.6.50。
 
 ### r8 部分同步
 
-从 [上游 1c7702f](https://github.com/Renly1994/xiaotang-daozai/commit/1c7702f41547b3147e85be7022ce21dcbb4ff72b) 单独合入静止播放图标的绘制修复及光栅回归用例。完整基线仍为 v0.6.50；v0.6.65（11c52336d594d24bebc1bec865ab375626ca1e0f）是本轮比较目标，其余改动待合入。
+从 [上游 1c7702f](https://github.com/Renly1994/xiaotang-daozai/commit/1c7702f41547b3147e85be7022ce21dcbb4ff72b) 单独合入静止播放图标的绘制修复及光栅回归用例。当时的完整上游基线为 v0.6.50。随后在 v0.6.65 基线上继续维护个人功能。

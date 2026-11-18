@@ -1,6 +1,6 @@
 [package]
 name = "daozai"
-version = "0.6.50"
+version = "0.6.65"
 edition = "2021"
 license = "MIT"
 description = "岛仔：Windows 顶部的桌面伙伴与信息岛"
@@ -28,15 +28,18 @@ record = []
 imap = { path = "vendor/imap" }
 imap-proto = { path = "vendor/imap-proto" }
 eframe = { path = "vendor/eframe" }
+egui = { path = "vendor/egui" }
+ureq = { path = "vendor/ureq" }
 
 [dependencies]
-eframe = { version = "0.31", default-features = false, features = ["glow", "default_fonts"] }
-egui_extras = { version = "0.31", default-features = false, features = ["svg"] }
+eframe = { version = "0.31", default-features = false, features = ["glow", "wgpu", "default_fonts"] }
+egui_extras = { version = "0.31", default-features = false, features = ["svg", "image"] }
 ureq = { version = "2.12", default-features = false, features = ["tls", "gzip"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 base64 = "0.22"
 flate2 = "1"
+zstd = { version = "0.13.3", default-features = false }
 ring = "0.17"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
 raw-window-handle = "0.6"
@@ -47,6 +50,7 @@ url = "2"
 chrono = "0.4"
 chrono-tz = "0.10"
 rrule = "0.14.0"
+rquickjs = "0.8"
 
 # Linux 下 winit 至少要一个后端才能编译（只用于开发/录制，正式目标是 Windows）。
 [target.'cfg(target_os = "linux")'.dependencies]
@@ -54,6 +58,10 @@ eframe = { version = "0.31", default-features = false, features = ["glow", "defa
 
 [target.'cfg(windows)'.dependencies]
 windows-core = "=0.58.0"
+ureq = { version = "2.12", default-features = false, features = ["native-tls"] }
+tungstenite = { version = "0.28", default-features = false, features = ["handshake"] }
+clipboard-win = "5.4.3"
+wgpu = { version = "24", default-features = false, features = ["dx12"] }
 memmap2 = "0.9.12"
 windows = { version = "0.58", features = [
   "implement", "Win32_System_SystemServices", "Win32_System_Com_StructuredStorage",
@@ -61,6 +69,7 @@ windows = { version = "0.58", features = [
   "Win32_Graphics_Gdi",
   "Win32_Graphics_Dwm",
   "Win32_System_LibraryLoader",
+  "Win32_System_Memory",
   "Win32_System_Com",
   "Win32_System_DataExchange",
   "Win32_Security",
@@ -69,9 +78,13 @@ windows = { version = "0.58", features = [
   "Win32_System_Registry",
   "Win32_System_SystemInformation",
   "Win32_System_Threading",
+  "Win32_System_RemoteDesktop",
+  "Win32_System_Diagnostics_ToolHelp",
+  "Win32_System_Diagnostics_Debug",
   "Win32_Storage_FileSystem",
   "Win32_System_Memory",
   "Win32_System_DataExchange",
+  "Win32_Storage_Packaging_Appx",
   "Win32_UI_Input_KeyboardAndMouse",
   "Win32_UI_Input_Ime", "Win32_UI_TextServices",
   "Win32_UI_Accessibility",
@@ -85,6 +98,7 @@ windows = { version = "0.58", features = [
   "Win32_Media_Audio_Endpoints",
   "Win32_Media_Audio",
   "Win32_System_WinRT",
+  "Win32_System_WinRT_Composition", "UI_Composition", "UI_Composition_Desktop", "System", "Foundation_Numerics",
   "UI_Notifications_Management",
   "UI_Notifications", "ApplicationModel",
   "Win32_System_Ole", "Win32_UI_Shell_Common", "Networking_Connectivity",

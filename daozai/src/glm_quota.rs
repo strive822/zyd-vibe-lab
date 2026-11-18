@@ -49,7 +49,7 @@ pub fn parse(v: &Value) -> Result<Snapshot, String> {
             seconds,
             remaining: (100.0 - used).clamp(0.0, 100.0) as f32,
             reset: reset_ms(&item["nextResetTime"]),
-            text: None,
+            amount: None,            text: None,
         });
     }
     if snapshot.windows.is_empty() {

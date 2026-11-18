@@ -20,19 +20,19 @@
       ]
     },
     "daozai": {
-      "version": "0.6.50",
-      "tag": "daozai-v0.6.50-r8",
+      "version": "0.6.65",
+      "tag": "daozai-v0.6.65-r1",
       "kind": "windows-installer",
       "assets": [
         {
-          "name": "Daozai-Setup-v0.6.50-x64.exe",
-          "bytes": 5669603,
-          "sha256": "8bf0fcdcc56c853cb85dff50847acd180fa38ff21c73f7721aa50df2c2823afa"
+          "name": "Daozai-Setup-v0.6.65-x64.exe",
+          "bytes": 9326448,
+          "sha256": "abea6fa2fd8cbe1f370a2a395a3f9b3d5467125e3c82eeba5b90a0cae42a236e"
         },
         {
           "name": "SHA256SUMS.txt",
           "bytes": 95,
-          "sha256": "50cf502adf9a604d15a8a626b7935d35a9fe1a282463b0cc5bf1c63011ca6ca2"
+          "sha256": "de34450e657615677565ccaaecc44fdacbcddf30762eedc46af9aef49c237fcf"
         }
       ]
     },

@@ -1,6 +1,6 @@
 //! 检查更新：只查上游正式 release 并提示，不下载、不缓存、不启动安装程序。
 //!
-//! 个人分支基线为 0.6.50；比较对象是已整合的上游正式版本。
+//! 比较对象是已整合的上游正式版本。
 use eframe::egui;
 use std::sync::mpsc::{self, Receiver};
 use std::time::Duration;
@@ -186,6 +186,35 @@ impl State {
             });
     }
 }
+
+/// 只统计岛仔自己的文件（KB）。共享安装文件夹里的其他软件不算在内。
+/// 诊断脚本已内嵌在程序里（`--collect-diagnostics`），安装目录不再附带单独的诊断文件。
+fn own_files_kb(dir: &std::path::Path) -> u32 {
+    let bytes: u64 = ["daozai.exe", "Uninstall.exe", "LICENSE", "THIRD_PARTY_NOTICES.txt"].iter()
+        .filter_map(|name| std::fs::metadata(dir.join(name)).ok()).filter(|meta| meta.is_file()).map(|meta| meta.len()).sum();
+    bytes.div_ceil(1024).min(u64::from(u32::MAX)) as u32
+}
+
+/// 启动时为安装版登记真实大小：旧版安装器没有写 `EstimatedSize`，
+/// 软件管家会统计整个安装文件夹；装进共享文件夹时会显示几十 GB。只在登记的安装位置就是本程序所在目录时写入。
+#[cfg(windows)]
+pub fn record_install_size() {
+    use windows::{core::w, Win32::System::Registry::{RegGetValueW, RegSetKeyValueW, HKEY_CURRENT_USER, REG_DWORD, RRF_RT_REG_SZ}};
+    let key = w!("Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Daozai");
+    let Some(dir) = std::env::current_exe().ok().and_then(|exe| exe.parent().map(std::path::PathBuf::from)) else { return };
+    let mut buffer = [0u16; 1024];
+    let mut size = (buffer.len() * 2) as u32;
+    if unsafe { RegGetValueW(HKEY_CURRENT_USER, key, w!("InstallLocation"), RRF_RT_REG_SZ, None, Some(buffer.as_mut_ptr().cast()), Some(&mut size)) }.is_err() { return; }
+    let location = String::from_utf16_lossy(&buffer[..buffer.iter().position(|c| *c == 0).unwrap_or(0)]);
+    let same = |a: &std::path::Path, b: &std::path::Path| a.canonicalize().ok().zip(b.canonicalize().ok()).is_some_and(|(a, b)| a == b);
+    if location.trim().is_empty() || !same(std::path::Path::new(location.trim()), &dir) { return; }
+    let kb = own_files_kb(&dir);
+    if kb == 0 { return; }
+    let _ = unsafe { RegSetKeyValueW(HKEY_CURRENT_USER, key, w!("EstimatedSize"), REG_DWORD.0, Some((&kb as *const u32).cast()), 4) };
+}
+
+#[cfg(not(windows))]
+pub fn record_install_size() {}
 
 /// 更新请求使用的代理：优先显式环境变量，其次 Windows 系统代理。
 /// 上游 v0.6.50 的代理支持在合并时被个人版更新模块整体替换掉了，这里恢复。
