@@ -16,7 +16,7 @@
 | [Pi 任务通知](pi-task-notify/README.md) | Pi 宿主扩展包 | [安装与验证](pi-task-notify/INSTALL.md) | [Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/pi-task-notify-v0.2.0-r1) |
 | [REA](rea/README.md) | 固定版本 CLI 联网准备包 | [安装与验证](rea/INSTALL.md) | [Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/rea-v6.9.0-r1) |
 | [今日待办](today-todo/README.md) | 零依赖 Node 网页启动包 | [安装与验证](today-todo/INSTALL.md) | [Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/today-todo-v1.0.0-r1) |
-| [Windows-MCP](windows-mcp/README.md) | MCP 服务联网准备包 | [安装与验证](windows-mcp/INSTALL.md) | [Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/windows-mcp-v0.8.9-r1) |
+| [Windows-MCP](windows-mcp/README.md) | MCP 服务联网准备包 | [安装与验证](windows-mcp/INSTALL.md) | [Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/windows-mcp-v0.8.9-r2) |
 | [yt-dlp](yt-dlp/README.md) | CLI 工具链联网准备包 | [安装与验证](yt-dlp/INSTALL.md) | [Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/yt-dlp-v2026.10.26-r4) |
 
 Windows 在下载目录运行 `Get-FileHash -Algorithm SHA256 .\下载的文件名`，与同一 Release 的 `SHA256SUMS.txt` 比对；macOS/Linux 可用 `shasum -a 256`。ZIP 解压到新目录，已有数据留在原处。

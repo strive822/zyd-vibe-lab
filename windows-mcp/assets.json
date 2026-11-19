@@ -1,11 +1,11 @@
 [
   {
     "id": "windows-mcp-source",
-    "url": "https://codeload.github.com/CursorTouch/Windows-MCP/zip/87225657647929751c39740bd67abeb734dc07c6",
-    "bytes": 2033002,
-    "sha256": "d7cf5b1bfb541b9da2e177c839187f0cb0661966630fc679f38cc0a1a72cf2bf",
+    "url": "https://codeload.github.com/CursorTouch/Windows-MCP/zip/3e24d26aa2d7ee8c07d0aa8b17b9f395e569b828",
+    "bytes": 2053324,
+    "sha256": "535afc4d1869fedb0af461cded9b5c2ee5a197592d8388a598db69f2e12d6ecf",
     "repository": "https://github.com/CursorTouch/Windows-MCP",
-    "commit": "87225657647929751c39740bd67abeb734dc07c6",
+    "commit": "3e24d26aa2d7ee8c07d0aa8b17b9f395e569b828",
     "channel": "fixed-main-snapshot"
   }
 ]

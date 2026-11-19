@@ -11,83 +11,93 @@
     ]
   },
   "src/windows_mcp/__main__.py": {
-    "after": "e75fc47f6efbb2efa08c91f4c6338f01970329ce2c7f115525f22bdd5cd28ba2",
-    "before": "5cec298d9c04d54c9b840e5e9bb9221d1cdb7f09d50dda4e295964a977351e64",
+    "after": "1ddaef0f6c140c290ff992cb8eccdcf7104d6dbd3e27a0c85bd3c8596ece8d2a",
+    "before": "559bf08cc7a07d0a2fc45d60e468409556e062294f5bfa8f8627567f9aa1132f",
     "edits": [
       [
-        244,
-        245,
+        88,
+        89,
+        "- Control can expire while idle; call ControlStatus with release=true when the desktop\n"
+      ],
+      [
+        204,
+        213,
+        "    The UIA callback adds a focus revision for Type alongside its Win32\n    focus hook. The accessibility tree is built on demand regardless of this\n    switch. Keeping the subscription opt-in avoids a dedicated STA thread\n    and an access violation in the UIA event pump reported in #332.\n"
+      ],
+      [
+        263,
+        264,
         "        watchdog.set_focus_callback(desktop.on_focus_change)\n"
       ],
       [
-        332,
-        333,
+        351,
+        352,
         "    def ask_consent(seconds: int, cancelled: threading.Event) -> str:\n"
       ],
       [
-        335,
-        336,
+        354,
+        355,
         "        if cancelled.is_set():\n            return \"error\"\n"
       ],
       [
-        337,
-        338,
+        356,
+        357,
         "            control_overlay.set_consent(True)\n            return control_consent.ask(seconds, cancelled)\n"
       ],
       [
-        373,
-        374,
+        392,
+        393,
         ""
       ],
       [
-        375,
-        376,
+        394,
+        395,
         "                await notifier.close()\n"
       ],
       [
-        378,
-        380,
+        397,
+        399,
         "                    controller.stop()\n"
       ],
       [
-        381,
-        387,
+        400,
+        406,
         "                    try:\n                        if controller.enabled:\n                            control_overlay.stop()\n                    finally:\n                        control_loop = None\n                        logger.debug(\"Shutting down: stopping watchdog and analytics\")\n                        if watchdog:\n                            watchdog.stop()\n                        if analytics:\n                            await analytics.close()\n"
       ]
     ]
   },
   "src/windows_mcp/desktop/control.py": {
-    "after": "1c79fb684618327cfb58c9baa4e16abf9f1d99ed2f8db5511236a1acc1755bdb",
-    "before": "8b9776883602e966f454fc828f1590e312634f758c447e7f77dbe22653ed34eb",
+    "after": "12ff8206bddf48eba30b80168050aa4a8379b89fb1a1443b2bcd57b952e76c6c",
+    "before": "00dd44a5d890340622d7e7b29270e99e805e0ae3333e9a19ed69fc37e3c562fe",
     "edits": [
       [
-        67,
         68,
+        69,
         "        self.consent_countdown_seconds = 0\n"
       ],
       [
-        79,
-        79,
+        80,
+        80,
         "        self.focus_revision = 0\n"
       ],
       [
-        81,
-        81,
+        82,
+        82,
         "        self._idle_lease_until: float | None = None\n"
       ],
       [
-        252,
-        253,
+        262,
+        263,
         "        if state in (\"user\", \"unavailable\") or (previous == \"ai\" and state == \"ready\"):\n"
       ],
       [
-        300,
-        301,
+        312,
+        313,
         "        if (\n            self._state == \"ai\"\n            and not self._active_calls\n            and self._idle_lease_until is not None\n            and now >= self._idle_lease_until\n        ):\n            return self._set_locked(\"ready\")\n"
       ],
       [
-        446,
-        446,
+        458,
+        458,
         "                self._idle_lease_until = time.monotonic() + 15.0\n"
       ]
     ]
@@ -119,8 +129,8 @@
     ]
   },
   "src/windows_mcp/desktop/control_win32.py": {
-    "after": "568f84634379496f8e27a6d83c2653cf3f5ae52b9c479b74921bbf2df016e750",
-    "before": "73d12a3069d8ac6aec52a1a7b740d753a613e955a6baa53844a74cd57ccb34cc",
+    "after": "20233b3173ea817a3907e2bec88ec6c398fbaa40680cb99849df75b0f16323db",
+    "before": "fa3b0d6b8b490daf2653cd3678dc51bb322a8575246565b212c9e3c85bd9d41e",
     "edits": [
       [
         3,
@@ -143,30 +153,112 @@
         "_user32.SetWinEventHook.argtypes = [\n    wintypes.DWORD, wintypes.DWORD, wintypes.HMODULE, _WINEVENTPROC,\n    wintypes.DWORD, wintypes.DWORD, wintypes.DWORD,\n]\n_user32.SetWinEventHook.restype = wintypes.HANDLE\n_user32.UnhookWinEvent.argtypes = [wintypes.HANDLE]\n_user32.UnhookWinEvent.restype = wintypes.BOOL\n"
       ],
       [
-        263,
-        263,
+        288,
+        288,
         "    @_WINEVENTPROC\n    def record_focus(_hook, _event, _hwnd, _object, _child, _thread, _time):\n        # A sequence counter records the transition without reading the window.\n        owner.focus_revision += 1\n\n"
       ],
       [
-        280,
-        280,
+        305,
+        305,
         "    focus_hook = None\n"
       ],
       [
-        291,
-        291,
+        321,
+        321,
         "        # Out-of-context events are delivered on the existing input monitor.\n        focus_hook = _user32.SetWinEventHook(_FOCUS_EVENT, _FOCUS_EVENT, None, record_focus, 0, 0, 0)\n        if not focus_hook:\n            logger.warning(\"Win32 focus change monitoring unavailable (error %s)\", ctypes.get_last_error())\n"
       ],
       [
-        328,
-        328,
+        368,
+        368,
         "        if focus_hook:\n            _user32.UnhookWinEvent(focus_hook)\n"
+      ]
+    ]
+  },
+  "src/windows_mcp/desktop/control_worker.py": {
+    "after": "1d64dd151441ca469481245151ae7c29581e41f4ad6e6bfe0907a491d038798f",
+    "before": "55b12b2c6769bc4add292de788127ddfd2b3180615542ebc05d5ac5bdee64825",
+    "edits": [
+      [
+        58,
+        58,
+        "    if owner._emergency:\n        # Keep retrying failed input releases even after the hooks have been reinstalled.\n        if owner.input_ledger.pending():\n            return _FIRST_WAIT\n        if owner._rehook_completed is not owner._fault_token or owner._rotating:\n            return _FAULT_INTERVAL\n"
+      ]
+    ]
+  },
+  "src/windows_mcp/desktop/flash_overlay.py": {
+    "after": "a25c241c638d1a18e2363cccead9d47ce1b625a28cd5951db4dcb38415e4483e",
+    "before": "653f5dc87a24f9512b5e587cd2d72e6f7b63a6791f347a54b2227c887b2f4db9",
+    "edits": [
+      [
+        7,
+        9,
+        "display layout, copied into a reusable source bitmap per strip, and faded\nusing the layered window's constant alpha. Tk was tried twice and abandoned —\n"
+      ],
+      [
+        23,
+        23,
+        "from contextlib import ExitStack, contextmanager\n"
+      ],
+      [
+        37,
+        39,
+        "# Each change uses the same source bitmap in one UpdateLayeredWindow call.\n"
+      ],
+      [
+        504,
+        508,
+        "@contextmanager\ndef _bitmap_surface(w: int, h: int, bgra: bytes):\n    \"\"\"Keep the premultiplied source bitmap selected throughout one fade.\"\"\"\n"
+      ],
+      [
+        539,
+        556,
+        "                    yield screen_dc, mem_dc\n"
+      ],
+      [
+        566,
+        574,
+        "def _push_bitmap(hwnd: int, strip: _Strip, surface: tuple[int, int], opacity: int) -> None:\n    screen_dc, mem_dc = surface\n    pos = _POINT(strip.x, strip.y)\n    size = _SIZE(strip.width, strip.height)\n    src_pos = _POINT(0, 0)\n"
+      ],
+      [
+        575,
+        575,
+        "    # ULW_ALPHA requires a source DC even when the bitmap pixels have not changed.\n"
+      ],
+      [
+        576,
+        577,
+        "        hwnd, screen_dc, ctypes.byref(pos), ctypes.byref(size), mem_dc,\n        ctypes.byref(src_pos), 0, ctypes.byref(blend), _ULW_ALPHA,\n"
+      ],
+      [
+        622,
+        622,
+        "    frames: list[tuple[int, _Strip, tuple[int, int]]] = []\n    surfaces = ExitStack()\n"
+      ],
+      [
+        637,
+        640,
+        "            surface = surfaces.enter_context(_bitmap_surface(strip.width, strip.height, strip.bgra))\n            frames.append((hwnd, strip, surface))\n            _push_bitmap(hwnd, strip, surface, 0)\n"
+      ],
+      [
+        666,
+        668,
+        "                    for hwnd, strip, surface in frames:\n                        _push_bitmap(hwnd, strip, surface, 0)\n"
+      ],
+      [
+        678,
+        680,
+        "                for hwnd, strip, surface in frames:\n                    _push_bitmap(hwnd, strip, surface, opacity)\n"
+      ],
+      [
+        697,
+        702,
+        "        try:\n            surfaces.close()\n        except Exception:\n            logger.debug(\"screenshot flash bitmap cleanup failed\", exc_info=True)\n        finally:\n            with _lock:\n                if _active_overlay is overlay:\n                    _active_overlay = None\n                _all_overlays.discard(overlay)\n            overlay.closed_event.set()\n"
       ]
     ]
   },
   "src/windows_mcp/desktop/service.py": {
     "after": "b55a5c9d0ef6d62f2496ad050e43fcfda590a80c83390b4e6b125c277d397e9c",
-    "before": "9f1f061af7c487bf76337b53445a608071105f26bcd2dd6d94b500464e587577",
+    "before": "3845a886031723d01921fcb4f5e30e6102168cffee665f04e7bf4046b29d9ff6",
     "edits": [
       [
         135,
@@ -307,16 +399,6 @@
         1136,
         1136,
         "            if focus_target is not None:\n                self._verify_field_focus(focus_target)\n"
-      ],
-      [
-        1571,
-        1586,
-        "                                \"depth\": depth,\n                                \"status\": status,\n                                \"bounding_box\": BoundingBox(\n                                    left=bounding_rect.left,\n                                    top=bounding_rect.top,\n                                    right=bounding_rect.right,\n                                    bottom=bounding_rect.bottom,\n                                    width=bounding_rect.width(),\n                                    height=bounding_rect.height(),\n                                ),\n                                \"handle\": child.NativeWindowHandle,\n                                \"process_id\": child.ProcessId,\n                                \"is_browser\": self.is_window_browser(child),\n                            }\n"
-      ],
-      [
-        1587,
-        1588,
-        "                    )\n                    window_handles.add(child.NativeWindowHandle)\n"
       ]
     ]
   },
@@ -477,8 +559,8 @@
     ]
   },
   "tests/test_control_hook_rotation.py": {
-    "after": "e317769498adb1f4b74e716bca13e33cb4779655ab6545634b71fd45cbf6d2d5",
-    "before": "b6490eddd7dbdd00d2609ead51914b2decbf3ca32fc09b956517cb0bb0326e81",
+    "after": "bdb719045b3f38cc71898b6c2c62b5bcbb3d9f4436be83d10a23a93b34f4488c",
+    "before": "735927a6282f533068147e3d3006e54cdfcc4e357b784bc4984be16dae42bbe4",
     "edits": [
       [
         35,
@@ -489,6 +571,27 @@
         46,
         46,
         "\n\ndef test_native_monitor_records_focus_without_uia_watchdog(monkeypatch):\n    owner = control.ControlCoordinator()\n    events = []\n    user32 = _fake_user32([901, 902], events, on_idle=lambda *_: owner._stop.set())\n\n    def subscribe(first, last, module, callback, process, thread, flags):\n        assert first == last == control_win32._FOCUS_EVENT\n        callback(555, first, 777, 0, 0, 0, 0)\n        return 555\n\n    user32.SetWinEventHook = subscribe\n    user32.UnhookWinEvent = lambda handle: events.append((\"focus-unhook\", handle))\n    monkeypatch.setattr(control, \"_user32\", user32)\n    monkeypatch.setattr(control_win32, \"_user32\", user32)\n    control_win32.run_input_monitor(owner)\n    assert owner.focus_revision == 1\n    assert (\"focus-unhook\", 555) in events\n"
+      ]
+    ]
+  },
+  "tests/test_control_idle_waits.py": {
+    "after": "c418aa26df95f71d3507895b7dc0259f9c38f7a31dd10494f4927a3efb30e3e7",
+    "before": "0827653872ffed9e06cddc0c89a0375fd4b2fb50059c64880048fe50f269c6d3",
+    "edits": [
+      [
+        6,
+        6,
+        "\nimport pytest\n"
+      ],
+      [
+        23,
+        23,
+        "        SetWinEventHook=lambda *args: 0,\n        UnhookWinEvent=lambda handle: True,\n"
+      ],
+      [
+        144,
+        144,
+        "\n\ndef test_worker_without_rehook_waits_at_fault_cadence(monkeypatch):\n    owner, _, wake = _worker(monkeypatch, \"ready\", 8)\n    owner._thread_beat = 1e9\n    calls = []\n\n    def probe():\n        calls.append(None)\n        return len(calls) == 1\n\n    control_worker.run_control_worker(owner, probe)\n    assert len(calls) == 2 and owner._emergency\n    assert wake.waits[3:] == [control_worker._FAULT_INTERVAL] * 5\n\n\n@pytest.mark.parametrize(\"rehooked\", [False, True])\ndef test_worker_retries_pending_releases_after_fault(monkeypatch, rehooked):\n    owner, _, wake = _worker(monkeypatch, \"ready\", 5)\n    release_attempts = 0\n\n    def release():\n        nonlocal release_attempts\n        release_attempts += 1\n        if release_attempts <= 2:\n            raise OSError(\"mock input release failure\")\n\n    owner.input_ledger.press(\"test-key\", lambda: None, release, lambda: False)\n    owner._fail_open()\n    if rehooked:\n        owner._rehook_completed = owner._fault_token\n        owner._thread_beat = 1e9\n    control_worker.run_control_worker(owner, lambda: True)\n    assert release_attempts == 3\n    assert wake.waits[:2] == [0.01, 0.01]\n    if not rehooked:\n        assert wake.waits[2:] == [1.0, 1.0, 1.0]\n"
       ]
     ]
   },
@@ -542,6 +645,57 @@
         258,
         259,
         "    # An expired lease does not clear a real held key.\n"
+      ]
+    ]
+  },
+  "tests/test_flash_overlay.py": {
+    "after": "c22ad3d817f990bda3caa3e03542ddfd8ae3dc1207bcb22d173b9e6b52708d2a",
+    "before": "da9f4e551df589cf1dcc1c4c13071680a46cb15398ee7120d49e1b5fad02421b",
+    "edits": [
+      [
+        8,
+        8,
+        "from contextlib import contextmanager\n"
+      ],
+      [
+        285,
+        286,
+        "    active = set()\n    initialized = {}\n\n    @contextmanager\n    def bitmap_surface(width, height, bgra):\n"
+      ],
+      [
+        287,
+        288,
+        "        surface = object()\n        active.add(surface)\n        try:\n            yield surface\n        finally:\n            active.remove(surface)\n"
+      ],
+      [
+        289,
+        290,
+        "    def upload(hwnd, strip, surface, opacity):\n        assert surface in active\n        if hwnd not in initialized:\n            initialized[hwnd] = surface\n            calls[\"uploads\"].append((hwnd, strip.x, strip.y, strip.width, strip.height, opacity))\n            return\n        assert initialized[hwnd] is surface\n"
+      ],
+      [
+        298,
+        299,
+        "    monkeypatch.setattr(flash_overlay, \"_bitmap_surface\", bitmap_surface)\n"
+      ],
+      [
+        319,
+        319,
+        "        assert not active\n"
+      ],
+      [
+        418,
+        418,
+        "    def test_failed_bitmap_cleanup_still_unregisters_overlay(self, monkeypatch, fresh_glow_cache):\n        _, run = _fake_win32(monkeypatch)\n\n        @contextmanager\n        def broken_bitmap(width, height, pixels):\n            try:\n                yield (1, 2)\n            finally:\n                raise OSError(\"mock bitmap cleanup failure\")\n\n        monkeypatch.setattr(flash_overlay, \"_bitmap_surface\", broken_bitmap)\n        monkeypatch.setattr(flash_overlay, \"_push_bitmap\", lambda *args: None)\n        overlay = run([(0, 0, 1440, 900)], False)\n        assert overlay.closed_event.is_set()\n        assert overlay not in flash_overlay._all_overlays\n\n"
+      ],
+      [
+        419,
+        420,
+        "    def test_each_strip_reuses_one_surface_and_fades_smoothly_in_then_out(\n"
+      ],
+      [
+        427,
+        428,
+        "        # The surface is reused for each fade frame and starts fully transparent.\n"
       ]
     ]
   },
