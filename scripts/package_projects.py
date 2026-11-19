@@ -9,9 +9,11 @@ import subprocess
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
-PROJECTS = tuple(p.name for p in sorted(ROOT.iterdir()) if p.is_dir()
-                 and not p.name.startswith('.') and (p / 'README.md').is_file()
-                 and (p / 'INSTALL.md').is_file())
+SOURCE_PROJECTS = tuple(p.name for p in sorted(ROOT.iterdir()) if p.is_dir()
+                        and not p.name.startswith('.') and (p / 'README.md').is_file()
+                        and (p / 'INSTALL.md').is_file())
+UPSTREAM_RELEASE_PROJECTS = {'codegraph'}
+PROJECTS = tuple(name for name in SOURCE_PROJECTS if name not in UPSTREAM_RELEASE_PROJECTS)
 EXCLUDED = {'delivery', 'packages', '.git', '.venv', 'venv', 'node_modules', '.next',
             '__pycache__', '.pytest_cache', '.mypy_cache', '.ruff_cache', '.downloads',
             '.runtime', '.npm-cache', 'target', 'dist'}

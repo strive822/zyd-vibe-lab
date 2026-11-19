@@ -15,6 +15,11 @@ SPEC.loader.exec_module(packages)
 
 
 class DeliveryCompletenessTests(unittest.TestCase):
+    def test_codegraph_source_is_checked_and_uses_its_upstream_release(self):
+        self.assertIn("codegraph", packages.SOURCE_PROJECTS)
+        self.assertNotIn("codegraph", packages.PROJECTS)
+        packages.verify(packages.ROOT / "codegraph")
+
     def test_agent_desktop_source_alias_is_validated_and_excluded(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

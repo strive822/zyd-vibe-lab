@@ -49,6 +49,9 @@ SECRET_FIXTURE_HASHES = {
     "daozai/vendor/ureq/src/proxy.rs": {
         "77e530809b2c35131e1104f8851b8d501687febfe4135b58b2cfd11a72170d83",
     },
+    "codegraph/source/__tests__/config-secret-redaction.test.ts": {
+        "bd1bd021fd29d467adea4e03ad2d5a8340a16b5b9c82e645c9d83578f3be1523",
+    },
     "agent-desktop/source/scripts/jev/run.test.mjs": {
         "ec25b8fa54a9d7a878a86e6f38233af24d5d27d184b396136d6d7f0251d33c19",
         "7f8183fd094a7b10753ce6a5f1a4388aa1afeda990c4134417045c78fcec9a2d",
@@ -58,6 +61,17 @@ SECRET_FIXTURE_HASHES = {
 PRIVATE_KEY_FIXTURE_FILES = {
     "daozai/src/calendar/tls_test_certificates.json": "f1c8428c30047f8c29ea3887ea41d6cc815d85280821322a9513d8d9be17534a",
     "daozai/vendor/ureq/tests/https-agent.rs": "886100aed5e2603e50b6582d09dff2dce1f5c5cda2beb9481fb716bdf5697686",
+}
+
+
+CODEGRAPH_SITE_DOCS = "codegraph/source/site/src/content/docs/"
+# Keep the pinned upstream Markdown byte-for-byte. These are a repo-relative
+# self-link and a regex fragment mistaken for a link in multiline inline code.
+UPSTREAM_MARKDOWN_EXCEPTIONS = {
+    "codegraph/source/docs/benchmarks/residual-context-occupancy.md": {
+        "docs/benchmarks/residual-context-occupancy.md",
+    },
+    "codegraph/source/docs/design/callback-edge-synthesis.md": {"""[^'"]+"""},
 }
 
 
@@ -105,8 +119,8 @@ def zip_check(path: Path, errors: list[str]) -> None:
 
 
 def check_packages(errors: list[str]) -> None:
-    from package_projects import PROJECTS, verify
-    for name in PROJECTS:
+    from package_projects import PROJECTS, SOURCE_PROJECTS, verify
+    for name in SOURCE_PROJECTS:
         verify(ROOT / name)
     catalog = json.loads((ROOT / 'releases.json').read_text(encoding='utf-8'))
     if set(catalog['projects']) != set(PROJECTS):
@@ -169,6 +183,10 @@ def check_file(path: Path, known: set[Path], errors: list[str]) -> list[str]:
         if not valid:
             errors.append(f"{label}: invalid font/audio signature")
         return checks + ["font/audio signature"]
+    if label.startswith("codegraph/source/src/extraction/wasm/") and path.suffix == ".wasm":
+        if not data.startswith(b"\x00asm\x01\x00\x00\x00"):
+            errors.append(f"{label}: invalid WebAssembly signature")
+        return checks + ["WebAssembly signature"]
     text = data.decode("utf-8-sig")
     checks.append("UTF-8")
     if path.suffix in {".py", ".spec"}:
@@ -190,7 +208,13 @@ def check_file(path: Path, known: set[Path], errors: list[str]) -> list[str]:
             url = unquote(url.split(' "')[0].strip("<>").split("#")[0])
             if not url or re.match(r"[a-zA-Z][a-zA-Z0-9+.-]*:", url):
                 continue
-            target = (path.parent / url).resolve()
+            if url in UPSTREAM_MARKDOWN_EXCEPTIONS.get(label, ()):
+                continue
+            if label.startswith(CODEGRAPH_SITE_DOCS) and url.startswith("/codegraph/"):
+                route = url.removeprefix("/codegraph/").rstrip("/")
+                target = (ROOT / CODEGRAPH_SITE_DOCS / (route + ".md")).resolve()
+            else:
+                target = (path.parent / url).resolve()
             if not target.is_relative_to(ROOT) or (target.is_file() and target not in known):
                 errors.append(f"{label}: link depends on a file outside public checkout: {url}")
             elif not target.exists():

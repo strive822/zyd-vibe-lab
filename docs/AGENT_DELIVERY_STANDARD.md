@@ -8,6 +8,7 @@
 
 ## 按类型打包
 
+- CodeGraph 使用项目 upstream.json 固定的官方 Windows 便携包与校验文件，仓库保存其上游源码及安装说明。下方的本仓库打包和发布流程适用于自行发布成品的项目。
 - agent-desktop 交付 Windows x64 便携 CLI、安装说明和 Apache-2.0 许可证。程序取自 `agent-desktop/upstream.json` 固定的上游发行包；打包时复核可执行文件哈希。
 - 岛仔：已验收 GLM Z 标安装 EXE + SHA256SUMS.txt；无需便携/源码套娃包。
 - 飞鼠：轻量官方安装器入口 + 校验；联网下载并核验固定的原版安装器，不重新打包离线转换引擎。

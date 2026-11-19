@@ -1,10 +1,11 @@
 # Repository rules (authoritative)
 
-This repository holds eleven independent projects. Source, tests, licenses, templates and locked upstream references belong in Git. User-facing installers, runtime/launcher packages, skills and extensions belong in GitHub Releases. Never rewrite published history as part of routine cleanup.
+This repository holds twelve independent projects. Source, tests, licenses, templates and locked upstream references belong in Git. User-facing installers, runtime/launcher packages, skills and extensions belong in GitHub Releases. Never rewrite published history as part of routine cleanup.
 
 ## Repository map
 
 - agent-desktop: Rust desktop CLI and MCP. Upstream source lives in source/ with its Git tree pinned in upstream.json. The Windows x64 runtime wraps the hash-verified official executable. Verify version and a read-only window listing.
+- codegraph provides a local code knowledge graph and MCP. The upstream snapshot lives in source/ with commit, tree and official Windows assets pinned in upstream.json.
 - daozai: Rust/egui Windows app. `python -m unittest discover -s packaging_tests -v`; `cargo test --locked --all-targets --features record -- --test-threads=1`. Isolate test data; never real AppData/accounts. GLM uses zai.svg.
 - dca-calculator: FastAPI + Next.js; no trading. Backend pytest; frontend typecheck, tests and static build with DCA_EXPORT=1.
 - today-todo: zero-dependency Node service; `node --test test/api.test.js`, `node tools/contrast.js`. Never commit real data/todos.json.
@@ -20,7 +21,7 @@ This repository holds eleven independent projects. Source, tests, licenses, temp
 1. ASCII lowercase kebab-case directory; README.md, INSTALL.md, AGENTS.md, license and reproducible source/build instructions.
 2. README heading `## 直接让 Agent 帮你使用` with a text prompt naming this repository, exact project directory and INSTALL.md.
 3. INSTALL.md has `## 给人：` and `## 给 Agent：` sections: browser Release link, checksum, install/start/verify, plus copyable Agent prompt and execution constraints. Root INSTALL.md follows the same rule.
-4. Register purpose and installation links in root README/INSTALL and a pinned Release in releases.json. Each published artifact has exact name, bytes, SHA-256 and a downloadable SHA256SUMS.txt.
+4. Register purpose and installation links in root README/INSTALL. Releases published by this repository are pinned in releases.json with exact asset names, bytes, SHA-256 and a downloadable SHA256SUMS.txt. CodeGraph pins its official upstream Release and checksums in codegraph/upstream.json.
 5. Preserve original licenses/notices and pinned upstream commits. Original work uses MIT, Copyright (c) 2026 zhongyudi. The upstream download locks do not claim to include all third-party source locally.
 6. Source-only Git: no delivery/, generated packages/, target/, node_modules/, virtualenvs or installers/archives. Binary source assets such as images, fonts and model data remain where required; prebuilt executables are downloaded from fixed sources for development.
 

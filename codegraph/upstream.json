@@ -1,0 +1,29 @@
+{
+  "repository": "https://github.com/colbymchenry/codegraph",
+  "tag": "v1.6.3",
+  "source_commit": "ef4bd058d97020a2b2a74a89f1bf21b84e9f5b30",
+  "source_tree": "8fe4f7863ba448d47d5e6d48da71168c5fa834f6",
+  "imported_tree": "66de5bac965b46e65258a1b458495996274bd0e8",
+  "excluded_paths": [
+    "assets/__pycache__/generate-waitlist.cpython-313.pyc"
+  ],
+  "license": "MIT",
+  "release": "https://github.com/colbymchenry/codegraph/releases/tag/v1.6.3",
+  "assets": [
+    {
+      "name": "codegraph-win32-x64.zip",
+      "bytes": 55194507,
+      "sha256": "cc1ab45c49a8b0897ea22f458c2905701e73d072d4875177cfca3e9c2fc36fb3"
+    },
+    {
+      "name": "codegraph-win32-arm64.zip",
+      "bytes": 50942337,
+      "sha256": "3a7e3ada67070c0afbbc8edbcd530cf34478b40fd03481eed8a7ce97eed1e26a"
+    },
+    {
+      "name": "SHA256SUMS",
+      "bytes": 560,
+      "sha256": "7d7214466bbe0b0423f2cdb591e744aa890d6a2fa12123b391c7b50cba8f0e53"
+    }
+  ]
+}

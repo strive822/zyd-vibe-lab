@@ -1,12 +1,13 @@
 # zyd-vibe-lab
 
-zhongyudi 的 11 个独立项目。仓库保存源码、测试、配置模板、锁文件与许可证；用户安装或运行的成品放各项目 GitHub Release。Git 提交与标签保留；每个项目的 Release 仅保留最新一版。
+zhongyudi 的 12 个独立项目。仓库保存源码、测试、配置模板、锁文件与许可证。CodeGraph 使用上游官方 Release，其余项目的成品使用本仓库 GitHub Release。Git 提交与标签保留，本仓库为每个自发成品的项目保留当前一版 Release。
 
 ## 项目与下载
 
 | 项目 | 用途 | 源码 | 成品形式 | 给人 / 给 Agent | 下载 |
 | --- | --- | --- | --- | --- | --- |
 | [agent-desktop](agent-desktop/README.md) | 通过无障碍接口操作桌面应用 | [上游源码](agent-desktop/source/) | Windows x64 CLI 和 MCP 便携包 | [安装与验证](agent-desktop/INSTALL.md) | [Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/agent-desktop-v1.3.1-r1) |
+| [CodeGraph](codegraph/README.md) | 本地代码知识图谱与 Agent MCP | [上游源码](codegraph/source/) | Windows CLI 和 MCP 便携包 | [安装与验证](codegraph/INSTALL.md) | [上游 Release](https://github.com/colbymchenry/codegraph/releases/tag/v1.6.3) |
 | [岛仔 Daozai](daozai/README.md) | Windows 顶部信息岛 | [Rust 应用源码](daozai/src/) | Windows 安装器 | [安装与验证](daozai/INSTALL.md) | [Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/daozai-v0.6.65-r1) |
 | [三资产定投计算器](dca-calculator/README.md) | 三资产定投权重计算 | [前后端源码](dca-calculator/) | 网页启动包（前端已构建） | [安装与验证](dca-calculator/INSTALL.md) | [Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/dca-calculator-v1.0.0-r1) |
 | [飞鼠格式](flyingmouse-format/README.md) | 离线文件格式转换 | [应用源码](flyingmouse-format/) | 官方安装器联网安装入口 | [安装与验证](flyingmouse-format/INSTALL.md) | [Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/flyingmouse-format-v0.8.3-r1) |
@@ -25,6 +26,7 @@ yt-dlp、Windows-MCP、REA 的本地准备代码与固定上游来源保存在�
 | 想做什么 | 项目与具体入口 |
 | --- | --- |
 | 通过无障碍接口读取和操作桌面应用 | [agent-desktop](agent-desktop/README.md)，支持 CLI 和 Codex MCP。 |
+| 让 Agent 查代码符号、调用路径和改动影响 | [CodeGraph](codegraph/README.md)，支持 CLI 和 MCP。 |
 | 桌面常驻信息、专注、饮水与轻量收集 | [岛仔功能一览](daozai/README.md#功能一览)：音乐歌词、待办、日历邮件、三类内容暂存、AI 额度和系统提示。 |
 | 对照长期均线计算三资产投入比例 | [定投计算器](dca-calculator/README.md#你会得到什么)：SMA800、两套模型和金额分摊，展示来源与时间，不执行交易。 |
 | 把图片、Office、PDF 或音视频转成另一种格式 | [飞鼠格式](flyingmouse-format/README.md#功能导航与本仓库交付范围)：本地转换、批量队列、PDF/OCR、命令行与 Agent 入口。 |
@@ -46,6 +48,12 @@ yt-dlp、Windows-MCP、REA 的本地准备代码与固定上游来源保存在�
 
 ```text
 安装并使用 https://github.com/strive822/zyd-vibe-lab 里的 agent-desktop。先读该项目 INSTALL.md，下载并校验 Windows x64 成品。用 --version 和只读 list-windows 验证。只有我明确要求接入 Codex 时才注册 MCP。
+```
+
+**CodeGraph**
+
+```text
+安装并使用 https://github.com/strive822/zyd-vibe-lab 里的 codegraph。先读该项目 INSTALL.md，下载并核验适合本机的 CodeGraph 官方固定版本。已有同版本 CLI 时复用。确认 codegraph --version，只有我要求接入宿主或给项目建索引时才执行对应步骤。
 ```
 
 **岛仔 Daozai**

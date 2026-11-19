@@ -7,6 +7,7 @@
 | 项目 | 交付形式 | 说明 | 下载 |
 | --- | --- | --- | --- |
 | [agent-desktop](agent-desktop/README.md) | Windows x64 CLI 和 MCP 便携包 | [安装与验证](agent-desktop/INSTALL.md) | [Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/agent-desktop-v1.3.1-r1) |
+| [CodeGraph](codegraph/README.md) | 官方 Windows CLI 和 MCP 便携包 | [安装与验证](codegraph/INSTALL.md) | [上游 Release](https://github.com/colbymchenry/codegraph/releases/tag/v1.6.3) |
 | [岛仔 Daozai](daozai/README.md) | Windows 安装器 | [安装与验证](daozai/INSTALL.md) | [Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/daozai-v0.6.65-r1) |
 | [三资产定投计算器](dca-calculator/README.md) | 网页启动包（前端已构建） | [安装与验证](dca-calculator/INSTALL.md) | [Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/dca-calculator-v1.0.0-r1) |
 | [飞鼠格式](flyingmouse-format/README.md) | 官方安装器联网安装入口 | [安装与验证](flyingmouse-format/INSTALL.md) | [Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/flyingmouse-format-v0.8.3-r1) |
@@ -30,7 +31,7 @@ Windows 在下载目录运行 `Get-FileHash -Algorithm SHA256 .\下载的文件�
 
 ## Agent 的执行顺序
 
-1. 读取项目 INSTALL.md 与 [releases.json](releases.json)，使用固定 tag 与附件，不猜最新版本、不把源码 ZIP 当程序。
+1. 读取项目 INSTALL.md。使用 [releases.json](releases.json) 中的固定 tag 和附件。CodeGraph 使用 [项目上游锁](codegraph/upstream.json) 中的官方成品。
 2. 下载到仓库外的新目录，核对大小和 SHA-256；已有同名不同内容文件不覆盖。仅下载不会安装或启动。
 3. 执行该项目的安装/启动入口。联网准备包会按其 assets.json 下载固定官方运行时或工具，并再次校验；不是离线全量包。
 4. 分别验证文件、进程/页面和宿主接入；不能凭文件存在声称已安装、凭单元测试声称真实账号或手机已接通。
