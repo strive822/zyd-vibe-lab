@@ -2839,28 +2839,6 @@ fn wheel_overflowing_todos_stay_at_both_edges(){
 }
 
 #[test]
-fn wheel_clipboard_stays_at_both_edges() {
-    let _g=ENV_LOCK.lock().unwrap_or_else(|e|e.into_inner());
-    let mut h=H::new();
-    h.app.show_page(3);
-    h.app.shelf_tab=1;
-    for count in [crate::pages::CLIP_ROWS+1] {
-        h.app.clipboard.lock().items.clear();
-        for i in 0..count { h.app.clipboard.lock().push(&i.to_string(), "09:00"); }
-        let last=count.saturating_sub(crate::pages::CLIP_ROWS);
-        for (delta, first) in [(40.0,0),(-40.0,last),(-40.0,last),(40.0,0),(40.0,0)] {
-            h.hover(H::local(300.0,60.0),0.4);
-            h.wheel(delta);
-            assert_eq!(h.app.page,3);
-            assert_eq!(h.app.clip_first,first);
-        }
-        for (delta,page) in [(-40.0,4),(40.0,2)]{
-            h.app.show_page(3);h.hover(H::local(210.0,18.0),0.4);h.wheel(delta);
-            assert_eq!(h.app.page,page,"剪贴板列表外仍应允许滚轮翻页");
-        }
-    }
-}
-#[test]
 fn wheel_handles_small_deltas_without_skipping_pages_on_bursts(){
     let _g=ENV_LOCK.lock().unwrap_or_else(|e|e.into_inner());let mut h=H::new();
     h.hover_page(0,1.0);h.hover(H::local(210.0,34.0),0.3);
@@ -6864,6 +6842,50 @@ fn shelf_shows_three_kinds_with_details() {
 }
 
 #[test]
+fn shelf_ignores_the_removed_clipboard_history_setting() {
+    let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let dir = std::env::temp_dir().join(format!("daozai-test-{}-{}", std::process::id(), rand_id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let settings_path = dir.join("settings.txt");
+    let history_path = dir.join("clipboard.json");
+    let legacy_history = br#"[{"text":"pinned legacy text","at":"09:00","pinned":true}]"#;
+    std::fs::write(&settings_path, "clipboard_history=1\ncollect=111111\n").unwrap();
+    std::fs::write(&history_path, legacy_history).unwrap();
+
+    let mut h = H::with_data_dir(dir);
+    h.app.show_page(crate::app::SHELF_PAGE);
+    h.hover(H::local(210.0, 65.0), 1.0);
+    let shelf_labels: Vec<_> = h.shapes.iter().filter_map(|shape| match &shape.shape {
+        egui::Shape::Text(text) => Some(text.galley.text()),
+        _ => None,
+    }).collect();
+    for label in ["暂存站", "文件", "写文字"] {
+        assert!(shelf_labels.contains(&label), "暂存站缺少 {label}");
+    }
+    assert!(!shelf_labels.contains(&"剪贴板"));
+
+    h.app.open_settings();
+    h.app.settings_tab = 5;
+    h.ctx.set_embed_viewports(true);
+    let output = h.ctx.run(egui::RawInput {
+        screen_rect: Some(Rect::from_min_size(Pos2::ZERO, egui::vec2(800.0, 1000.0))),
+        ..Default::default()
+    }, |ctx| h.app.settings_ui(ctx, false));
+    let settings_labels: Vec<_> = output.shapes.iter().filter_map(|shape| match &shape.shape {
+        egui::Shape::Text(text) => Some(text.galley.text()),
+        _ => None,
+    }).collect();
+    assert!(settings_labels.contains(&"打开暂存站"));
+    assert!(!settings_labels.contains(&"记录剪贴板"));
+    assert!(!settings_labels.contains(&"打开剪贴板"));
+
+    h.app.settings.save();
+    let saved = std::fs::read_to_string(&settings_path).unwrap();
+    assert!(!saved.contains("clipboard_history="));
+    assert_eq!(std::fs::read(history_path).unwrap(), legacy_history);
+}
+
+#[test]
 fn shelf_text_dialog_splits_blank_lines_and_keeps_focus(){
     let _g=ENV_LOCK.lock().unwrap_or_else(|e|e.into_inner());let mut h=H::new();
     h.app.show_page(3);for _ in 0..60 {h.frame(vec![]);}
@@ -8411,7 +8433,7 @@ fn shoot_feature(h:&mut H,raster:&mut crate::preview_raster::Raster,dest:&std::p
 }
 
 #[test]
-#[ignore="按需导出每周待办与剪贴板的实际画面"]
+#[ignore="按需导出每周待办与暂存站的实际画面"]
 fn feature_gallery(){
     let _g=ENV_LOCK.lock().unwrap_or_else(|e|e.into_inner());
     let dest=std::path::PathBuf::from(std::env::var_os("DAOZAI_FEATURE_PREVIEW_DIR").expect("需指定预览目录"));std::fs::create_dir_all(&dest).unwrap();
@@ -8433,20 +8455,11 @@ fn feature_gallery(){
     shoot_feature(&mut h,&mut r,&dest,"todo-picker-0",30,Some(H::local(120.0,60.0)),today);
     h.app.open_task_reminder(3);
     shoot_feature(&mut h,&mut r,&dest,"todo-picker",60,Some(H::local(120.0,60.0)),today);
-    // 剪贴板
-    let mut h=H::new();let mut r=feature_raster();h.app.show_page(3);h.app.shelf_tab=1;
-    shoot_feature(&mut h,&mut r,&dest,"clip-empty",60,Some(H::local(120.0,60.0)),today);
-    {let mut hist=h.app.clipboard.lock();hist.items.clear();
-        for (i,t) in ["https://github.com/Renly1994/xiaotang-daozai/releases","会议纪要：\n1. 周三前确认岛仔竖版方案\n2. 剪贴板记录上线","13800138000","SELECT * FROM todo WHERE repeat > 0 ORDER BY due;","验证码 482913"].iter().enumerate(){hist.push(t,&format!("09:{:02}",30+i));}
-        hist.items[3].pinned=true;}
-    shoot_feature(&mut h,&mut r,&dest,"clip-list",30,Some(H::local(200.0,66.0)),today);
-    h.app.shelf_tab=0;
-    let file=std::env::temp_dir().join("岛仔周报.docx");std::fs::write(&file,b"x").unwrap();h.app.shelf_seed(&[file]);
+    let mut h=H::new();let mut r=feature_raster();h.app.show_page(3);
+    let file=h.dir.join("岛仔周报.docx");std::fs::write(&file,b"x").unwrap();h.app.shelf_seed(&[file]);
     shoot_feature(&mut h,&mut r,&dest,"shelf-files",30,Some(H::local(120.0,60.0)),today);
     h.app.confirm_clear=Some(h.app.t);
     shoot_feature(&mut h,&mut r,&dest,"shelf-confirm",5,Some(H::local(120.0,60.0)),today);
-    h.app.settings.clipboard_history=false;h.app.shelf_tab=1;
-    shoot_feature(&mut h,&mut r,&dest,"clip-off",30,Some(H::local(120.0,60.0)),today);
 }
 
 static SIDE_MUSIC:std::sync::atomic::AtomicBool=std::sync::atomic::AtomicBool::new(false);
@@ -9408,14 +9421,6 @@ fn wheel_short_lists_turn_pages(){
             assert_eq!(h.app.page,page,"待办未溢出应翻页，条数 {count}");
         }
     }
-    for count in [0,1,crate::pages::CLIP_ROWS]{
-        h.app.clipboard.lock().items.clear();
-        for i in 0..count{h.app.clipboard.lock().push(&i.to_string(),"09:00");}
-        for (delta,page) in [(-40.0,4),(40.0,2)]{
-            h.app.show_page(3);h.app.shelf_tab=1;h.hover(H::local(300.0,60.0),0.5);h.wheel(delta);
-            assert_eq!(h.app.page,page,"剪贴板未溢出应翻页，条数 {count}");
-        }
-    }
     let day=chrono::NaiveDate::from_ymd_opt(2026,10,28).unwrap();
     let start=day.and_hms_opt(10,0,0).unwrap().and_local_timezone(chrono::Local).earliest().unwrap().timestamp();
     h.app.calendar.view.day=day;h.app.calendar.view.month=crate::calendar::month_start(day);h.app.calendar.view.loaded=Some(h.app.calendar.view.month);
@@ -10192,17 +10197,15 @@ fn closed_modules_stop_their_reminders_and_timers(){
 
 #[test]
 fn background_services_follow_the_module_switch(){
-    use crate::app::{MAIL_PAGE,QUOTA_PAGE,SHELF_PAGE};
+    use crate::app::{MAIL_PAGE,QUOTA_PAGE};
     let _g=ENV_LOCK.lock().unwrap_or_else(|e|e.into_inner());let mut h=H::new();
-    h.app.settings.mail_enabled=true;h.app.settings.clipboard_history=true;h.app.quota.config.enabled=true;
-    assert!(h.app.mail_active() && h.app.clipboard_active() && h.app.quota_active());
-    for page in [MAIL_PAGE,QUOTA_PAGE,SHELF_PAGE] {h.app.set_page_visible(page,false);}
-    assert!(!h.app.mail_active() && !h.app.clipboard_active() && !h.app.quota_active(),"页面开关就是模块总开关");
-    h.frame(vec![]);
-    assert!(!h.app.clipboard.is_enabled(),"置物架关闭后不再记录剪贴板");
-    for page in [MAIL_PAGE,QUOTA_PAGE,SHELF_PAGE] {h.app.set_page_visible(page,true);}
-    h.app.settings.mail_enabled=false;h.app.settings.clipboard_history=false;h.app.quota.config.enabled=false;
-    assert!(!h.app.mail_active() && !h.app.clipboard_active() && !h.app.quota_active(),"模块内的开关仍然有效");
+    h.app.settings.mail_enabled=true;h.app.quota.config.enabled=true;
+    assert!(h.app.mail_active() && h.app.quota_active());
+    for page in [MAIL_PAGE,QUOTA_PAGE] {h.app.set_page_visible(page,false);}
+    assert!(!h.app.mail_active() && !h.app.quota_active(),"页面开关就是模块总开关");
+    for page in [MAIL_PAGE,QUOTA_PAGE] {h.app.set_page_visible(page,true);}
+    h.app.settings.mail_enabled=false;h.app.quota.config.enabled=false;
+    assert!(!h.app.mail_active() && !h.app.quota_active(),"模块内的开关仍然有效");
 }
 
 #[test]

@@ -90,8 +90,6 @@ struct Shell {
     /// 日程模块开启时才存在。
     cal: Option<daozai::calendar::Service>,
     cal_sig: Option<(Vec<daozai::calendar::Config>, bool)>,
-    /// 置物架模块开启且记录剪贴板时才监听系统剪贴板。
-    clipboard_watch: Option<daozai::clipboard::Watcher>,
     quota: daozai::quota::Service,
     quota_sig: Option<(bool,Vec<daozai::quota::Account>)>,
     quota_at: PollClock,
@@ -101,15 +99,11 @@ const MODULE_OFF:&str="该功能已在「页面管理」中关闭";
 
 impl Shell {
     /// 按模块开关启停后台服务：关闭的模块不保留任何线程，重新开启时从头对齐配置。
-    fn reconcile_modules(&mut self,ctx:&egui::Context){
+    fn reconcile_modules(&mut self){
         let mail_on=self.app.module_on(app::MAIL_PAGE);
         if mail_on!=self.mail.is_some() {self.mail=mail_on.then(daozai::mail::Service::start);self.mail_sig=None;}
         let cal_on=self.app.module_on(app::CALENDAR_PAGE);
         if cal_on!=self.cal.is_some() {self.cal=cal_on.then(daozai::calendar::Service::start);self.cal_sig=None;}
-        let clipboard_on=self.app.clipboard_active();
-        if clipboard_on!=self.clipboard_watch.is_some() {
-            self.clipboard_watch=if clipboard_on {let ctx=ctx.clone();daozai::clipboard::watch(self.app.clipboard.clone(),move||ctx.request_repaint())}else{None};
-        }
     }
 
     #[cfg(windows)]
@@ -148,7 +142,6 @@ impl Shell {
         #[cfg(not(feature="record"))] let quota_demo=false;
         diagnostics::startup("初始化额度配置");
         if !quota_demo{app.quota_initialize();}
-        diagnostics::startup("启动剪贴板记录");
         if std::env::args().any(|arg|arg=="--settings"){app.open_settings();}
         if std::env::args().any(|arg|arg=="--calendar"){app.open_calendar(None);}
         #[cfg(feature="record")]
@@ -234,7 +227,6 @@ impl Shell {
             mail_sig: None,
             cal: None,
             cal_sig: None,
-            clipboard_watch: None,
             quota: daozai::quota::Service::start(), quota_sig: None, quota_at: PollClock::default(),
         }
     }
@@ -614,7 +606,7 @@ impl eframe::App for Shell {
             }
         }
         let env = self.env(ctx);
-        self.reconcile_modules(ctx);
+        self.reconcile_modules();
         // v0.5.5 邮件：开关 / 间隔 / 账号清单变了就重新对齐收信线程，再把事件交给界面。
         // 每帧只比较不复制，确有变化时才复制账号清单。
         if let Some(mail)=&self.mail {

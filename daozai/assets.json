@@ -165,7 +165,6 @@
     "src/child_process.rs",
     "src/claude_quota.rs",
     "src/claude_usage_cache.rs",
-    "src/clipboard.rs",
     "src/collect.rs",
     "src/composition.rs",
     "src/cover_search.rs",

@@ -511,7 +511,6 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "chrono-tz",
- "clipboard-win",
  "eframe",
  "egui_extras",
  "flate2",

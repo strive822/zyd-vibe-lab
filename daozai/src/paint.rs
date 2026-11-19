@@ -844,25 +844,6 @@ pub fn clock(c:&Card,x:f32,y:f32,text:&str,size:f32) {
     c.text(x,y,digits,size,W::Bold,theme::WHITE,H::Left);
 }
 
-/// 图钉：固定的剪贴板条目。
-pub fn pin(c: &Card, cx: f32, cy: f32, size: f32, color: Color32) {
-    let s = size / 10.0;
-    c.fill(cx - 2.4 * s, cy - 5.0 * s, 4.8 * s, 4.2 * s, 1.0 * s, color);
-    c.poly(&[(cx - 4.2 * s, cy - 1.2 * s), (cx + 4.2 * s, cy - 1.2 * s), (cx + 2.6 * s, cy + 1.0 * s), (cx - 2.6 * s, cy + 1.0 * s)], color);
-    c.seg((cx, cy + 1.0 * s), (cx, cy + 5.2 * s), 1.1, color);
-}
-
-/// 剪贴板：空状态插图。
-pub fn clipboard_glyph(c: &Card, cx: f32, cy: f32, size: f32, color: Color32, shade: Color32) {
-    let u = size / 22.0;
-    c.fill(cx - 9.0 * u, cy - 9.0 * u, 18.0 * u, 22.0 * u, 3.0 * u, shade);
-    c.stroke(cx - 9.0 * u, cy - 9.0 * u, 18.0 * u, 22.0 * u, 3.0 * u, 1.3, color);
-    c.fill(cx - 4.5 * u, cy - 11.5 * u, 9.0 * u, 5.0 * u, 1.6 * u, color);
-    for (i, w) in [11.0, 8.0, 10.0].into_iter().enumerate() {
-        c.fill(cx - 5.5 * u, cy - 1.5 * u + i as f32 * 4.5 * u, w * u, 1.4 * u, 0.7 * u, color);
-    }
-}
-
 const CHASE_ROWS: [f32; 23] = [
     -16.0, -11.0, -8.2, -6.2, -4.6, -3.4, -2.4, -1.5, -1.0, -0.65, -0.32, 0.0, 0.32, 0.65, 1.0, 1.5, 2.4, 3.4, 4.6, 6.2,
     8.2, 11.0, 16.0,

@@ -130,7 +130,7 @@ def build(name: str, output: Path, prepared: Path | None = None, installer: Path
     destination = output / name
     destination.mkdir(parents=True, exist_ok=True)
     if name == 'daozai':
-        if installer is None or sha256(installer.read_bytes()) != 'abea6fa2fd8cbe1f370a2a395a3f9b3d5467125e3c82eeba5b90a0cae42a236e':
+        if installer is None or sha256(installer.read_bytes()) != '63acf897046b6a071d058377aacdb101c8476dbd218d78f6618d74a5fc33d1ff':
             raise ValueError('Pass --installer with the verified personal installer')
         target = destination / 'Daozai-Setup-v0.6.65-x64.exe'
         target.write_bytes(installer.read_bytes())

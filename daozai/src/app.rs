@@ -811,11 +811,6 @@ pub struct App {
     pub(crate) icons: crate::icons::Cache,
     pub(crate) avoidance: crate::avoidance::Picker,
     pub(crate) confirm_clear: Option<f64>,
-    /// 置物架页的两个分栏：0 = 文件，1 = 剪贴板。
-    pub(crate) shelf_tab: usize,
-    pub clipboard: crate::clipboard::Shared,
-    pub(crate) clip_first: usize,
-    pub(crate) clip_confirm_clear: Option<f64>,
 
     // 饮水
     pub(crate) water_ring: Spring,
@@ -956,7 +951,6 @@ impl App {
             s.visuals.selection.bg_fill = theme::alpha_blue(0.45);
         });
         let settings = model::Settings::load();
-        let clipboard_on = settings.clipboard_history;
         let (bw, bh) = if settings.minimal { (BAR_W_MIN, BAR_H_MIN) } else { (BAR_W, BAR_H) };
         let focus_seconds=settings.focus_minutes as f32*60.0;
         let initial_lyrics=settings.lyrics_enabled;
@@ -1021,10 +1015,6 @@ impl App {
             shelf_born: HashMap::new(),
             icons: Default::default(), avoidance: Default::default(),
             confirm_clear: None,
-            shelf_tab: 0,
-            clipboard: crate::clipboard::Shared::new(clipboard_on),
-            clip_first: 0,
-            clip_confirm_clear: None,
             water_ring: Spring::new(0.0, 120.0, 0.9),
             water_ml: 0.0,
             water_view: 0,
@@ -1688,8 +1678,6 @@ impl App {
     pub fn module_on(&self,page:usize)->bool {self.settings.visible_pages.get(page).copied().unwrap_or(false)}
     /// 收信线程是否应运行：邮箱模块开启且打开了「新邮件提醒」。
     pub fn mail_active(&self)->bool {self.module_on(MAIL_PAGE) && self.settings.mail_enabled}
-    /// 剪贴板监听是否应运行：置物架模块开启且打开了「记录剪贴板」。
-    pub fn clipboard_active(&self)->bool {self.module_on(SHELF_PAGE) && self.settings.clipboard_history}
     /// 额度查询是否应运行：AI 额度模块开启且打开了「开启 AI 额度」。
     pub fn quota_active(&self)->bool {self.module_on(QUOTA_PAGE) && self.quota.config.enabled}
 
@@ -2092,15 +2080,11 @@ impl App {
                         let calendar_max=if self.page==CALENDAR_PAGE {self.calendar_scroll_max(env)}else{0};
                         let calendar_body=self.page==CALENDAR_PAGE && Rect::from_min_max(Pos2::new(163.0,52.0),Pos2::new(378.0,208.0)).contains(cursor);
                         let shelf_len=self.shelf_len();
-                        let clipboard_tab=self.page==3 && self.shelf_tab==1;
-                        let clipboard_body=clipboard_tab && Rect::from_min_max(Pos2::new(42.0,31.0),Pos2::new(377.0,124.0)).contains(cursor);
                         let list=match self.page {
                             CALENDAR_PAGE if calendar_body=>Some((&mut self.calendar.view.first,calendar_max)),
                             4 if Rect::from_min_max(Pos2::new(196.0,31.0),Pos2::new(377.0,124.0)).contains(cursor)
                                 =>Some((&mut self.todo_first,self.todos.items.len().saturating_sub(3))),
-                            3 if clipboard_body
-                                =>Some((&mut self.clip_first,self.clipboard.lock().items.len().saturating_sub(crate::pages::CLIP_ROWS))),
-                            3 if !clipboard_tab && Rect::from_min_max(Pos2::new(36.0,28.0),Pos2::new(383.0,128.0)).contains(cursor)
+                            SHELF_PAGE if Rect::from_min_max(Pos2::new(36.0,28.0),Pos2::new(383.0,128.0)).contains(cursor)
                                 =>Some((&mut self.shelf_first,shelf_len.saturating_sub(5))),
                             _=>None,
                         };
@@ -3445,8 +3429,7 @@ impl App {
             1 => ("番茄", "专注", theme::RED_TOP),
             // 健康页的标题由页面自己画（「健康提醒」+ 喝水/久坐分段切换）。
             2 => return,
-            // 暂存站的标题就是「暂存站 | 剪贴板」分栏，由页面自己画。
-            3 => return,
+            SHELF_PAGE => ("暂存站", "", theme::WHITE),
             4 => ("待办", "清单", theme::GREEN),
             5 => ("邮箱", "", theme::CYAN),
             6 => ("AI", "额度", theme::SOFT_GREEN),
@@ -3506,7 +3489,7 @@ impl App {
             0 => self.page_music(c, env, cmds),
             1 => self.page_focus(c, env),
             2 => self.page_water(c, env),
-            3 => self.page_shelf(c, env, cmds),
+            SHELF_PAGE => self.page_shelf(c, cmds),
             4 => self.page_todo(c, env, cmds),
             5 => self.page_mail(c, env, cmds),
             6 => self.page_quota(c),
@@ -3636,10 +3619,6 @@ impl App {
         self.remind_t.step(dt);
         self.sit_t.target = if self.settings.sit_remind { 1.0 } else { 0.0 };
         self.sit_t.step(dt);
-        // 剪贴板记录开关：关闭时同时清掉未固定的记录。
-        if self.clipboard.is_enabled() != self.clipboard_active() {
-            self.clipboard.set_enabled(self.clipboard_active());
-        }
         self.shelf_scroll.target = self.shelf_first as f32;
         self.shelf_scroll.step(dt);
         if let Some(at) = self.confirm_clear {

@@ -60,7 +60,6 @@ eframe = { version = "0.31", default-features = false, features = ["glow", "defa
 windows-core = "=0.58.0"
 ureq = { version = "2.12", default-features = false, features = ["native-tls"] }
 tungstenite = { version = "0.28", default-features = false, features = ["handshake"] }
-clipboard-win = "5.4.3"
 wgpu = { version = "24", default-features = false, features = ["dx12"] }
 memmap2 = "0.9.12"
 windows = { version = "0.58", features = [

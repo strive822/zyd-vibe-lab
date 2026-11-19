@@ -1,6 +1,6 @@
 //! 设置、通知队列与岛仔表情。
 use crate::settings_theme::color as settings_color;
-use crate::app::{App, Cmd, Env, Phase, HUD_TRACK_W, HUD_TRACK_X, HUD_W, PAGE_NAMES};
+use crate::app::{App, Cmd, Env, Phase, HUD_TRACK_W, HUD_TRACK_X, HUD_W, PAGE_NAMES, SHELF_PAGE};
 use crate::paint::{Card, H};
 use crate::theme::{self, size, W};
 use eframe::egui::{self, Color32, Rect};
@@ -1720,7 +1720,7 @@ impl App {
                             // 常用操作放最前：最小窗口/高缩放下也无需滚动就能看到（F21）。
                             ui.add_space(8.0);
                             ui.horizontal(|ui|{
-                                if ui.add_sized([120.0,32.0],egui::Button::new("打开暂存站")).clicked(){self.settings_open=false;self.shelf_tab=0;self.show_page(3);}
+                                if ui.add_sized([120.0,32.0],egui::Button::new("打开暂存站")).clicked(){self.settings_open=false;self.show_page(SHELF_PAGE);}
                                 if ui.add_sized([140.0,32.0],egui::Button::new("打开暂存文件夹")).clicked(){
                                     if let Some(staging)=self.staging.as_ref(){
                                         let dir=staging.staging_dir();
@@ -1747,13 +1747,6 @@ impl App {
                                 ui.scope(|ui|setting_row(ui,label,"",&mut self.settings.collect[channel])).response.on_hover_text(help);
                                 if position<3{ui.separator();}
                             }
-                        });
-                        settings_label(ui,"剪贴板");
-                        settings_card(ui,|ui|{
-                            setting_row(ui,"记录剪贴板","在暂存站的「剪贴板」里查看最近复制的文字，点一下再次复制",&mut self.settings.clipboard_history);
-                            ui.label(egui::RichText::new(format!("本机保存最近 {} 条，重新打开后可继续使用。关闭记录会暂停收集，手动清空会保留固定条目。密码管理器标记为敏感的内容不会记录。",crate::clipboard::MAX_RECENT)).size(12.0).color(settings_color(ctx,Color32::from_gray(180),Color32::from_gray(75))));
-                            ui.add_space(5.0);
-                            if ui.add_sized([120.0,32.0],egui::Button::new("打开剪贴板")).clicked(){self.settings_open=false;self.shelf_tab=1;self.show_page(3);}
                         });
                     }
                     6=>{

@@ -2,13 +2,13 @@
 
 ## 给人：自己动手的步骤
 
-1. 打开 [固定 Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/daozai-v0.6.65-r1)，下载 `Daozai-Setup-v0.6.65-x64.exe` 和 `SHA256SUMS.txt`。
+1. 打开 [固定 Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/daozai-v0.6.65-r2)，下载 `Daozai-Setup-v0.6.65-x64.exe` 和 `SHA256SUMS.txt`。
 2. 在下载目录执行 `Get-FileHash -Algorithm SHA256 .\Daozai-Setup-v0.6.65-x64.exe`，与校验文件逐项比对；不匹配则停止。
 3. 双击安装器，升级前退出已有实例；无需克隆开发仓库或重新编译。
 
 Windows 10/11 x64。下载 `Daozai-Setup-v0.6.65-x64.exe` 与 `SHA256SUMS.txt`，核验后双击。默认当前用户安装到 `%LOCALAPPDATA%\Programs\Daozai`，不需要管理员权限；创建开始菜单入口，桌面快捷方式和开机自启由安装时选择。升级先退出托盘中的旧实例，保留账号和设置。
 
-安装后从开始菜单或桌面“岛仔”启动。应仅有一个 daozai.exe，路径为选定安装目录，版本 0.6.65；EXE SHA-256 为 `d6d872bc8965d6d310c5d58cc24eccda24c9eb2475b92d8a06bb82626b6118e6`，GLM 显示斜线 Z 标。不要把同版本上游包误认成本个人版。
+安装后从开始菜单或桌面“岛仔”启动。应仅有一个 daozai.exe，路径为选定安装目录，个人版 v0.6.65-r2（EXE 文件版本 0.6.65）；EXE SHA-256 为 `6427192467d112e671162b383197177f09c0e40678f4f48c711fcf0130a0fedd`，GLM 显示斜线 Z 标。不要把同版本上游包误认成本个人版。
 
 复制文字、图片或文件时应显示独立复制图标的“剪贴板 / 已复制”提示。设置 → 常规 → 岛体显示可开启“双击右键居中”，默认关闭；开启后在岛体上连续右击两次，位置恢复所选屏幕中央并保存。采用 Windows 双击间隔与距离设置；单击、长按及混合鼠标键不触发。系统提示遵从“系统状态”开关，与暂存收集、普通岛仔提醒分开。
 
@@ -16,7 +16,7 @@ Windows 10/11 x64。下载 `Daozai-Setup-v0.6.65-x64.exe` 与 `SHA256SUMS.txt`�
 
 卡片支持用左键向外拖出三类内容，拖出只复制，暂存和原文件均保留。文字可作为 Unicode 正文或文本文件，图片提供 PNG、位图和文件格式；目标软件选择它支持的格式。收起态直接从岛体或图标横向拖动即可移动，轻点仍进入对应页面。待办的新建、行内编辑和“编辑与提醒…”均区分输入法选字 Enter 与保存 Enter；确认候选后再次按 Enter 才保存。
 
-卸载走 Windows“已安装的应用”；用户数据保留。异常回退先退出程序，再恢复事先备份的程序；不覆盖安装后新增数据。安装器 SHA-256 为 `abea6fa2fd8cbe1f370a2a395a3f9b3d5467125e3c82eeba5b90a0cae42a236e`。
+卸载走 Windows“已安装的应用”；用户数据保留。异常回退先退出程序，再恢复事先备份的程序；不覆盖安装后新增数据。安装器 SHA-256 为 `63acf897046b6a071d058377aacdb101c8476dbd218d78f6618d74a5fc33d1ff`。
 
 ## 给 Agent：交给 AI 执行
 
