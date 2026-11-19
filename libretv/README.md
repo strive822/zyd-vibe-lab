@@ -29,7 +29,7 @@
 
 独立项目目录，保留原来的固定版本、个人使用配置和下载校验。无须获取其他项目。
 
-当前固定 LibreTV 2.23.2 与 Node.js 24.22.1 LTS；源码快照包含已验证的依赖修复，见 [修复记录](SECURITY_PATCHES.md)。
+当前固定 LibreTV 2.24.0 与 Node.js 24.22.1 LTS；源码快照包含已验证的依赖修复，见 [修复记录](SECURITY_PATCHES.md)。
 
 - [Agent 下载与恢复](INSTALL.md)
 - [来源与许可](THIRD_PARTY.md)
@@ -39,4 +39,4 @@
 
 ## 成品下载
 
-[固定 Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/libretv-v2.23.2-r1)：网页生产运行包，附 SHA256SUMS.txt。完整步骤见 [INSTALL.md](INSTALL.md)。仓库内保留源码，不保存构建包或依赖缓存。
+[固定 Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/libretv-v2.24.0-r1)：网页生产运行包，附 SHA256SUMS.txt。完整步骤见 [INSTALL.md](INSTALL.md)。仓库内保留源码，不保存构建包或依赖缓存。
