@@ -2,9 +2,7 @@
 
 ## 给人：自己动手的步骤
 
-不经过任何 Agent，浏览器加文件管理器即可完成：
-
-1. 打开 <https://github.com/strive822/zyd-vibe-lab/releases/tag/graduation-thesis-workflow-v0.5.0-r1>，按客户端选择 `graduation-thesis-codex.zip` / `graduation-thesis-claude-code.zip` / `graduation-thesis-pi.zip` / `graduation-thesis-workbuddy.zip` 与 `SHA256SUMS.txt`（也可在仓库页 `Code` → `Download ZIP`）。
+1. 打开[固定 Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/graduation-thesis-workflow-v0.5.0-r1)，按客户端选择同名技能 ZIP 和 `SHA256SUMS.txt`。
 2. 在下载目录打开命令提示符，核对哈希（应与 `SHA256SUMS.txt` 中所选 ZIP 文件名对应行一致）：
 
    ```bat
@@ -13,16 +11,15 @@
 
    上例使用 Codex 包；其他客户端替换为实际下载的 ZIP 文件名，并比对校验文件中的同名行。
 
-3. 右键解压，进入 `graduation-thesis\`，把整个 `graduation-thesis` 文件夹复制到你所用客户端的技能目录：
+3. 在 WorkBuddy 中打开“添加技能 → 上传技能”，上传校验过的 ZIP 并启用。其他客户端解压后，将整个 `graduation-thesis` 文件夹复制到对应的技能目录。[WorkBuddy 官方导入说明](https://www.workbuddy.cn/docs/workbuddy/From-Beginner-to-Expert-Guide/Function-Description/Skills-Market#上传技能)
 
    | 客户端 | 技能目录 |
    | --- | --- |
    | Claude Code | `~/.claude/skills/` |
    | Codex | `~/.agents/skills/` |
    | Pi | `%USERPROFILE%\.pi\agent\skills\`（首次使用需把该目录注册进 `~/.pi/agent/settings.json` 的 `skills` 数组，详见 [docs/INSTALL.md](docs/INSTALL.md)） |
-   | WorkBuddy | 客户端实际使用的 skills 目录（本机为 `~/.workbuddy/skills/`） |
 
-4. 重启客户端，确认能看到 graduation-thesis 技能；后续 Python 环境等依赖由工作流自身引导（见包内 SKILL.md 与 references/00-setup.md）。
+4. 打开新会话，确认客户端能找到 graduation-thesis 技能。输入“用 graduation-thesis 开始我的毕业论文”。已有项目输入“用 graduation-thesis 继续我的论文”，并指向原来的论文目录。
 
 ## 给 Agent：交给 AI 执行
 
@@ -30,12 +27,7 @@
 
 ## 1. 获取文件，不要求用户安装 Git
 
-优先使用宿主已有的技能安装工具，来源子路径为 `graduation-thesis-workflow/skills/graduation-thesis`。没有安装工具时，使用自身下载/文件能力取得完整工作流目录。
-
-- 仓库 ZIP：`https://github.com/strive822/zyd-vibe-lab/archive/refs/heads/main.zip`
-- 获取后定位其中 `graduation-thesis-workflow/INSTALL.md` 与 `skills/graduation-thesis/SKILL.md`，先阅读再执行脚本。
-- 也可从 README 的 packages 下载对应客户端 ZIP，按客户端能力导入/解压；这条路径不需要 Python、Git 或 Node。
-- Windows 可使用系统 PowerShell 的 Invoke-WebRequest 与 Expand-Archive；macOS/Linux 使用宿主文件工具或实际存在的下载/解压工具。不要假设电脑安装了 curl、Git、Python；缺少能力时先检查宿主可用工具，不把命令交给小白。
+按上面的固定 Release 下载当前客户端的技能 ZIP 和 `SHA256SUMS.txt`。核对所选 ZIP 文件名及 SHA-256 后才导入或解压。用宿主已有的下载、哈希和解压能力即可，Windows 可使用系统 PowerShell 或 certutil。先读包内 `graduation-thesis/SKILL.md` 再执行其中的脚本。
 
 只从用户指定仓库获取安装材料。ZIP 解压到本次专用缓存目录；拒绝绝对路径、`..` 越界路径或符号链接逃逸，不覆盖用户已有工作目录。失败最多重试两次，不换未知镜像、不假称安装成功。
 
@@ -50,13 +42,13 @@
 | Pi | `%USERPROFILE%\.pi\agent\skills\graduation-thesis\`（与 Codex 目录分离）。安装器只复制文件；Pi 需先把 `~/.pi/agent/skills` 注册进 `~/.pi/agent/settings.json` 的 `skills` 数组才发现技能，注册由助手在用户授权下完成（先备份、幂等、解析失败即停），见 [docs/INSTALL.md](docs/INSTALL.md) |
 | WorkBuddy | 优先宿主内置导入能力；否则检查当前客户端实际的 skills 目录。本机已有 `~/.workbuddy/skills/` 时可使用，但不得把它硬当成所有版本通用路径 |
 
-Windows 已下载完整目录后，由助手调用 `scripts/install.ps1 -Client codex|claude-code|pi|workbuddy`；`-SkillsDir` 可指定已经核实的真实技能根目录。参数里的竖线只是候选说明，调用时必须选择一个值。此脚本不需要 Python，保留同名不同内容技能，不自动覆盖，也不改动任何客户端配置文件。macOS/Linux 用宿主文件工具完成同样的目录复制与核验，不运行 PowerShell 脚本。
+使用宿主导入工具时传入校验过的 ZIP。需要文件方式安装时，将 ZIP 中完整的 `graduation-thesis` 目录复制到已核实的技能根目录。同名目录已存在时先核对内容并保护原文件。源码维护者可用仓库内的 `scripts/install.ps1` 做独立安装测试。
 
 若通过原生导入 ZIP 安装，不再重复复制一次。更新已有技能时先检查现状、备份原文件，在用户更新授权范围内替换，不删除无关技能。
 
 ## 3. 核验并马上进入工作流
 
-检查 SKILL.md、references/00-setup.md、scripts/project.py 和 bootstrap-windows.ps1 实际存在且与来源一致。尝试宿主原生技能发现；不能仅凭文件存在就声称已原生启用。热加载未生效时在当前会话直接读取已安装入口继续，必要时请用户重新打开会话；不需要他重新安装软件。
+检查 `SKILL.md`、`references/00-setup.md`、`scripts/project.py`、`scripts/check_literature.py` 和 `scripts/bootstrap-windows.ps1` 与已校验的包一致。尝试宿主原生技能发现。热加载未生效时可在当前会话直接读取入口继续，必要时请用户重新打开会话。
 
 读取已安装的 SKILL.md 和 references/00-setup.md。告诉用户“安装文件完成，开始准备环境并了解论文要求”，而不是要求他学习命令。安装工作流的请求包含配置运行该工作流所必需免费依赖的意图；说明必要下载，然后使用宿主正常权限流程执行。不要自动安装尚不需要的大型工具或付费软件。
 
