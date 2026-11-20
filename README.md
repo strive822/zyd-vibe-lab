@@ -42,78 +42,78 @@ yt-dlp、Windows-MCP、REA 的本地准备代码与固定上游来源保存在�
 
 ## 直接让 Agent 帮你使用
 
-先选项目，再把下面对应提示词交给有联网、文件和运行能力的 Agent。完整入口见 [INSTALL.md](INSTALL.md)。
+先选项目，把对应提示词交给你常用的 Agent。它可以按实际能力选择本机命令、浏览器、桌面、MCP 或直接读取技能。云端和本机处于不同设备时，由有访问权限的设备完成本机操作。[通用安装与操作入口](INSTALL.md#按-agent-能力选择入口)
 
 **agent-desktop**
 
 ```text
-安装并使用 https://github.com/strive822/zyd-vibe-lab 里的 agent-desktop。先读该项目 INSTALL.md，下载并校验 Windows x64 成品。用 --version 和只读 list-windows 验证。只有我明确要求接入 Codex 时才注册 MCP。
+请用 https://github.com/strive822/zyd-vibe-lab 里的 agent-desktop。先读该项目 INSTALL.md，核验 Windows x64 成品。能执行命令时用 --version 与只读 list-windows。只有我要求且客户端能运行本机 stdio 时才接入 MCP。
 ```
 
 **CodeGraph**
 
 ```text
-安装并使用 https://github.com/strive822/zyd-vibe-lab 里的 codegraph。先读该项目 INSTALL.md，下载并核验适合本机的 CodeGraph 官方固定版本。已有同版本 CLI 时复用。确认 codegraph --version，只有我要求接入宿主或给项目建索引时才执行对应步骤。
+请用 https://github.com/strive822/zyd-vibe-lab 里的 codegraph 查询我指定的代码。先读该项目 INSTALL.md，复用已核验的同版本 CLI 或下载固定官方包。可直接用 CLI 查询已建索引项目，需要新增索引或接入 MCP 时按我给出的授权执行。
 ```
 
 **岛仔 Daozai**
 
 ```text
-安装并使用 https://github.com/strive822/zyd-vibe-lab 里的 daozai。先读取该项目 INSTALL.md，从固定 Release 下载对应成品并校验，按项目类型安装或启动；保留已有数据与配置。日常使用不克隆开发仓库、不重新构建前端；只下载时不安装或启动。
+请用 https://github.com/strive822/zyd-vibe-lab 里的 daozai。先读该项目 INSTALL.md。先核对已装个人版和路径。需要安装时校验固定 Release，再从开始菜单启动，用顶部信息岛和单一进程验收。可通过桌面操作或指导我完成界面步骤。
 ```
 
 **三资产定投计算器**
 
 ```text
-安装并使用 https://github.com/strive822/zyd-vibe-lab 里的 dca-calculator。先读取该项目 INSTALL.md，从固定 Release 下载对应成品并校验，按项目类型安装或启动；保留已有数据与配置。日常使用不克隆开发仓库、不重新构建前端；只下载时不安装或启动。
+请用 https://github.com/strive822/zyd-vibe-lab 里的 dca-calculator。先读该项目 INSTALL.md。从固定 Release 校验成品，复用已有实例或按说明启动。本机打开计算器，核对 /api/health 后再用我提供的参数做计算。
 ```
 
 **飞鼠格式**
 
 ```text
-安装并使用 https://github.com/strive822/zyd-vibe-lab 里的 flyingmouse-format。先读取该项目 INSTALL.md，从固定 Release 下载对应成品并校验，按项目类型安装或启动；保留已有数据与配置。日常使用不克隆开发仓库、不重新构建前端；只下载时不安装或启动。
+请用 https://github.com/strive822/zyd-vibe-lab 里的 flyingmouse-format。先读该项目 INSTALL.md。复用现有安装，在界面转换或直接用 FlyingMouse Format.exe --cli。先查支持的目标格式，再把结果输出到新目录并保留原文件。
 ```
 
 **毕业论文工作流**
 
 ```text
-安装并使用 https://github.com/strive822/zyd-vibe-lab 里的 graduation-thesis-workflow。先读取该项目 INSTALL.md，从固定 Release 下载对应成品并校验，按项目类型安装或启动；保留已有数据与配置。日常使用不克隆开发仓库、不重新构建前端；只下载时不安装或启动。
+请用 https://github.com/strive822/zyd-vibe-lab 里的 graduation-thesis-workflow。先读该项目 INSTALL.md。按宿主导入已校验的技能包。没有专用包或技能入口时，直接读取解压后的 graduation-thesis/SKILL.md。已有论文从原项目续做，引用文献先查权威出处。
 ```
 
 **LibreTV**
 
 ```text
-安装并使用 https://github.com/strive822/zyd-vibe-lab 里的 libretv。先读取该项目 INSTALL.md，从固定 Release 下载对应成品并校验，按项目类型安装或启动；保留已有数据与配置。日常使用不克隆开发仓库、不重新构建前端；只下载时不安装或启动。
+请用 https://github.com/strive822/zyd-vibe-lab 里的 libretv。先读该项目 INSTALL.md。校验固定运行包，按本机实际端口打开页面并读取 /api/status。已有密码和设置继续使用，实际播放只用我授权的来源。
 ```
 
 **Pi 任务通知**
 
 ```text
-安装并使用 https://github.com/strive822/zyd-vibe-lab 里的 pi-task-notify。先读取该项目 INSTALL.md，从固定 Release 下载对应成品并校验，按项目类型安装或启动；保留已有数据与配置。日常使用不克隆开发仓库、不重新构建前端；只下载时不安装或启动。
+请用 https://github.com/strive822/zyd-vibe-lab 里的 pi-task-notify。先读该项目 INSTALL.md。确认本机有 Pi，在 Pi 中用 pi -e 临时加载已校验的扩展，再用 /notify-test 验证通知。需要持久安装时按我给出的授权执行。
 ```
 
 **REA**
 
 ```text
-安装并使用 https://github.com/strive822/zyd-vibe-lab 里的 rea。先读取该项目 INSTALL.md，从固定 Release 下载对应成品并校验，按项目类型安装或启动；保留已有数据与配置。日常使用不克隆开发仓库、不重新构建前端；只下载时不安装或启动。
+请用 https://github.com/strive822/zyd-vibe-lab 里的 rea。先读该项目 INSTALL.md。先核验固定 npm 包，并通过项目说明的 --help 路径验证 CLI。只在我明确要求时配置宿主或准备所需引擎。
 ```
 
 **今日待办**
 
 ```text
-安装并使用 https://github.com/strive822/zyd-vibe-lab 里的 today-todo。先读取该项目 INSTALL.md，从固定 Release 下载对应成品并校验，按项目类型安装或启动；保留已有数据与配置。日常使用不克隆开发仓库、不重新构建前端；只下载时不安装或启动。
+请用 https://github.com/strive822/zyd-vibe-lab 里的 today-todo。先读该项目 INSTALL.md。复用已有服务或按说明启动 start.bat，先用 GET /api/health 确认可用。按我的要求查看或更新待办，验证写入和重启时用隔离数据。
 ```
 
 **Windows-MCP**
 
 ```text
-安装并使用 https://github.com/strive822/zyd-vibe-lab 里的 windows-mcp。先读取该项目 INSTALL.md，从固定 Release 下载对应成品并校验，按项目类型安装或启动；保留已有数据与配置。日常使用不克隆开发仓库、不重新构建前端；只下载时不安装或启动。
+请用 https://github.com/strive822/zyd-vibe-lab 里的 windows-mcp。先读该项目 INSTALL.md。从 Windows 端准备并安装已核验的运行包。仅在我要求接入时将 app/start.cmd 注册为本机 stdio 服务，并在目标会话核对可用工具。
 ```
 
 **yt-dlp**
 
 ```text
-安装并使用 https://github.com/strive822/zyd-vibe-lab 里的 yt-dlp。先读取该项目 INSTALL.md，从固定 Release 下载对应成品并校验，按项目类型安装或启动；保留已有数据与配置。日常使用不克隆开发仓库、不重新构建前端；只下载时不安装或启动。
+请用 https://github.com/strive822/zyd-vibe-lab 里的 yt-dlp。先读该项目 INSTALL.md。校验固定版本工具链。先在 app/ 检查 yt-dlp.exe --version，再按需求列出有权处理的链接格式或下载到新目录。
 ```
 
 ## 开发与维护

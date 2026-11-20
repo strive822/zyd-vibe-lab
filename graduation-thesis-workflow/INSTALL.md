@@ -23,11 +23,11 @@
 
 ## 给 Agent：交给 AI 执行
 
-用户说“安装 https://github.com/strive822/zyd-vibe-lab 里的论文工作流”时，请执行安装，不只复述教程。本仓库含多个项目，目标只限 `graduation-thesis-workflow`，不要安装其他项目。本文其余小节（获取文件、识别客户端、核验与进入工作流、面向用户只问论文问题）是 Agent 执行时的完整约束。
+用户说“用 https://github.com/strive822/zyd-vibe-lab 里的论文工作流”时，按宿主实际能力开始。目标项目是 `graduation-thesis-workflow`，只处理用户指定的论文目录。
 
 ## 1. 获取文件，不要求用户安装 Git
 
-按上面的固定 Release 下载当前客户端的技能 ZIP 和 `SHA256SUMS.txt`。核对所选 ZIP 文件名及 SHA-256 后才导入或解压。用宿主已有的下载、哈希和解压能力即可，Windows 可使用系统 PowerShell 或 certutil。先读包内 `graduation-thesis/SKILL.md` 再执行其中的脚本。
+按上面的固定 Release 下载当前客户端的技能 ZIP 和 `SHA256SUMS.txt`。没有专用包时选择 `graduation-thesis-codex.zip`，其内容与 Claude Code 包、Pi 包一致。核对所选 ZIP 文件名及 SHA-256 后才导入或解压。用宿主已有的下载、哈希和解压能力即可。先读包内 `graduation-thesis/SKILL.md` 再执行其中的脚本。
 
 只从用户指定仓库获取安装材料。ZIP 解压到本次专用缓存目录；拒绝绝对路径、`..` 越界路径或符号链接逃逸，不覆盖用户已有工作目录。失败最多重试两次，不换未知镜像、不假称安装成功。
 
@@ -41,21 +41,28 @@
 | Claude Code | `~/.claude/skills/graduation-thesis/` 或用户要求的项目 `.claude/skills/` |
 | Pi | `%USERPROFILE%\.pi\agent\skills\graduation-thesis\`（与 Codex 目录分离）。安装器只复制文件；Pi 需先把 `~/.pi/agent/skills` 注册进 `~/.pi/agent/settings.json` 的 `skills` 数组才发现技能，注册由助手在用户授权下完成（先备份、幂等、解析失败即停），见 [docs/INSTALL.md](docs/INSTALL.md) |
 | WorkBuddy | 优先宿主内置导入能力；否则检查当前客户端实际的 skills 目录。本机已有 `~/.workbuddy/skills/` 时可使用，但不得把它硬当成所有版本通用路径 |
+| 其他 Agent | 有 Agent Skills 加载能力时按客户端说明导入完整文件夹。支持文件读取时也可直接使用下方的通用入口。 |
 
 使用宿主导入工具时传入校验过的 ZIP。需要文件方式安装时，将 ZIP 中完整的 `graduation-thesis` 目录复制到已核实的技能根目录。同名目录已存在时先核对内容并保护原文件。源码维护者可用仓库内的 `scripts/install.ps1` 做独立安装测试。
 
-若通过原生导入 ZIP 安装，不再重复复制一次。更新已有技能时先检查现状、备份原文件，在用户更新授权范围内替换，不删除无关技能。
+更新已有技能时先核对现状并备份用户文件，按用户授权替换。
+
+### 通用入口
+
+把核验后解压得到的 `graduation-thesis/` 放在 Agent 能访问的位置。让 Agent 直接读取该目录下的 `SKILL.md`，按其中相对路径读取 `references/` 和运行 `scripts/`。此路径无需登记技能或修改客户端配置。论文保存在独立目录，更换 Agent 时直接提供同一个论文目录，读取原来的项目状态和证据。
+
+如果当前 Agent 只能对话或联网检索，可用公开材料做选题、检索与审阅。需要创建项目文件、运行检查或生成文件格式时，转到有对应权限的设备。仅能读取附件时，可提供获准共享的必要文件，真实论文、问卷或账户资料沿用原有授权。
 
 ## 3. 核验并马上进入工作流
 
-检查 `SKILL.md`、`references/00-setup.md`、`scripts/project.py`、`scripts/check_literature.py` 和 `scripts/bootstrap-windows.ps1` 与已校验的包一致。尝试宿主原生技能发现。热加载未生效时可在当前会话直接读取入口继续，必要时请用户重新打开会话。
+检查 `SKILL.md`、`references/00-setup.md`、`scripts/project.py`、`scripts/check_literature.py` 和 `scripts/bootstrap-windows.ps1` 与已校验的包一致。选择安装时验证宿主能否发现技能，热加载未生效可用通用入口。选择通用入口时，核验入口与所需文件实际可读。
 
-读取已安装的 SKILL.md 和 references/00-setup.md。告诉用户“安装文件完成，开始准备环境并了解论文要求”，而不是要求他学习命令。安装工作流的请求包含配置运行该工作流所必需免费依赖的意图；说明必要下载，然后使用宿主正常权限流程执行。不要自动安装尚不需要的大型工具或付费软件。
+读取 `SKILL.md` 和 `references/00-setup.md` 后说明实际完成的步骤。有原项目时先读取 `requirements.json`、`state.json`、`NEXT.md`、`DECISIONS.md` 及最近审查记录，从已有进度继续。需要免费依赖时说明用途，按宿主权限流程执行。
 
-Windows 用 bootstrap-windows.ps1 自动探测 Python、按需获取官方安装器和创建隔离环境。先 core，需求确定后才 documents。用 runtime.json 中真实解释器路径运行；不要求用户配置 PATH 或激活 venv。学校格式需要的渲染工具按 00-setup 实际配置并核验。
+Windows 先检测可用 Python，再按需使用 bootstrap-windows.ps1 准备隔离环境。先 core，需求确定后才 documents。用 runtime.json 中的实际解释器运行。学校格式需要的渲染工具按 00-setup 实际配置并核验。
 
 ## 4. 面向用户只问论文问题
 
-安装完只询问专业、学校要求、题目/方向、截止时间及已有材料等必要信息。文件夹可以提出默认位置，交给用户选择。用户不需要填写 JSON、修改脚本、运行终端或阅读开发文档。
+开始新项目时只询问专业、学校要求、题目或方向、截止时间及已有材料等必要信息。续做时只补待确认内容。用户不需要填写 JSON、修改脚本、运行终端或阅读开发文档。
 
 底线：网络不可达、无文件/执行权限、管理员确认和缺少真实研究数据都不能由一句提示词消除。遇到这些情况说明具体原因和最少必要操作，继续其他可做工作。不得承诺“所有客户端版本、所有操作系统、任何网络下零交互必定成功”。

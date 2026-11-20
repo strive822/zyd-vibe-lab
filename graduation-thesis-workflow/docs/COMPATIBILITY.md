@@ -1,6 +1,8 @@
-# 四端兼容范围
+# Agent 兼容范围
 
 Codex、Claude Code、Pi、WorkBuddy 使用同一套 SKILL.md、相对引用、Python 脚本与项目 JSON，不依赖某端专有工具名、付费专家团、Node 或特定 MCP。Windows 安装器不需要预装 Git/Python；运行脚本时才按需准备 Python。
+
+其他 Agent 可按自身支持的 Agent Skills 方式加载目录，或通过文件工具直接读取入口，续做时使用原来的论文目录。直接读取用公开下载的 Codex ZIP 在带空格的中文路径试跑。实际运行能力取决于宿主提供的联网、文件、命令和文档工具。[通用入口](../INSTALL.md#通用入口) · [验证记录](VALIDATION.md)
 
 | 检查层级 | Codex | Claude Code | Pi | WorkBuddy |
 | --- | --- | --- | --- | --- |

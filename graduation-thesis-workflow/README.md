@@ -17,12 +17,10 @@
 
 ## 直接让 Agent 帮你使用
 
-把下面这段话复制给具备联网、文件读写和运行能力的 Agent。
-它应先读本项目 [INSTALL.md](INSTALL.md)，完成提示词授权的下载、核验与使用步骤。
-只想保存文件时，把“安装/运行”改成“只下载，不安装、不启动”。
+把下面这段话复制给你常用的 Agent。有专用技能入口时可以导入，具备文件能力时也可以直接读入口。检索、运行检查和排版需要对应的工具。[完整使用步骤](INSTALL.md)
 
 ```text
-安装并使用 https://github.com/strive822/zyd-vibe-lab 里的 graduation-thesis-workflow。先读取该项目 INSTALL.md，从固定 Release 下载对应成品并校验，按项目类型安装或启动；保留已有数据与配置。日常使用不克隆开发仓库、不重新构建前端；只下载时不安装或启动。
+用 https://github.com/strive822/zyd-vibe-lab 里的 graduation-thesis-workflow 帮我做毕业论文。先读该项目 INSTALL.md，下载并校验适合当前工具的技能包。没有专用入口时，直接读取解压后的 graduation-thesis/SKILL.md。从我提供的原论文目录继续，没有论文项目时再开始访谈。
 ```
 
 面向各专业本科论文的可移植 Agent Skill。通过 grilling 式访谈确认学校要求和必要条件，再自动推进文献、研究、写作、审查与交付。目标是满足毕业论文要求，不承诺毕业、录用或检测分数。
@@ -35,13 +33,13 @@
 
 ## 零基础使用：只对助手说一句话
 
-打开 **Codex、Claude Code、Pi 或 WorkBuddy**，发送：
+在 **Codex、Claude Code、Pi、WorkBuddy 或其他 Agent** 中发送：
 
 ```text
-安装 https://github.com/strive822/zyd-vibe-lab 里的论文工作流。
+用 https://github.com/strive822/zyd-vibe-lab 里的论文工作流帮我开始或继续毕业论文。
 ```
 
-电脑上只有 WorkBuddy 也可以从这一步开始，**不需要先学 Git、Python，不需要自己敲终端命令**。助手会读取本仓库的 [安装入口](INSTALL.md)，下载工作流、识别当前工具并安装，再检查运行环境。
+助手先识别当前工具，取得并校验对应成品。有技能入口时按宿主方式导入，也可以在通用入口里直接读取解压后的技能。用户只需提供学校要求和实际已有材料。[通用入口](INSTALL.md#通用入口)
 
 ### 接下来会发生什么？
 
