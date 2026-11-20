@@ -80,7 +80,7 @@ jobs:
           python-version: '3.12'
       - run: npm ci
       - run: npm run typecheck && npm run lint && npm test
-      - run: npm audit --omit=dev --audit-level=moderate --registry=https://registry.npmjs.org
+      - run: npm audit --audit-level=moderate --registry=https://registry.npmjs.org
       - run: npm run build
 
   published-downloads:
