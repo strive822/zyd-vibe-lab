@@ -3,11 +3,13 @@
 //! 比较对象是已整合的上游正式版本。
 use eframe::egui;
 use std::sync::mpsc::{self, Receiver};
-use std::time::Duration;
+use std::io::Read;
+use std::time::{Duration, Instant};
 
 const REPOSITORY: &str = "https://github.com/Renly1994/xiaotang-daozai";
 const API: &str = "https://api.github.com/repos/Renly1994/xiaotang-daozai/releases/latest";
 const RELEASES: &str = "https://github.com/Renly1994/xiaotang-daozai/releases";
+const MANUAL_INTERVAL: Duration = Duration::from_secs(30);
 
 #[derive(Clone, Debug)]
 struct Release { version: String, notes: String, page: String }
@@ -31,6 +33,7 @@ pub(crate) struct State {
     dialog_open: bool,
     focus_requested: bool,
     logo: Option<egui::TextureHandle>,
+    manual_check_after: Option<Instant>,
 }
 
 impl State {
@@ -38,6 +41,7 @@ impl State {
         let Some(rx) = self.rx.as_ref() else { return };
         match rx.try_recv() {
             Ok(Event::Checked(result)) => {
+                self.manual_check_after = Some(Instant::now() + MANUAL_INTERVAL);
                 self.dialog_open = matches!(&result, Ok(Status::Newer(_)));
                 self.focus_requested = self.dialog_open;
                 self.message = match &result {
@@ -60,7 +64,8 @@ impl State {
     }
 
     pub(crate) fn ui(&mut self, ui: &mut egui::Ui) {
-        if ui.add_enabled(self.rx.is_none(), egui::Button::new("检查更新")).clicked() {
+        let wait = self.manual_check_after.map(|t| t.saturating_duration_since(Instant::now())).unwrap_or_default();
+        if ui.add_enabled(self.rx.is_none() && wait.is_zero(), egui::Button::new("检查更新")).clicked() {
             let (tx, rx) = mpsc::channel();
             self.rx = Some(rx);
             self.message.clear();
@@ -86,6 +91,11 @@ impl State {
             }
             None if self.rx.is_some() => { ui.label("正在检查…"); }
             _ => {}
+        }
+        if self.rx.is_none() && !wait.is_zero() {
+            let seconds = wait.as_secs_f64().ceil() as u64;
+            ui.weak(format!("显示上次结果，本机 {seconds} 秒后可重新检查。"));
+            ui.ctx().request_repaint_after(Duration::from_secs(1).min(wait));
         }
         ui.add_space(5.0);
     }
@@ -235,14 +245,25 @@ fn http_agent() -> Result<ureq::Agent, String> {
     update_agent(proxy.as_deref(), Duration::from_secs(15))
 }
 
+fn check_error(error: ureq::Error) -> String {
+    const LIMITED: &str = "更新服务暂时限流，请稍后再试。";
+    match error {
+        ureq::Error::Status(429, _) => LIMITED,
+        ureq::Error::Status(403, response) => {
+            let limited = response.header("X-RateLimit-Remaining") == Some("0") || response.has("Retry-After")
+                || serde_json::from_reader::<_, serde_json::Value>(response.into_reader().take(8192))
+                    .is_ok_and(|body| body["message"].as_str().is_some_and(|s| s.to_ascii_lowercase().contains("rate limit")));
+            if limited { LIMITED } else { "更新服务拒绝访问（403），可打开发布页查看版本。" }
+        }
+        ureq::Error::Status(404, _) => "暂未找到正式版本，请查看发布页",
+        _ => "无法连接更新服务，请检查网络或代理后重试",
+    }.to_owned()
+}
+
 fn check() -> Result<Status, String> {
     let response = http_agent()?
         .get(API).set("User-Agent", concat!("Daozai/", env!("CARGO_PKG_VERSION")))
-        .set("Accept", "application/vnd.github+json").call().map_err(|error| match error {
-            ureq::Error::Status(403 | 429, _) => "检查过于频繁，请稍后重试".to_owned(),
-            ureq::Error::Status(404, _) => "暂未找到正式版本，请查看发布页".to_owned(),
-            _ => "无法连接更新服务，请检查网络或代理后重试".to_owned(),
-        })?;
+        .set("Accept", "application/vnd.github+json").call().map_err(check_error)?;
     let value: serde_json::Value = serde_json::from_reader(response.into_reader())
         .map_err(|_| "更新信息格式异常，请稍后重试".to_owned())?;
     classify(&value, env!("CARGO_PKG_VERSION"))
@@ -287,6 +308,21 @@ fn version(value: &str) -> Option<[u64; 3]> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn update_service_distinguishes_rate_limits_from_access_denied() {
+        for (code, headers, body, limited) in [
+            (429, "", "", true),
+            (403, "X-RateLimit-Remaining: 0\r\n", "", true),
+            (403, "Retry-After: 60\r\n", "", true),
+            (403, "", r#"{"message":"You have exceeded a secondary rate limit."}"#, true),
+            (403, "X-RateLimit-Remaining: 59\r\n", r#"{"message":"Forbidden"}"#, false),
+        ] {
+            let response = format!("HTTP/1.1 {code} Error\r\n{headers}\r\n{body}").parse().unwrap();
+            let message = check_error(ureq::Error::Status(code, response));
+            assert!(message.contains(if limited { "暂时限流" } else { "拒绝访问" }), "{message}");
+        }
+    }
+
     use super::*;
 
     fn release(tag: &str) -> serde_json::Value {

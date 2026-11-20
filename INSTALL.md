@@ -8,7 +8,7 @@
 | --- | --- | --- | --- |
 | [agent-desktop](agent-desktop/README.md) | Windows x64 CLI 和 MCP 便携包 | [安装与验证](agent-desktop/INSTALL.md) | [Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/agent-desktop-v1.3.1-r1) |
 | [CodeGraph](codegraph/README.md) | 官方 Windows CLI 和 MCP 便携包 | [安装与验证](codegraph/INSTALL.md) | [上游 Release](https://github.com/colbymchenry/codegraph/releases/tag/v1.6.3) |
-| [岛仔 Daozai](daozai/README.md) | Windows 安装器 | [安装与验证](daozai/INSTALL.md) | [Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/daozai-v0.6.65-r2) |
+| [岛仔 Daozai](daozai/README.md) | Windows 安装器 | [安装与验证](daozai/INSTALL.md) | [Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/daozai-v0.6.66-r1) |
 | [三资产定投计算器](dca-calculator/README.md) | 网页启动包（前端已构建） | [安装与验证](dca-calculator/INSTALL.md) | [Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/dca-calculator-v1.0.0-r1) |
 | [飞鼠格式](flyingmouse-format/README.md) | 官方安装器联网安装入口 | [安装与验证](flyingmouse-format/INSTALL.md) | [Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/flyingmouse-format-v0.8.3-r1) |
 | [毕业论文工作流](graduation-thesis-workflow/README.md) | Codex / Claude Code / Pi / WorkBuddy 技能包 | [安装与验证](graduation-thesis-workflow/INSTALL.md) | [Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/graduation-thesis-workflow-v0.4.0-r1) |

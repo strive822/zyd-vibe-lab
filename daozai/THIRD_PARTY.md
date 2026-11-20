@@ -2,9 +2,9 @@
 
 | 内容 | 固定来源 | 处理 |
 | --- | --- | --- |
-| 岛仔 Daozai | [Renly1994/xiaotang-daozai](https://github.com/Renly1994/xiaotang-daozai/tree/11c52336d594d24bebc1bec865ab375626ca1e0f)，v0.6.65 commit `11c52336d594d24bebc1bec865ab375626ca1e0f` | MIT，保留原作者“小唐的Token and Daozai contributors”及 [LICENSE](LICENSE)；个人整合源快照 `07022995c16ab65353c11d38b61e1120ce5c18ef`，本仓库按目录跟踪后续修改 |
+| 岛仔 Daozai | [Renly1994/xiaotang-daozai](https://github.com/Renly1994/xiaotang-daozai/tree/08250c583dfda4fe3643af9e27cc93221b4170e9)，v0.6.66 commit `08250c583dfda4fe3643af9e27cc93221b4170e9` | MIT，保留原作者“小唐的Token and Daozai contributors”及 [LICENSE](LICENSE)；个人整合源快照 `07022995c16ab65353c11d38b61e1120ce5c18ef`，本仓库按目录跟踪后续修改 |
 | AI 品牌图标 | Lobe Icons commit `ea434b96e75813517b377825e01c0df61dee8836`，`packages/static-svg/icons/zai.svg` 等 | MIT，出处与许可见 [图标说明](assets/ai-icons/README.md) |
-| 本地 vendor 补丁与其他素材 | eframe 和 egui 0.31.1、imap 2.4.1、imap-proto 0.10.2、ureq 2.12.1 | 保留原 license；见 [依赖说明](docs/DEPENDENCIES.md)、[第三方声明](THIRD_PARTY_NOTICES.txt) 和各 vendor 目录 |
+| 本地 vendor 补丁与其他素材 | eframe、egui 和 egui-wgpu 0.31.1、imap 2.4.1、imap-proto 0.10.2、ureq 2.12.1 | 保留原 license；见 [依赖说明](docs/DEPENDENCIES.md)、[第三方声明](THIRD_PARTY_NOTICES.txt) 和各 vendor 目录 |
 
 个人修改包含八家额度整合、暂存站修复、整岛拖动、顶栏信息入口、饮水/待办/日历显示及 GLM Z 标修正。具体行为与验证边界见 [交付记录](docs/RELEASE-0.6.50-personal.md)。README/INSTALL 与恢复脚本是本合集的使用入口，不将第三方项目冒充为自研项目；版权与商标仍归各权利人。
 
@@ -23,3 +23,7 @@
 ### v0.6.65-r2 个人差异
 
 个人版移除了上游 v0.6.65 的 `src/clipboard.rs` 历史记录模块、设置入口和暂存站剪贴板分栏。后续合入上游改动时继续排除这项功能。暂存收集和「已复制」提示仍由 `src/collect.rs` 提供。旧设置键自动忽略，已保存的 `clipboard.json` 留在原处供回退。回归测试覆盖两个界面入口、旧历史文件保留、暂存收集和复制提示。
+
+### v0.6.66 个人版合入
+
+上一完整基线为 v0.6.65（`11c52336d594d24bebc1bec865ab375626ca1e0f`）。新版设置仍保留个人暂存、日历图标偏好、位置和独立邮件/额度开关。暂存设置接入「待办与暂存」的新布局，排除 `src/extras.rs` 中重引入的剪贴板历史入口、`src/main.rs` 中对应的后台启动和 `src/ui_tests.rs` 中旧历史分栏用例。沿用现有个人更新入口，只接入 30 秒重复检查间隔与网络错误分类。原生滚轮交接与 60 帧动画改动接入既有停靠、穿透键及原生拖放。顶部极简细条继续接受收起态横拖和双击右键居中，排除上游在该位置的自动穿透；侧边极简细条保留上游自动穿透。新增 `vendor/egui-wgpu` 来源为上述固定上游树，双许可证沿用同版 egui。

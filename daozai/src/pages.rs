@@ -185,8 +185,10 @@ impl App {
         let bounds=MUSIC_VOLUME_RECT;
         let panel=c.rect(bounds.min.x,bounds.min.y,bounds.width(),bounds.height());
         let trigger=c.rect(354.0,106.0,26.0,24.0);
-        if self.music_volume_open && ctx.input(|i|i.pointer.any_pressed() && i.pointer.interact_pos().is_some_and(|p|!panel.contains(p) && !trigger.contains(p))){
-            self.music_volume_open=false;
+        if self.music_volume_open && ctx.input(|input| input.events.iter().any(|event| matches!(event,
+            egui::Event::PointerButton { pos, pressed: true, .. } if !panel.contains(*pos) && !trigger.contains(*pos))))
+        {
+            self.music_volume_open = false;
         }
         let a=ctx.animate_bool_with_time(egui::Id::new("music-volume-open"),self.music_volume_open,0.12);
         let Some((volume,muted))=self.music_volume_ui else{return;};
@@ -241,7 +243,10 @@ impl App {
                 let active=current==Some(index);
                 let ink=if active {theme::WHITE}else{theme::GRAY};
                 let row=col.faded((1.0-distance.abs()*0.35).clamp(0.0,1.0));
-                let mut job=egui::text::LayoutJob::simple(line.text.clone(),row.font(if active {12.0}else{10.0},if active {W::Semibold}else{W::Regular}),ink,132.0*c.s);
+                let font=row.font(if active {12.0}else{10.0},if active {W::Semibold}else{W::Regular});
+                // 维语等从右往左的歌词：先按阅读顺序分行再逐行转换（#200）。
+                let text=crate::rtl_text::display_wrapped(&line.text,132.0*c.s,|s|row.painter.layout_no_wrap(s.to_owned(),font.clone(),ink).size().x).into_owned();
+                let mut job=egui::text::LayoutJob::simple(text,font,ink,132.0*c.s);
                 job.wrap.max_rows=if active {3}else{1};
                 job.wrap.break_anywhere=true;
                 let galley=row.painter.layout_job(job);
@@ -1119,7 +1124,7 @@ impl App {
             c.text(46.0,91.0,&c.fit(&item.subject,10.5,W::Regular,120.0),10.5,W::Regular,Color32::from_gray(190),H::Left);
             c.text(46.0,108.0,if hidden{"已隐藏 · 点击查看"}else{"点击复制"},10.5,W::Regular,theme::DIM,H::Left);
             c.text(166.0,108.0,item.time.rsplit(' ').next().unwrap_or(&item.time),10.0,W::Regular,theme::GRAY,H::Right);
-            c.hit(42.0,38.0,128.0,16.0,"mail-code-source").on_hover_text(format!("来自：{}\n{}\n收件邮箱：{}\n{}",item.from,item.subject,item.account,item.time));
+            c.ghost().hit(42.0,38.0,128.0,16.0,"mail-code-source").on_hover_text(format!("来自：{}\n{}\n收件邮箱：{}\n{}",item.from,item.subject,item.account,item.time));
             if c.hit(40.0,56.0,132.0,38.0,("mail-code",item.uid)).on_hover_text(format!("复制 {} 的验证码",item.from)).clicked(){if hidden{self.reveal_mail_code(raw);}else{cmds.push(Cmd::Copy(value.to_string()));}}
         }
         use crate::mail_manage::{Action,Folder};
@@ -1241,11 +1246,11 @@ impl App {
         if read.clicked(){self.mail_open_reader(raw);}
         let subject = c.fit(&item.subject, 13.5, W::Semibold, 328.0);
         c.text(46.0, 73.0, &subject, 13.5, W::Semibold, theme::WHITE, H::Left);
-        c.hit(46.0,58.0,328.0,20.0,("mail-subject",&item.account,item.uid)).on_hover_text(&item.subject);
+        c.ghost().hit(46.0,58.0,328.0,20.0,("mail-subject",&item.account,item.uid)).on_hover_text(&item.subject);
         c.text(374.0, 92.0, &item.time, 10.0, W::Regular, Color32::from_gray(170), H::Right);
         let account=format!("收件邮箱：{}",item.account);
         c.text(46.0,92.0,&c.fit(&account,10.0,W::Regular,230.0),10.0,W::Regular,Color32::from_gray(175),H::Left);
-        c.hit(46.0,80.0,230.0,16.0,("mail-account",&item.account,item.uid)).on_hover_text(&account);
+        c.ghost().hit(46.0,80.0,230.0,16.0,("mail-account",&item.account,item.uid)).on_hover_text(&account);
 
         // 正文和链接共用滚动区域，会议与验证码操作保留在底部。
         let mut content=egui::Ui::new(c.ui.ctx().clone(),egui::Id::new(("mail-content",&item.account,item.uid,c.live)),
@@ -1272,7 +1277,7 @@ impl App {
 
         if !self.mail.manage.message.is_empty(){
             c.text(46.0,229.0,&c.fit(&self.mail.manage.message,8.0,W::Regular,130.0),8.0,W::Regular,theme::GRAY,H::Left);
-            c.hit(44.0,219.0,132.0,15.0,"mail-detail-status").on_hover_text(&self.mail.manage.message);
+            c.ghost().hit(44.0,219.0,132.0,15.0,"mail-detail-status").on_hover_text(&self.mail.manage.message);
         }
         // 底部一行：会议时间（绿）优先，其次验证码（点一下复制）。
         c.seg((46.0,199.0),(374.0,199.0),0.6,Color32::from_gray(48));

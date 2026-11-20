@@ -506,24 +506,37 @@ impl ContextImpl {
             let mut layers: Vec<LayerId> = viewport.prev_pass.widgets.layer_ids().collect();
             layers.sort_by(|&a, &b| self.memory.areas().compare_order(a, b));
 
-            viewport.hits = if let Some(pos) = viewport.input.pointer.interact_pos() {
-                let interact_radius = self.memory.options.style().interaction.interact_radius;
+            let hit_at = |pos| crate::hit_test::hit_test(
+                &viewport.prev_pass.widgets,
+                &layers,
+                &self.memory.to_global,
+                pos,
+                self.memory.options.style().interaction.interact_radius,
+            );
+            let pointer_pos = viewport.input.pointer.interact_pos();
+            viewport.hits = pointer_pos.map(&hit_at).unwrap_or_default();
 
-                crate::hit_test::hit_test(
-                    &viewport.prev_pass.widgets,
-                    &layers,
-                    &self.memory.to_global,
-                    pos,
-                    interact_radius,
-                )
-            } else {
-                WidgetHits::default()
-            };
+            // Presses and moves can be coalesced into the same input pass. Capture the widget
+            // under each actual press, while keeping hover based on the last pointer position.
+            let press_targets: Vec<_> = viewport.input.pointer.pointer_events.iter()
+                .filter_map(|event| match event {
+                    crate::input_state::PointerEvent::Pressed { position, .. } => {
+                        let ids = |hits: &WidgetHits| (hits.click.map(|w| w.id), hits.drag.map(|w| w.id));
+                        Some(if Some(*position) == pointer_pos {
+                            ids(&viewport.hits)
+                        } else {
+                            ids(&hit_at(*position))
+                        })
+                    }
+                    _ => None,
+                })
+                .collect();
 
             viewport.interact_widgets = crate::interaction::interact(
                 &viewport.interact_widgets,
                 &viewport.prev_pass.widgets,
                 &viewport.hits,
+                &press_targets,
                 &viewport.input,
                 self.memory.interaction_mut(),
             );
@@ -1206,6 +1219,22 @@ impl Context {
         }
 
         res
+    }
+
+    /// Check the visible widgets from the previous pass at a pointer event's position.
+    /// This uses the same hit testing as pointer input, including proximity and layer transforms.
+    pub fn has_pointer_target_at(&self, pos: Pos2) -> bool {
+        self.read(|ctx| {
+            let Some(viewport) = ctx.viewports.get(&ctx.viewport_id()) else {
+                return false;
+            };
+            let widgets = &viewport.prev_pass.widgets;
+            let mut layers: Vec<_> = widgets.layer_ids().collect();
+            layers.sort_by(|&a, &b| ctx.memory.areas().compare_order(a, b));
+            let radius = ctx.memory.options.style().interaction.interact_radius;
+            let hits = crate::hit_test::hit_test(widgets, &layers, &ctx.memory.to_global, pos, radius);
+            hits.click.is_some() || hits.drag.is_some()
+        })
     }
 
     /// Read the response of some widget, which may be called _before_ creating the widget (!).
@@ -3602,7 +3631,11 @@ impl Context {
     ///
     /// This lets you affect another viewport, e.g. resizing its window.
     pub fn send_viewport_cmd_to(&self, id: ViewportId, command: ViewportCommand) {
-        self.request_repaint_of(id);
+        // 岛仔：截图拍的是本帧画面（eframe 在本帧绘制时抓取），不需要再请求重绘；
+        // 否则兼容渲染每次读回都会多画两帧。
+        if !(matches!(command, ViewportCommand::Screenshot(_)) && id == self.viewport_id()) {
+            self.request_repaint_of(id);
+        }
 
         if command.requires_parent_repaint() {
             self.request_repaint_of(self.parent_viewport_id());

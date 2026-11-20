@@ -950,7 +950,7 @@ impl App {
             let forecast_at=self.weather_source.runtime.stamps().1;
             let label=if forecast_at>0{format!("预报 {}",weather::clock(forecast_at))}else{"预报未取得".into()};
             c.text(120.0,footer,&label,8.5,W::Regular,if forecast_at==0||chrono::Utc::now().timestamp()-forecast_at>crate::qweather::DAILY_INTERVAL{WARN}else{theme::DIM},H::Left);
-            c.hit(116.0,footer-11.0,100.0,15.0,"qweather-forecast-stamp").on_hover_text(format!("预报上次获取：{}",crate::weather_source_ui::updated_at(forecast_at)));
+            c.ghost().hit(116.0,footer-11.0,100.0,15.0,"qweather-forecast-stamp").on_hover_text(format!("预报上次获取：{}",crate::weather_source_ui::updated_at(forecast_at)));
             let sources=self.weather.snapshot.as_ref().map(|s|s.attributions.join("\n")).unwrap_or_default();
             c.text(24.0,footer,"数据归因 ⓘ",9.5,W::Regular,theme::GRAY,H::Left);
             if c.hit(20.0,footer-12.0,86.0,16.0,"qweather-attributions").on_hover_cursor(egui::CursorIcon::PointingHand).on_hover_text(format!("天气服务由和风天气驱动\n{sources}\n降水概率：日夜较高值")).clicked(){
@@ -982,7 +982,7 @@ impl App {
         let stamp_x=394.0-source_w;
         let stamp_label=if source==crate::weather_source_ui::Provider::Qweather{format!("实况 {stamp}")}else{stamp.clone()};
         c.text(stamp_x, footer, &stamp_label, 8.5, W::Regular, if stale { WARN } else { theme::DIM }, H::Right);
-        c.hit(stamp_x-32.0, footer-9.0, 32.0, 13.0, "weather-stamp").on_hover_text(format!(
+        c.ghost().hit(stamp_x-32.0, footer-9.0, 32.0, 13.0, "weather-stamp").on_hover_text(format!(
             "上次更新 {}{}",if source==crate::weather_source_ui::Provider::Qweather{crate::weather_source_ui::updated_at(snapshot.at)}else{stamp.clone()},
             if offline { "，当前显示的是缓存" } else { "" }
         ));
@@ -1103,19 +1103,27 @@ impl App {
         let ctx=ui.ctx().clone();
         let accent=color(&ctx,Color32::from_rgb(96,164,255),Color32::from_rgb(34,108,220));
         ui.add_space(4.0);
+        // 当前天气放在最上面；所选来源还没应用时不显示，避免把默认源的数据混进和风草稿。
+        let applied=self.weather_source.displayed==self.weather_source.selected;
+        if applied {
+            self.weather_settings_hero(ui);
+            ui.add_space(5.0);
+            ui.horizontal_wrapped(|ui|{
+                ui.label(egui::RichText::new("天气数据来自").size(11.5).color(ui.visuals().weak_text_color()));
+                let source=self.weather_source.displayed;ui.hyperlink_to(source.name(),source.url());
+                ui.label(egui::RichText::new("· 离线时保留上次天气，温度转灰提示").size(11.5).color(ui.visuals().weak_text_color()));
+            });
+            ui.add_space(8.0);
+        }
+        let selected_before=self.weather_source.selected;
         self.weather_source_settings(ui);
+        // 本帧刚切换来源：上面已画的天气属于旧来源，丢弃这一帧重画，避免草稿里闪现默认源数据。
+        if self.weather_source.selected!=selected_before && applied {ui.ctx().request_discard("天气来源已切换");}
         ui.add_space(12.0);
         if self.weather_source.selected==crate::weather_source_ui::Provider::Qweather {
-            if self.weather_source.displayed==self.weather_source.selected {self.weather_settings_hero(ui);ui.add_space(8.0);}
             self.qweather_city_settings(ui);return;
         }
-        if self.weather_source.displayed!=self.weather_source.selected {return;}
-        self.weather_settings_hero(ui);
-        ui.add_space(5.0);
-        ui.horizontal_wrapped(|ui|{
-            ui.label(egui::RichText::new("天气数据来自").size(11.5).color(ui.visuals().weak_text_color()));
-            let source=self.weather_source.displayed;ui.hyperlink_to(source.name(),source.url());
-        });
+        if !applied {return;}
         if let Some(error)=self.weather.error.clone() {
             ui.add_space(6.0);
             egui::Frame::new().fill(color(&ctx,Color32::from_rgb(64,44,24),Color32::from_rgb(255,240,224))).corner_radius(10.0)

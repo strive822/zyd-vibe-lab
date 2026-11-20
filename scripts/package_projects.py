@@ -130,9 +130,9 @@ def build(name: str, output: Path, prepared: Path | None = None, installer: Path
     destination = output / name
     destination.mkdir(parents=True, exist_ok=True)
     if name == 'daozai':
-        if installer is None or sha256(installer.read_bytes()) != '63acf897046b6a071d058377aacdb101c8476dbd218d78f6618d74a5fc33d1ff':
+        if installer is None or sha256(installer.read_bytes()) != '68bfeaa7b1daec60e5a5cab8f8907ea9dd10764b615dde775fcfa7010ba0fe3a':
             raise ValueError('Pass --installer with the verified personal installer')
-        target = destination / 'Daozai-Setup-v0.6.65-x64.exe'
+        target = destination / 'Daozai-Setup-v0.6.66-x64.exe'
         target.write_bytes(installer.read_bytes())
         artifacts = [target]
     elif name == 'graduation-thesis-workflow':

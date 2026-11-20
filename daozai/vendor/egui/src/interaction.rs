@@ -110,6 +110,7 @@ pub(crate) fn interact(
     prev_snapshot: &InteractionSnapshot,
     widgets: &WidgetRects,
     hits: &WidgetHits,
+    press_targets: &[(Option<crate::Id>, Option<crate::Id>)],
     input: &InputState,
     interaction: &mut InteractionState,
 ) -> InteractionSnapshot {
@@ -155,19 +156,18 @@ pub(crate) fn interact(
     }
 
     // Note: in the current code a press-release in the same frame is NOT considered a drag.
+    let mut press_targets = press_targets.iter();
     for pointer_event in &input.pointer.pointer_events {
         match pointer_event {
             PointerEvent::Moved(_) => {}
 
             PointerEvent::Pressed { .. } => {
-                // Maybe new click?
+                let (click, drag) = press_targets.next().copied().unwrap_or_default();
                 if interaction.potential_click_id.is_none() {
-                    interaction.potential_click_id = hits.click.map(|w| w.id);
+                    interaction.potential_click_id = click;
                 }
-
-                // Maybe new drag?
                 if interaction.potential_drag_id.is_none() {
-                    interaction.potential_drag_id = hits.drag.map(|w| w.id);
+                    interaction.potential_drag_id = drag;
                 }
             }
 

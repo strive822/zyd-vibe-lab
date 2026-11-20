@@ -87,6 +87,7 @@ const HOVER_INTENT: f64 = 0.20;
 const MINIMAL_HOVER_INTENT: f64 = 0.40;
 /// 移开后等待多久开始收起；这段时间内回来不会收。
 const LEAVE_DELAY: f64 = 0.12;
+const PAGE_EDGE_OVERLAP: f32 = 8.0;
 const SWELL: (f32, f32) = (1.075, 1.13);
 // 展开：欠阻尼，末段约 5% 过冲后回落；高度略软于宽度，像「垂落」下来。
 const OPEN_W: (f32, f32) = (330.0, 0.70);
@@ -193,6 +194,9 @@ pub(crate) const UNREAD_SLOT: f32 = 36.0;
 /// 收起时两个来源图标的间距：并排各占一格，不叠放。
 fn unread_step(_horizontal: bool) -> f32 { 22.0 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NotificationSound { Silent, System, Health }
+
 /// 交给外壳执行的副作用。
 #[derive(Clone, Debug, PartialEq)]
 pub enum Cmd {
@@ -204,7 +208,7 @@ pub enum Cmd {
     Focus,
     Reveal(PathBuf),
     Copy(String),
-    Notify(String, String),
+    Notify(String, String, NotificationSound),
     RequestNotifications,
     RequestQqNotifications,
     DisconnectNotifications,
@@ -449,6 +453,10 @@ pub struct FrameOut {
     pub glass: Option<Vec<GlassShape>>,
     /// 鼠标命中区（相对 `win` 左上角），区域外点击穿透到下层窗口。
     pub hit: Rect,
+    /// 切到较矮页面时，原页边缘临时保留的续滚范围，不参与绘制或点击命中。
+    pub page_scroll_area: Option<Rect>,
+    /// 侧边的极简细条只感应悬停，鼠标点击交给下面的应用。
+    pub click_through: bool,
     pub notice_hit: Option<Rect>,
     /// 文件拖入感应区；独立于普通鼠标命中区。
     pub file_drop_zone: Option<Rect>,
@@ -458,6 +466,8 @@ pub struct FrameOut {
     /// 按住穿透键 拖文件掠过：本帧窗口应穿透到下层。
     pub passkey_passthrough: bool,
     pub animating: bool,
+    /// 当前帧正在绘制翻页过渡。
+    pub page_transition: bool,
     pub repaint_after: std::time::Duration,
     pub cmds: Vec<Cmd>,
 }
@@ -604,6 +614,8 @@ pub(crate) struct MailForm {
     pub email: String,
     pub password: String,
     pub show: bool,
+    /// 设置页的「添加邮箱」弹窗是否打开。
+    pub open: bool,
 }
 
 impl MailState {
@@ -673,6 +685,8 @@ pub(crate) struct CalendarForm {
     pub password: String,
     pub show: bool,
     pub guide_open: bool,
+    /// 设置页的「添加日历」弹窗是否打开。
+    pub open: bool,
 }
 
 impl CalendarState {
@@ -706,6 +720,14 @@ struct PositionDrag {
     offset: f32,
     original: (model::Dock, i32),
     legacy_x: Option<f32>,
+    moved: bool,
+}
+
+#[derive(Clone, Copy)]
+struct PanelDragPress {
+    start: Vec2,
+    at: f64,
+    on_capsule_control: bool,
 }
 
 // ---------- 拖动位置动效 ----------
@@ -766,6 +788,7 @@ pub struct App {
     pub hover_lock: bool,
     pub(crate) reveal: f32,
     position_drag: Option<PositionDrag>,
+    panel_drag_press: Option<PanelDragPress>,
     /// 拖动中和松手落位期间的窗口位置（未取整），落定后回到 `settings.island_offset`。
     drag_glide: Option<anim::Spring>,
     /// 拿起程度 0..1（可略过冲）与速度拉伸量，只影响岛体外形，不影响展开进度。
@@ -783,6 +806,7 @@ pub struct App {
     // 切页
     pub(crate) page: usize,
     page_from: usize,
+    page_scroll_area: Option<Rect>,
     page_dir: f32,
     page_t0: f64,
     slide: Spring,
@@ -983,6 +1007,7 @@ impl App {
             hover_lock: false,
             reveal: 0.0,
             position_drag: None,
+            panel_drag_press: None,
             drag_glide: None,
             drag_lift: anim::Spring::new(0.0, LIFT_K.0, LIFT_K.1),
             drag_stretch: anim::Spring::new(0.0, 260.0, 0.6),
@@ -993,6 +1018,7 @@ impl App {
             grip_hover_since: None,
             page: initial_page,
             page_from: initial_page,
+            page_scroll_area: None,
             page_dir: 1.0,
             page_t0: -10.0,
             slide: Spring::new(0.0, 260.0, 0.92),
@@ -1242,6 +1268,8 @@ impl App {
     /// 设置窗口第 8 个标签页：邮件。
     pub fn open_mail_settings(&mut self) {
         self.settings_tab = 7;
+        // 从岛上「去添加」进来时直接打开添加邮箱弹窗。
+        self.mail.form.open = true;
         self.open_settings();
     }
 
@@ -1286,6 +1314,7 @@ impl App {
                 self.calendar.last_sync = calendar::now_label();
                 self.calendar.test_password.clear();
                 self.calendar.form.password.clear();
+                self.calendar.form.open = false;
                 self.pending.push(Cmd::CalendarSync);
                 self.request_calendar_month(true);
             }
@@ -1373,7 +1402,7 @@ impl App {
     }
 
     pub(crate) fn select_calendar_provider(&mut self, provider: calendar::Provider) {
-        if self.calendar.testing || self.calendar.form.provider == provider { return; }
+        if self.calendar.testing || self.calendar.config.as_ref().is_some_and(|cfg| cfg.provider == provider) { return; }
         if let Err(error) = calendar::select_provider(provider) {
             self.calendar.note = error;
             self.calendar.note_error = true;
@@ -1387,9 +1416,32 @@ impl App {
         self.calendar.failures=feed.map(|feed|feed.failures).unwrap_or_default();
         self.calendar.error=feed.map(|feed|feed.error.clone()).unwrap_or_default();
         self.calendar.warning=feed.map(|feed|feed.warning.clone()).unwrap_or_default();
-        self.calendar.form=CalendarForm{provider,username:self.calendar.config.as_ref().map(|cfg|cfg.username.clone()).unwrap_or_default(),
-            server:self.calendar.config.as_ref().filter(|cfg|cfg.provider.custom_server()).and_then(|cfg|cfg.server.clone()).unwrap_or_default(),..Default::default()};
-        self.calendar.note.clear();self.calendar.note_error=false;
+        self.set_calendar_form_provider(provider);
+    }
+
+    pub(crate) fn open_calendar_connection(&mut self) {
+        if !self.calendar.testing {
+            let provider = self.calendar.config.as_ref().map_or_else(calendar::selected_provider, |cfg| cfg.provider);
+            self.set_calendar_form_provider(provider);
+        }
+        self.calendar.form.open = true;
+        self.calendar.form.guide_open = true;
+    }
+
+    pub(crate) fn set_calendar_form_provider(&mut self, provider: calendar::Provider) {
+        if self.calendar.testing { return; }
+        let config = self.calendar.config.as_ref().filter(|cfg| cfg.provider == provider)
+            .or_else(|| self.calendar.feeds.iter().find(|feed| feed.config.provider == provider).map(|feed| &feed.config));
+        self.calendar.form = CalendarForm {
+            provider,
+            username: config.map(|cfg| cfg.username.clone()).unwrap_or_default(),
+            server: config.and_then(|cfg| cfg.server.clone()).unwrap_or_default(),
+            open: self.calendar.form.open,
+            guide_open: self.calendar.form.guide_open,
+            ..Default::default()
+        };
+        self.calendar.note.clear();
+        self.calendar.note_error = false;
     }
 
     /// 只移除正在管理的平台，保留其他平台的日程与提醒。
@@ -1680,7 +1732,6 @@ impl App {
     pub fn mail_active(&self)->bool {self.module_on(MAIL_PAGE) && self.settings.mail_enabled}
     /// 额度查询是否应运行：AI 额度模块开启且打开了「开启 AI 额度」。
     pub fn quota_active(&self)->bool {self.module_on(QUOTA_PAGE) && self.quota.config.enabled}
-
     pub(crate) fn set_page_visible(&mut self,page:usize,visible:bool) {
         if !visible && self.settings.visible_pages.iter().filter(|enabled|**enabled).count()==1
             && self.settings.visible_pages[page] { return; }
@@ -1829,7 +1880,10 @@ impl App {
             } else {self.media.title.trim()};
         let ink=if current.is_some()||title{theme::WHITE}else{theme::GRAY};
         let layout=|text:String| {
-            let mut job=egui::text::LayoutJob::simple(text,theme::font(11.0,W::Semibold),ink,LYRIC_BAR_W-80.0);
+            // 维语等从右往左的歌词：先按阅读顺序分行再逐行转换，否则折行后第一行会是句子的结尾（#200）。
+            let font=theme::font(11.0,W::Semibold);
+            let text=crate::rtl_text::display_wrapped(&text,LYRIC_BAR_W-80.0,|s|ctx.fonts(|fonts|fonts.layout_no_wrap(s.to_owned(),font.clone(),ink).size().x)).into_owned();
+            let mut job=egui::text::LayoutJob::simple(text,font,ink,LYRIC_BAR_W-80.0);
             job.halign=egui::Align::Center;
             job.wrap.break_anywhere=true;
             if title {job.wrap.max_rows=1;}
@@ -1895,6 +1949,10 @@ impl App {
         // 左右停靠时面板沿水平方向从边缘滑出，用宽度衡量展开程度。
         if self.side() {return (self.w.pos - bw) / (PW - bw).max(1.0);}
         (self.h.pos - bh) / (self.expanded_height() - bh)
+    }
+
+    pub fn cancel_page_scroll(&mut self) {
+        self.page_scroll_area=None;
     }
 
     pub(crate) fn expanded_height(&self)->f32 {
@@ -2038,8 +2096,13 @@ impl App {
         // ---------- 输入：悬停 ----------
         let p_prev = self.progress();
         let hit = if side {self.side_hit_rect(win,p_prev)} else {self.hit_rect(cx, top, p_prev)};
+        let page_before=self.page;
         let previous_menu=self.shelf_menu_rect.take();
         let inside = env.cursor.is_some_and(|c| hit.contains(c) || previous_menu.is_some_and(|r|r.contains(c)));
+        self.page_scroll_area=self.page_scroll_area.filter(|area|self.open && !self.hover_lock
+            && !env.fullscreen_hidden && !env.screen_locked && env.cursor.is_some_and(|c|area.contains(c))
+            && !ctx.input(|i|i.pointer.any_pressed() || i.key_pressed(egui::Key::Escape)));
+        let page_hover=inside || self.page_scroll_area.is_some();
         let on_notice=env.cursor.is_some_and(|c|self.messenger_badge_rect(win,self.island_rect(win,self.w.pos,self.h.pos)).is_some_and(|r|r.contains(c)) || self.notice_rect(cx,top).is_some_and(|r|r.contains(c))||self.notice_details_rect(cx,top).is_some_and(|r|r.contains(c)));
         if !inside {
             self.hover_lock = false;
@@ -2056,7 +2119,7 @@ impl App {
         if ctx.input(|i| i.key_pressed(egui::Key::Escape)) && self.is_editing() {
             self.cancel_edit();
         }
-        if (!self.is_editing() || self.todo_choosing) && inside && self.open && self.reveal > 0.95 {
+        if (!self.is_editing() || self.todo_choosing) && page_hover && self.open && self.reveal > 0.95 {
             let (scroll, left, right, esc) = ctx.input(|i| (i.raw_scroll_delta.y, i.key_pressed(egui::Key::ArrowLeft), i.key_pressed(egui::Key::ArrowRight), i.key_pressed(egui::Key::Escape)));
             if esc { self.hover_lock = true; }
             if (left || right) && !self.todo_choosing {
@@ -2064,7 +2127,7 @@ impl App {
                 self.navigate_page(right);
             } else if scroll!=0.0 {
                 let cursor=env.cursor.unwrap()-self.content_origin(win).to_vec2();
-                let mail_reading=self.page==5 && self.mail.open_uid.is_some();
+                let mail_reading=inside && self.page==5 && self.mail.open_uid.is_some();
                 let mail_list=self.page==5 && !self.mail.accounts.is_empty() && self.mail.open_uid.is_none() && self.mail_list_bounds().contains(cursor);
                 let music_volume=self.page==0 && (Rect::from_min_max(Pos2::new(354.0,106.0),Pos2::new(380.0,130.0)).contains(cursor)
                     || self.music_volume_open && crate::pages::MUSIC_VOLUME_RECT.contains(cursor));
@@ -2106,7 +2169,7 @@ impl App {
         let volume_dragging=self.music_volume_open && ctx.is_being_dragged(egui::Id::new(("card-drag",true,"m-volume-track")));
         // 穿透键拖文件穿透期间不展开、不接投放，落点交给下面的窗口。
         // 整岛拖动期间同理：不让悬停把岛展开，否则会拖出面板。
-        let want = !island_hold && !self.passkey_passthrough && ((inside && !self.hover_lock && (self.compact_notices()||self.notice.is_none()||self.open)) || self.open && on_notice || (self.open && self.t<self.forced_open_until) || self.drag_hot || volume_dragging || (self.is_editing() && self.open));
+        let want = !island_hold && !self.passkey_passthrough && ((page_hover && !self.hover_lock && (self.compact_notices()||self.notice.is_none()||self.open)) || self.open && on_notice || (self.open && self.t<self.forced_open_until) || self.drag_hot || volume_dragging || (self.is_editing() && self.open));
         // 每个常驻额度环都有自己的入口，展开时选择指针下的账号。
         let entry_layout = self.resident.current();
         let entries_visible=!self.effective_minimal()||self.t<self.notification_bell_until;
@@ -2125,6 +2188,7 @@ impl App {
             })
         }));
         let was_open=self.open;
+        let visible_before_morph = self.island_rect(win, self.w.pos, self.h.pos).intersect(win);
         self.morph(want, inside, env.t, dt, entry_page);
         if !was_open && self.open {
             if let Some(index)=entry_account {
@@ -2152,7 +2216,8 @@ impl App {
         let notice_shape=notice_rect.map(|r|Rect::from_min_max(Pos2::new(r.left()-36.0,r.top()),r.max));
         let body=messenger_rect.filter(|_|outside_badge.is_none()).map_or(panel,|badge|panel.union(badge));
         let body=notice_shape.map_or(body,|notice|body.union(notice));
-        let minimal_pill = self.effective_minimal() && !self.island_lyrics_active() && self.notice.is_none() && self.t>=self.notification_bell_until && pc < 0.02;
+        let minimal_strip = self.effective_minimal() && !self.island_lyrics_active() && self.notice.is_none() && self.t>=self.notification_bell_until;
+        let minimal_pill = minimal_strip && pc < 0.02;
         let flare = if minimal_pill || pill { 0.0 } else { lerp(5.0, FLARE, pc) };
         let k = (w / PW).clamp(0.3, 1.1);
         let thickness = if side { crate::side_dock::SIDE_BAR_W } else { BAR_H };
@@ -2201,6 +2266,24 @@ impl App {
         self.reveal = reveal;
         let origin = self.content_origin(win);
         let clip = panel.intersect(win);
+        let opening_or_open = was_open || self.open;
+        let position_drag_available = env.screen.is_some()
+            && (opening_or_open || self.panel_drag_press.is_some())
+            && self.island_drag.is_none() && self.position_drag.is_none()
+            && !self.is_editing() && !hovering_files && !self.passkey_passthrough
+            && !env.fullscreen_hidden && !env.screen_locked;
+        let (primary_press, other_button) = if position_drag_available { ctx.input(|i| {
+            let press = i.events.iter().rev().find_map(|event| match event {
+                egui::Event::PointerButton { pos, button: egui::PointerButton::Primary, pressed: true, .. } => Some(*pos),
+                _ => None,
+            });
+            let other = [egui::PointerButton::Secondary, egui::PointerButton::Middle, egui::PointerButton::Extra1, egui::PointerButton::Extra2]
+                .into_iter().any(|button| i.pointer.button_down(button))
+                || i.events.iter().any(|event| matches!(event,
+                    egui::Event::PointerButton { button, pressed: true, .. } if *button != egui::PointerButton::Primary));
+            (press, other)
+        }) } else { (None, false) };
+        let drag_ready = position_drag_available && !other_button;
         let base = Card::new(ui, origin, clip);
         self.cursor_local = env.cursor.map(|p| base.to_local(p));
 
@@ -2273,11 +2356,13 @@ impl App {
             let fit=if self.island_lyrics_active()||self.notice.is_some(){1.0}else{((WIN_W-32.0)/self.resident.target.width).min(1.0)};
             self.pet.draw(&base.scaled(cx-origin.x,15.0,fit).shifted(0.0,y).faded(pet_alpha),cx-origin.x+self.resident.position(bar::PET),self.t,self.skin_palette());
         }
+        let mut page_transition=false;
         if reveal > 0.004 && !banner && !restoring_lyrics {
             let c = base.shifted(0.0, (1.0 - reveal) * -5.0).faded(reveal);
-            let c = if reveal < 0.6 { c.ghost() } else { c };
-            if self.calendar.draft.is_some(){self.draw_calendar_editor(&c);}else if self.task_dialog.is_some(){self.draw_task_editor(&c);}else{self.panel_body(&c, env, &mut cmds);}
-            self.toast_layer(&c,106.0);
+            let drag_owns_pointer = self.position_drag.is_some() || self.panel_drag_press.is_some();
+            let c = if reveal < 0.6 || drag_owns_pointer { c.ghost() } else { c };
+            if self.calendar.draft.is_some(){self.draw_calendar_editor(&c);}else if self.task_dialog.is_some(){self.draw_task_editor(&c);}else{page_transition=self.panel_body(&c, env, &mut cmds);}
+            if !self.toast_below {self.toast_layer(&c,106.0);}
         }
         // 岛下的确认提示使用独立裁剪区域，收起时跟随岛体下沿。
         let floating_toast=if self.toast_below && self.toast.is_some() {
@@ -2356,6 +2441,15 @@ impl App {
             shapes.extend(tooltips.iter().map(|r|GlassShape::Round(rel(*r),6.0)));
             shapes
         });
+        // 根据左键实际按下的位置查找控件。同一帧内移动光标也不会改变手势归属。
+        let panel_press = primary_press
+            .filter(|&point| drag_ready && opening_or_open && !self.is_editing() && visible_before_morph.contains(point))
+            .and_then(|point| {
+                let on_control = ctx.has_pointer_target_at(point);
+                // 胶囊图标还没退场时仍可点击，拖动则交给展开面板的停靠逻辑。
+                (!on_control || p_prev < 0.08).then_some((point, on_control))
+            });
+        self.update_panel_drag(&ctx, env, drag_ready, primary_press.is_some(), panel_press);
         self.update_position_drag(&ctx,env,dt);
         let transitioning = self.position_drag.is_some() || self.drag_glide.is_some() || !self.drag_lift.settled(1.0) || !self.drag_stretch.settled(1.0) || !self.w.settled(PW)
             || self.center_guide>0.002 || self.center_lock_a>0.002 || self.t-self.center_lock_at<CENTER_SWEEP
@@ -2385,16 +2479,36 @@ impl App {
         // 交互形变保持 60 帧，媒体 30 帧；小表情 20 帧，睡眠 10 帧，静态界面每秒核对提醒。
         let repaint_after=std::time::Duration::from_secs_f64(if transitioning{1.0/60.0}else if ambient{1.0/30.0}else if pet_visible{if self.pet.state==PetState::Sleeping{0.1}else{0.05}}else{1.0});
         cmds.append(&mut self.pending);
+        let next_hit=if side {self.side_hit_rect(win,self.progress())} else {self.hit_rect(cx,top,self.progress())};
+        if page_before!=self.page && self.open {
+            let previous=self.page_scroll_area.map_or(hit,|area|hit.union(area));
+            // 保留缩短一侧原有的整段宽度。和新页重叠一点，避免在边缘来回挪动时误收起。
+            self.page_scroll_area=env.cursor.filter(|&c|previous.contains(c)).and_then(|c|{
+                let mut band=previous;
+                if previous.bottom()>next_hit.bottom() && c.y>=next_hit.bottom()-PAGE_EDGE_OVERLAP {
+                    band.min.y=next_hit.bottom()-PAGE_EDGE_OVERLAP;
+                } else if previous.top()<next_hit.top() && c.y<=next_hit.top()+PAGE_EDGE_OVERLAP {
+                    band.max.y=next_hit.top()+PAGE_EDGE_OVERLAP;
+                } else {
+                    return None;
+                }
+                Some(band)
+            });
+        }
         FrameOut {
             region: rel(floating_toast.into_iter().chain(self.shelf_menu_rect.map(|r|r.union(r + ctx.style().visuals.popup_shadow.margin()).expand(1.0 / ctx.pixels_per_point()))).fold(region,Rect::union).intersect(ui.max_rect())),
             glass: glass_region,
-            hit: rel(if side {self.side_hit_rect(win,self.progress())} else {self.hit_rect(cx, top, self.progress())}),
+            hit: rel(next_hit),
+            page_scroll_area:self.page_scroll_area.map(rel),
+            // 顶部细条仍支持个人版的收起态横拖和双击右键居中。
+            click_through: side && minimal_strip && !self.open && self.position_drag.is_none(),
             notice_hit:notice_shape.into_iter().chain(notice_details).chain(messenger_rect).chain(self.shelf_menu_rect).reduce(|a,b|a.union(b)).map(rel),
             file_drop_zone:(self.settings.visible_pages[3] && self.settings.collect[crate::collect::FILE_DROP]).then(||rel(if side {self.island_rect(win,PW,self.expanded_height())} else {Rect::from_min_size(Pos2::new(cx-PW/2.0,top),Vec2::new(PW,96.0))})),
             expanded: self.open,
             editing: self.is_editing(),
             passkey_passthrough: self.passkey_passthrough,
             animating,
+            page_transition,
             repaint_after,
             cmds,
         }
@@ -2448,7 +2562,7 @@ impl App {
         // 收起态允许从图标起拖，轻点仍交给控件；展开态只排除设置齿轮。
         // 展开态也允许拖顶栏（时钟日期区域），这样悬停展开后仍能移动整岛。
         let press_allowed = press.is_some_and(|local| bar.contains(local) && hit.contains(local) && (!self.open || !self.island_press_on_control(local, cx)));
-        // 展开后的日期时间交给停靠拖动；旧横拖仍可从收起态开始。
+        // 展开到面板后由停靠拖动接管，已经按下的胶囊拖动会继续到松手。
         if press_allowed && (!self.open || env.screen.is_none()) && !self.is_editing() && !hovering_files && !self.passkey_passthrough {
             // 同一帧可能既按下又移动：保留事件的按下点，不能用帧末采样点吞掉第一段位移。
             if let Some(point) = press.zip(env.cursor).zip(env.cursor_screen).map(|((press,local),screen)|screen+(press-local)) {
@@ -2844,22 +2958,60 @@ impl App {
         }
     }
 
+    fn update_panel_drag(&mut self, ctx: &egui::Context, env: &Env, ready: bool, pressed: bool, press: Option<(Pos2, bool)>) {
+        let down = env.mouse_down.unwrap_or_else(|| ctx.input(|i| i.pointer.primary_down()));
+        let Some(screen) = env.screen.filter(|_| ready && down) else {
+            self.panel_drag_press = None;
+            return;
+        };
+        if pressed {
+            self.panel_drag_press = press.map(|(point, on_capsule_control)| PanelDragPress {
+                start: point - screen.min,
+                at: env.t,
+                on_capsule_control,
+            });
+        }
+        if let Some(press) = self.panel_drag_press {
+            let origin = screen.min + press.start;
+            let moved = env.cursor.is_some_and(|cursor| cursor.distance(origin) >= ISLAND_DRAG_THRESHOLD);
+            let remaining = LIFT_HOLD - (env.t - press.at);
+            let grab = if press.on_capsule_control {
+                moved && ctx.input(|i| i.pointer.is_decidedly_dragging())
+            } else {
+                moved || remaining <= 0.0
+            };
+            if grab {
+                self.panel_drag_press = None;
+                self.start_position_drag(origin, screen, env.island_offset);
+            } else if !press.on_capsule_control {
+                ctx.request_repaint_after(std::time::Duration::from_secs_f64(remaining));
+            }
+        }
+    }
+
     fn update_position_drag(&mut self,ctx:&egui::Context,env:&Env,dt:f32) {
         let limit=model::ISLAND_OFFSET_MAX as f32;
         if let Some(mut drag)=self.position_drag {
             let mut speed=0.0;
-            if let (Some(cursor),Some(screen))=(env.cursor,env.screen) {
-                // 使用屏幕内坐标，窗口移动或横竖画布切换不会累积位移。
-                let cursor=cursor-screen.min;
+            // 使用屏幕内坐标，窗口移动或横竖画布切换不会累积位移。
+            let pointer = env.cursor.zip(env.screen).map(|(cursor, screen)| (cursor - screen.min, screen));
+            drag.moved |= pointer.is_some_and(|(cursor, _)| (cursor - drag.start).length() >= ISLAND_DRAG_THRESHOLD);
+            if let Some((cursor, screen)) = pointer.filter(|_| drag.moved) {
+                let delta = cursor - drag.start;
+                let toward_edge = |dock| match dock {
+                    model::Dock::Top => -delta.y >= ISLAND_DRAG_THRESHOLD,
+                    model::Dock::Left => -delta.x >= ISLAND_DRAG_THRESHOLD,
+                    model::Dock::Right => delta.x >= ISLAND_DRAG_THRESHOLD,
+                };
                 let edges=[(model::Dock::Top,cursor.y.max(0.0)),(model::Dock::Left,cursor.x.max(0.0)),(model::Dock::Right,(screen.width()-cursor.x).max(0.0))];
                 let &(nearest,distance)=edges.iter().min_by(|a,b|a.1.total_cmp(&b.1)).unwrap();
                 let current=edges.iter().find(|(dock,_)|*dock==self.dock()).unwrap().1;
                 // 靠近新边缘才换边；角落保留缓冲，防止横竖形态来回跳变。
-                let mut target=Some(nearest).filter(|dock|*dock!=self.dock() && distance<=64.0 && distance+24.0<current);
+                let mut target=Some(nearest).filter(|&dock|dock!=self.dock() && toward_edge(dock) && distance<=64.0 && distance+24.0<current);
                 // 左右对侧：过了中线、明显更靠近另一侧就换过去，不必甩到屏幕尽头；中线附近留缓冲不来回跳。
                 if target.is_none() && self.side() {
                     let (opposite,far)=if self.dock()==model::Dock::Left {(model::Dock::Right,edges[2].1)}else{(model::Dock::Left,edges[1].1)};
-                    if far+screen.width()*0.07<current {target=Some(opposite);}
+                    if toward_edge(opposite) && far+screen.width()*0.07<current {target=Some(opposite);}
                 }
                 let switch=target.is_some();
                 if let Some(dock)=target {self.settings.dock=dock;}
@@ -2898,7 +3050,7 @@ impl App {
                 if travel>0.0 {speed=self.drag_glide.map_or(0.0,|g|g.vel.abs()/limit*travel);}
             }
             self.drag_stretch.target=(speed/STRETCH_SPEED).min(1.0)*STRETCH_MAX;
-            if !ctx.input(|i|i.pointer.primary_down()) {
+            if !env.mouse_down.unwrap_or_else(|| ctx.input(|i| i.pointer.primary_down())) {
                 self.position_drag=None;
                 self.hover_lock=true;
                 self.drag_stretch.target=0.0;
@@ -3033,7 +3185,7 @@ impl App {
             let travel = (screen.width()/2.0-crate::display_layout::ISLAND_HALF_EXTENT).max(0.0);
             offset = if travel > 0.0 { (applied_x.unwrap_or(legacy_x)/travel*limit).clamp(-limit,limit) } else { 0.0 };
         }
-        self.position_drag=Some(PositionDrag{start:start-screen.min,offset,original:(self.dock(),saved_offset),legacy_x});
+        self.position_drag=Some(PositionDrag{start:start-screen.min,offset,original:(self.dock(),saved_offset),legacy_x,moved:false});
         let mut glide=anim::Spring::new(offset,GLIDE_FOLLOW.0,GLIDE_FOLLOW.1);
         if let Some(g)=self.drag_glide {glide.pos=g.pos;glide.vel=g.vel;}
         self.drag_glide=Some(glide);
@@ -3169,7 +3321,7 @@ impl App {
         }
         if lyric_alpha>=0.997 {return;}
         let header=base.faded(1.0-lyric_alpha);
-        let header=if self.island_drag_claimed {header.ghost()} else {header};
+        let header=if self.island_drag_claimed || self.position_drag.is_some() {header.ghost()} else {header};
         let base=&header;
         let m = anim::ease_in_out(smoothstep(0.0, 0.85, p));
         let clock = self.settings.clock_text(&env.clock);
@@ -3213,13 +3365,15 @@ impl App {
             base.faded(reveal).text(hd + (1.0 - reveal) * 10.0, 22.5, &env.date, size::DATE, W::Regular, Color32::from_rgb(210, 210, 214), H::Left);
         }
         if self.open && reveal>0.95 && p>0.98 && !self.is_editing() && !self.drag_hot {
-            if let Some(screen)=env.screen {
+            if env.screen.is_some() {
                 // 中间的日期时间区不占用两侧的新增、刷新和设置按钮。
                 let left=hd.max(150.0);let right=(hc+clock_w).min(303.0);
                 if right>left {
                     // Windows 没有「抓手」光标，Grab 会变成四向箭头；保持普通箭头，改用岛体内的把手提示。
-                    let response=base.hit_drag(left,4.0,right-left,26.0,"island-position").on_hover_text("按住拖动位置");
-                    let (_,press)=base.hover_t(&response);
+                    let rect = base.rect(left, 4.0, right - left, 26.0).intersect(base.painter.clip_rect());
+                    let response = base.ui.interact(rect, egui::Id::new("island-position-grip"), egui::Sense::hover())
+                        .on_hover_text("按住拖动位置");
+                    let press = if self.panel_drag_press.is_some() && response.contains_pointer() { 1.0 } else { 0.0 };
                     // 停留才显现：划过（< 0.3 s）什么都不出现；先露出把手，再慢慢浮起底色；按下立即到位，移开快速淡出。
                     let dwell=(if response.hovered() {self.t-*self.grip_hover_since.get_or_insert(self.t)}else{self.grip_hover_since=None;0.0}) as f32;
                     if response.hovered() && dwell<1.2 {base.ui.ctx().request_repaint();}
@@ -3233,12 +3387,6 @@ impl App {
                         if fill_in>0.003 {base.fill(x,5.0,w,26.0,13.0,Color32::from_white_alpha((fill_in*7.0+press*12.0) as u8));}
                         let grip=lerp(14.0,22.0,press)*lerp(0.5,1.0,grip_in);
                         base.fill(x+w/2.0-grip/2.0,7.5,grip,2.6,1.3,Color32::from_white_alpha((grip_in*60.0+press*60.0) as u8));
-                    }
-                    // 开始移动立即拿起；原地按住片刻也会拿起，先给反馈再移动。
-                    let held=response.is_pointer_button_down_on() && base.ui.input(|i|i.pointer.primary_down() && i.pointer.press_start_time().is_some_and(|at|i.time-at>=LIFT_HOLD));
-                    if response.is_pointer_button_down_on() {base.ui.ctx().request_repaint();}
-                    if response.drag_started_by(egui::PointerButton::Primary) || held {
-                        if let Some(start)=base.ui.input(|i|i.pointer.press_origin()) {self.start_position_drag(start,screen,env.island_offset);}
                     }
                 }
             }
@@ -3347,7 +3495,7 @@ impl App {
         let minimal=self.effective_minimal()&&self.t>=self.notification_bell_until;
         if bar_alpha>0.004 && !minimal {
             let c=base.shifted(panel.min.x-base.origin.x,panel.min.y-base.origin.y).faded(bar_alpha);
-            let c=if bar_alpha<0.8 {c.ghost()} else {c};
+            let c=if bar_alpha<0.8 || self.position_drag.is_some() {c.ghost()} else {c};
             self.side_bar(&c,panel.width(),panel.height(),env);
         }
         if reveal>0.004 {self.shared_header(&base.faded(reveal),base.origin.x+PW/2.0,1.0,reveal,env);}
@@ -3379,7 +3527,7 @@ impl App {
     // ---------------------------------------------------------------
     // 面板主体：页标题 + 页面（带切页过渡）+ 翻页箭头 + 页码豆
     // ---------------------------------------------------------------
-    fn panel_body(&mut self, c: &Card, env: &Env, cmds: &mut Vec<Cmd>) {
+    fn panel_body(&mut self, c: &Card, env: &Env, cmds: &mut Vec<Cmd>) -> bool {
         let settings=c.hit(380.0,4.0,28.0,28.0,"page-settings").on_hover_text(format!("打开{}设置窗口",PAGE_NAMES[self.page]));
         let (hover,press)=c.hover_t(&settings);
         c.circle(394.0,18.0,13.0,Color32::from_white_alpha((hover*24.0) as u8));
@@ -3395,7 +3543,7 @@ impl App {
             if c.hit(9.0,7.0,28.0,23.0,"subpage-back").clicked(){
                 if self.page==2 && self.health_time {self.health_time=false;} else {self.subpage=None;self.settings_editing=false;}
             }
-            self.page_settings(c);self.nav(c);return;
+            self.page_settings(c);self.nav(c);return false;
         }
         let e = self.page_e();
         let in_tx = e < 0.55 && self.page_from != self.page;
@@ -3420,6 +3568,7 @@ impl App {
         }
         self.nav(c);
         if self.page==0 && c.live {self.draw_music_volume(c,cmds);}
+        in_tx
     }
 
     fn page_title(&self, page: usize, c: &Card) {

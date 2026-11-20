@@ -307,6 +307,8 @@ impl Shell {
         #[cfg(windows)]
         let origin=self.native.as_ref().and_then(|w|w.logical_origin(ppp)).unwrap_or(origin);
         let cursor = cursor_logical(ppp).map(|(x, y)| Pos2::new(x - origin.x, y - origin.y));
+        #[cfg(windows)]
+        let cursor=cursor.filter(|_|!self.app.settings.dock.is_side() || !self.native.as_ref().is_some_and(|w|w.holding_through_strip()));
         // 拖动整岛需要逻辑屏幕坐标：窗口自身会跟着移动，局部坐标会互相抵消。
         let cursor_screen = cursor_logical(ppp).map(|(x, y)| Pos2::new(x, y));
         // 拖动范围按岛体实际宽度计算：岛体贴住屏幕边缘，右侧给通知徽标留出空间。
@@ -397,6 +399,7 @@ impl eframe::App for Shell {
     }
 
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        daozai::resources::FRAMES.fetch_add(1,std::sync::atomic::Ordering::Relaxed);
         // 点验专用：DAOZAI_UI_SCALE=1.25 时按该缩放渲染，等价于在 125% 显示器上运行。
         if let Ok(text) = std::env::var("DAOZAI_UI_SCALE") {
             if let Ok(target) = text.parse::<f32>() {
@@ -428,7 +431,9 @@ impl eframe::App for Shell {
         // 设置里改了岛体大小：下一帧起主窗口按新倍率栅格化，定位逻辑随像素比变化同步调整画布。
         #[cfg(windows)] eframe::set_root_viewport_scale(self.app.settings.island_scale());
         #[cfg(windows)]
-        {
+        if let Some(start)=_frame.interactive_frame_start {
+            self.frame_at=start;
+        } else {
             // 用帧间隔限制刷新，绕过部分 Intel 驱动在垂直同步中的忙等待。
             let delay=Duration::from_secs_f64(1.0/60.0).saturating_sub(self.frame_at.elapsed());
             if !delay.is_zero(){std::thread::sleep(delay);}
@@ -437,7 +442,7 @@ impl eframe::App for Shell {
         #[cfg(windows)]
         self.poll_tray();
         #[cfg(windows)]
-        let foreground_changed=daozai::native::take_foreground_change();
+        let foreground_changed=self.native.as_mut().is_some_and(|window|window.take_foreground_change());
         #[cfg(windows)]
         if foreground_changed {
             // 切到别的程序：收起，并在光标离开前不再自动展开
@@ -606,6 +611,8 @@ impl eframe::App for Shell {
             }
         }
         let env = self.env(ctx);
+        #[cfg(windows)]
+        if self.native.as_ref().is_some_and(|w|w.page_scroll_cancelled()) {self.app.cancel_page_scroll();}
         self.reconcile_modules();
         // v0.5.5 邮件：开关 / 间隔 / 账号清单变了就重新对齐收信线程，再把事件交给界面。
         // 每帧只比较不复制，确有变化时才复制账号清单。
@@ -688,12 +695,19 @@ impl eframe::App for Shell {
                     i.events.iter().any(|e|!matches!(e,egui::Event::Screenshot{..})),
                 ));
                 let changed=shot.as_ref().is_some_and(|image|native.present_frame(image.size,image.as_raw()));
-                if shot.is_none() || changed || other_input {
-                    // 拖动、悬停等有输入时满帧跟手；歌词滚动这类自己在动的画面约 30 帧/秒读回，
-                    // 未到间隔就预约一次重绘，到时补上读回，动画停下时的最后一帧不会漏掉。
+                let turning=out.page_transition && !self.hidden;
+                let interactive=other_input || turning;
+                if native.wants_frames() && (shot.is_none() || changed || interactive || native.awaiting_first_layered_frame()) {
+                    // 翻页期间即使滚轮已经停下，也要交付当前帧；持续动效仍按自身的低频节奏读回。
                     let now=Instant::now();
-                    match daozai::layered::readback_delay(self.readback_at,now,other_input) {
-                        None=>{self.readback_at=Some(now);ctx.send_viewport_cmd(egui::ViewportCommand::Screenshot(Default::default()));}
+                    match daozai::layered::readback_delay(self.readback_at,now,interactive,out.repaint_after) {
+                        None=>{
+                            self.readback_at=Some(now);
+                            let data=if turning && self.app.render_compat_running {
+                                egui::UserData::new(eframe::InteractiveCapture(self.frame_at+out.repaint_after))
+                            } else {Default::default()};
+                            ctx.send_viewport_cmd(egui::ViewportCommand::Screenshot(data));
+                        }
                         Some(wait)=>ctx.request_repaint_after(wait),
                     }
                 }
@@ -701,7 +715,8 @@ impl eframe::App for Shell {
             let r = |r: egui::Rect| (r.left(), r.top(), r.width(), r.height());
             // 保留主窗口的事件循环，避免全屏隐藏后设置窗口无法关闭或重新打开。
             let region=if self.hidden {(0.0,0.0,0.0,0.0)} else {r(out.region)};
-            let hit=if self.hidden {(0.0,0.0,0.0,0.0)} else {r(out.hit)};
+            let hit=if self.hidden || out.click_through && out.notice_hit.is_none() {(0.0,0.0,0.0,0.0)} else {r(out.hit)};
+            native.set_page_scroll_area(out.page_scroll_area.filter(|_|!self.hidden && out.expanded && !out.passkey_passthrough),ctx.pixels_per_point());
             native.update(region, hit, if self.hidden{None}else{out.notice_hit.map(r)},if self.hidden{None}else{out.file_drop_zone.map(r)},if self.hidden{None}else{out.glass.as_deref()},ctx.pixels_per_point(), out.editing, !self.hidden && out.expanded, out.passkey_passthrough);
             if !self.hidden && self.app.settings.avoids_top_bar() && self.app.settings.top_bar_on_top && !self.app.settings.dock.is_side() {
                 if let Some(display)=daozai::display_layout::selected(&self.app.displays,&self.app.settings.display_id) {
@@ -815,8 +830,11 @@ impl eframe::App for Shell {
                     self.volume_quiet=PollClock::now();
                 },
                 Cmd::Copy(text)=>{daozai::collect::note_self_copy(&text);ctx.copy_text(text);},
-                Cmd::Notify(title,body)=>{
-                    #[cfg(windows)] if let Some(tray)=&self.tray{tray.notify(&title,&body,self.app.settings.sound);}
+                Cmd::Notify(title,body,sound)=>{
+                    #[cfg(windows)] {
+                        if sound==app::NotificationSound::Health {daozai::tray::play_health_sound();}
+                        if let Some(tray)=&self.tray {tray.notify(&title,&body,sound==app::NotificationSound::System);}
+                    }
                 },
                 cmd @ (Cmd::RequestNotifications|Cmd::RequestQqNotifications)=>{
                     #[cfg(windows)] {self.app.settings.qq_only=matches!(cmd,Cmd::RequestQqNotifications);self.app.settings.read_notifications=true;self.app.settings.save();self.incoming=None;match daozai::system::connect_with_settings(ctx.clone(),&self.app.settings){Ok(rx)=>{self.incoming=Some(rx);self.app.listener_status="正在请求 Windows 通知权限…".into();},Err(e)=>self.app.listener_status=format!("Windows 未允许读取通知：{}。需要相应的系统权限或应用身份。",e.code())}}
@@ -851,7 +869,10 @@ impl eframe::App for Shell {
         #[cfg(not(windows))] let autostart = false;
         self.app.settings_ui(ctx, autostart);
         self.app.mail_reader_ui(ctx);
-        #[cfg(windows)] let repaint_after=if self.hidden{Duration::from_secs(1)}else{out.repaint_after};
+        // 翻页以帧起点为准，扣掉本帧已花的时间；入口处的限帧仍然生效。
+        #[cfg(windows)] let repaint_after=if self.hidden {Duration::from_secs(1)}
+            else if out.page_transition {out.repaint_after.saturating_sub(self.frame_at.elapsed())}
+            else {out.repaint_after};
         #[cfg(not(windows))] let repaint_after=out.repaint_after;
         schedule_repaint(ctx,repaint_after);
         // 只记慢帧：卡顿反馈时能直接看出是渲染慢还是输入被吞（页面/展开状态一并记下）。
