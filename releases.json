@@ -71,34 +71,34 @@
       ]
     },
     "graduation-thesis-workflow": {
-      "version": "0.4.0",
-      "tag": "graduation-thesis-workflow-v0.4.0-r1",
+      "version": "0.5.0",
+      "tag": "graduation-thesis-workflow-v0.5.0-r1",
       "kind": "skill",
       "assets": [
         {
           "name": "graduation-thesis-codex.zip",
-          "bytes": 46607,
-          "sha256": "64ee71924e2efcb9cd61e36b121533d4bbde1862af9cb6f729473bca3709eaed"
+          "bytes": 50223,
+          "sha256": "565f77a8a5d968ed05bcccaa6108a8feabb485acd59c96e4a2d04368a3023a08"
         },
         {
           "name": "graduation-thesis-claude-code.zip",
-          "bytes": 46607,
-          "sha256": "64ee71924e2efcb9cd61e36b121533d4bbde1862af9cb6f729473bca3709eaed"
+          "bytes": 50223,
+          "sha256": "565f77a8a5d968ed05bcccaa6108a8feabb485acd59c96e4a2d04368a3023a08"
         },
         {
           "name": "graduation-thesis-pi.zip",
-          "bytes": 46607,
-          "sha256": "64ee71924e2efcb9cd61e36b121533d4bbde1862af9cb6f729473bca3709eaed"
+          "bytes": 50223,
+          "sha256": "565f77a8a5d968ed05bcccaa6108a8feabb485acd59c96e4a2d04368a3023a08"
         },
         {
           "name": "graduation-thesis-workbuddy.zip",
-          "bytes": 46683,
-          "sha256": "c4f310e690e91b4d56547657658be5520d7e85367c857538ba7424664fcf07bd"
+          "bytes": 50297,
+          "sha256": "e47e4d2dc2f7c726279a72c1912459ba0e2cfeb0019f42cb3856bfd0f5a0c135"
         },
         {
           "name": "SHA256SUMS.txt",
           "bytes": 383,
-          "sha256": "019142bb48560cc7621d118ada786a2f118c2e4d229a816d2528681de97ffcbb"
+          "sha256": "1cac09d98dcdf621c3494b3ad480dcc85b3d43147a932c767a56c6faef6d8955"
         }
       ]
     },

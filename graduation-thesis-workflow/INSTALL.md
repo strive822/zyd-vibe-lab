@@ -4,7 +4,7 @@
 
 不经过任何 Agent，浏览器加文件管理器即可完成：
 
-1. 打开 <https://github.com/strive822/zyd-vibe-lab/releases/tag/graduation-thesis-workflow-v0.4.0-r1>，按客户端选择 `graduation-thesis-codex.zip` / `graduation-thesis-claude-code.zip` / `graduation-thesis-pi.zip` / `graduation-thesis-workbuddy.zip` 与 `SHA256SUMS.txt`（也可在仓库页 `Code` → `Download ZIP`）。
+1. 打开 <https://github.com/strive822/zyd-vibe-lab/releases/tag/graduation-thesis-workflow-v0.5.0-r1>，按客户端选择 `graduation-thesis-codex.zip` / `graduation-thesis-claude-code.zip` / `graduation-thesis-pi.zip` / `graduation-thesis-workbuddy.zip` 与 `SHA256SUMS.txt`（也可在仓库页 `Code` → `Download ZIP`）。
 2. 在下载目录打开命令提示符，核对哈希（应与 `SHA256SUMS.txt` 中所选 ZIP 文件名对应行一致）：
 
    ```bat

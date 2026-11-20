@@ -8,8 +8,10 @@ Word 使用学校提供的模板和样式；LaTeX 使用学校认可的文档类
 
 若要求答辩：生成符合时长的讲稿和幻灯片，覆盖问题、方法、证据、成果及局限；追加面向论文内容的问题清单与证据位置。可以组织模拟答辩，但不能写“已通过答辩”。
 
-为每个已完成产物计算 SHA256，填入 artifacts.json，与需求 id 一一对应。将审查报告也按 contract 登记哈希。运行 project.py audit，修复结构问题，然后重新核验实际内容。满足所有条件才写 status=complete。
+为每个已完成产物计算 SHA256，填入 artifacts.json，与需求 id 一一对应。将审查报告也按 contract 登记哈希。
 
 最终交付列出文件、实际验证、已知局限及用户后续提交事项。complete 只表示约定本地产物完成，不表示学校批准、毕业成功或 GitHub 发布完成。论文原始材料与工作流源代码的公开范围分开，禁止自动把用户论文上传到公共仓库。
 
-最终顺序：生成与渲染实际交付文件 → 完成审查报告 → 更新 artifacts、polishing 与需求验收记录 → `project.py review-snapshot <项目目录>` → `project.py audit <项目目录>` → 通过且实质问题已解决后更新 state。快照后改稿必须重审并重新快照。
+1. 生成并渲染实际交付文件。对导出的终稿完成正文引文与文献表核对，使报告、证据和文件对应。
+2. 更新 artifacts、polishing 和需求验收记录。运行 `python <技能目录>/scripts/check_literature.py <项目目录>`，修复文献登记缺口。
+3. 完成实质审查报告，运行 `project.py review-snapshot <项目目录>`，随后运行 `project.py audit <项目目录>`。两个检查通过且实质问题已解决后才可写 `status=complete`。改稿或更新文献登记后重审受影响部分并重新快照。

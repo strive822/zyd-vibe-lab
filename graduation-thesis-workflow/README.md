@@ -6,7 +6,7 @@
 | --- | --- |
 | 需求访谈 | 明确专业、学校模板、时间、题目和已有材料，先确认哪些要求必须满足。 |
 | 研究设计 | 按文献、定量、定性、工程系统或实验分支规划方法，列出材料和数据缺口。 |
-| 文献检索 | 检索真实来源，核对文献元数据与出处，保留引用依据；数据库可用性取决于访问条件。 |
+| 文献检索 | 按学科从知网、万方、国家哲学社会科学文献中心、PubMed、IEEE Xplore 等入口检索。逐篇核对书目、版本和撤稿或更正状态，保存真实出处和原文定位。 |
 | 研究执行 | 组织实际数据、方法和结果，区分已有证据、待补材料与尚未完成的研究。 |
 | 写作与审查 | 按学校结构撰写，检查章节、论点、引用、数字与结论是否相互对应。 |
 | 中文润色 | 内置 Humanizer-zh 改善空话和模板表达，保留研究事实、来源和确定程度。 |
@@ -31,7 +31,7 @@
 
 ## 成品下载
 
-[固定 Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/graduation-thesis-workflow-v0.4.0-r1)：Codex / Claude Code / Pi / WorkBuddy 技能包，附 SHA256SUMS.txt。完整步骤见 [INSTALL.md](INSTALL.md)。仓库内保留源码，不保存构建包或依赖缓存。
+[固定 Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/graduation-thesis-workflow-v0.5.0-r1)：Codex / Claude Code / Pi / WorkBuddy 技能包，附 SHA256SUMS.txt。完整步骤见 [INSTALL.md](INSTALL.md)。仓库内保留源码，不保存构建包或依赖缓存。
 
 ## 零基础使用：只对助手说一句话
 
@@ -79,10 +79,10 @@
 
 | 工具 | 安装包 |
 | --- | --- |
-| WorkBuddy | [下载 WorkBuddy ZIP](https://github.com/strive822/zyd-vibe-lab/releases/download/graduation-thesis-workflow-v0.4.0-r1/graduation-thesis-workbuddy.zip) |
-| Codex | [下载 Codex ZIP](https://github.com/strive822/zyd-vibe-lab/releases/download/graduation-thesis-workflow-v0.4.0-r1/graduation-thesis-codex.zip) |
-| Claude Code | [下载 Claude Code ZIP](https://github.com/strive822/zyd-vibe-lab/releases/download/graduation-thesis-workflow-v0.4.0-r1/graduation-thesis-claude-code.zip) |
-| Pi | [下载 Pi ZIP](https://github.com/strive822/zyd-vibe-lab/releases/download/graduation-thesis-workflow-v0.4.0-r1/graduation-thesis-pi.zip) |
+| WorkBuddy | [下载 WorkBuddy ZIP](https://github.com/strive822/zyd-vibe-lab/releases/download/graduation-thesis-workflow-v0.5.0-r1/graduation-thesis-workbuddy.zip) |
+| Codex | [下载 Codex ZIP](https://github.com/strive822/zyd-vibe-lab/releases/download/graduation-thesis-workflow-v0.5.0-r1/graduation-thesis-codex.zip) |
+| Claude Code | [下载 Claude Code ZIP](https://github.com/strive822/zyd-vibe-lab/releases/download/graduation-thesis-workflow-v0.5.0-r1/graduation-thesis-claude-code.zip) |
+| Pi | [下载 Pi ZIP](https://github.com/strive822/zyd-vibe-lab/releases/download/graduation-thesis-workflow-v0.5.0-r1/graduation-thesis-pi.zip) |
 
 以下内容面向希望了解实现或维护仓库的人，普通使用者无需操作。
 
@@ -90,7 +90,7 @@
 
 - 一个自包含技能入口，按需读取环境准备及八个阶段模块：访谈、设计、检索、研究执行、写作、审查、Humanizer-zh 润色、排版交付。
 - 五类研究方法分支：文献研究、定量、定性、工程系统和实验；支持组合。各专业的具体规范需要项目内补充。
-- 真实 Crossref 元数据检索脚本，以及 arXiv、PubMed/PMC、ERIC、中文数据库等合法来源的检索指引。没有声称实现所有数据库 API。
+- Crossref 元数据查询脚本、学科数据库检索指引，以及正式交付前的文献登记检查。来源真伪与引用是否恰当需要实际打开条目和原文核验。
 - 无 Git/Python 的 Windows 技能安装脚本、按需环境准备、项目初始化、文件哈希、交付检查和断点续做。
 - Codex / Claude Code / Pi / WorkBuddy 分发 ZIP 生成器。
 
@@ -100,7 +100,6 @@
 
 ```text
 skills/graduation-thesis/  唯一技能源，包含 SKILL.md、阶段模块、脚本
-scripts/package.py        生成四种自包含 ZIP
 scripts/package.py        从源码生成四端 ZIP，成品仅放 Release
 tests/                    隔离的合成测试，不是论文数据
 docs/                     安装、验证和发布说明

@@ -27,6 +27,21 @@ schema_version=1，requirements_version 必须匹配需求版本。status 取 in
 - verification：checked 表示已执行相应来源核对；user_supplied_unverified 表示用户提供且采集来源未独立核实，不等于数据被判定虚假。
 - literature 另需 url 和 read_scope（metadata/abstract/fulltext），不能随意升级阅读范围。
 
+### 文献的 source_check
+
+正式交付至少登记一条经核验的文献证据。每条 `kind=literature` 的记录均需 `verification=checked` 和 `source_check` 对象。填写实际操作：
+
+| 字段 | 内容 |
+|---|---|
+| `provider` | 实际核对书目的学术数据库、出版方或权威机构名称 |
+| `record_url` | 具体学术条目 URL。外部书目记录可与实际阅读所用的 `url` 相同 |
+| `checked_on` | 实际核对日期，YYYY-MM-DD |
+| `publication_status` | `no_notice_found` 表示在已查来源未见更新公告，`corrected` 表示已核对更正并采用相应版本 |
+| `status_url` | 实际检查的出版状态页面、公告或条目；同一条目能核对状态时可复用其 URL |
+| `search_log_path` | 项目内检索日志的相对路径，通常为 `literature/search-log.md` |
+
+撤稿、撤回、关注声明和状态仍待核对的文献留在筛选日志。论文分析某项撤稿时，可登记核验过的撤稿公告。文献笔记保存书目详情、实际阅读范围与定位，DOI 缺失可用稳定条目核验。
+
 大文件可放在私有项目内；不能把敏感原始数据塞进公开仓库。多个文件可分别登记并通过 runs 记录关联。
 
 ## claims.json（对象列表）
@@ -41,7 +56,7 @@ schema_version=1，requirements_version 必须匹配需求版本。status 取 in
 
 ## 检查的边界
 
-audit 检查：必需记录、非空文件、路径范围、哈希、需求版本、阻塞、引用 id 和阅读范围。它无法判定文件内容是真实原始数据，不能认证研究伦理、文献质量、正文覆盖率、学校认可或毕业结果。通过后还要完成阶段 06 的实质审查和阶段 07 的渲染检查。
+`project.py audit` 检查必需记录、非空文件、路径范围、哈希、需求版本、阻塞、引用 id 和阅读范围。`check_literature.py` 额外检查文献登记字段、URL 格式、出版状态和检索日志。后者离线运行，实际访问、来源权威性、文献真实性、引用一致性和论据是否充分由阶段 03 与 06 核验。排版由阶段 07 实际渲染检查。
 
 ## polishing.json
 
@@ -53,4 +68,4 @@ audit 检查：必需记录、非空文件、路径范围、哈希、需求版�
 
 快照绑定 requirements/evidence/claims/artifacts/polishing 五份 JSON 及其中 path 或 *_path 指向的文件，以及最终审查报告。变更这些文件后，audit 拒绝沿用旧快照，即使人工刷新 artifacts 中的哈希也会失败。未登记文件不受此检查覆盖，必须把实际使用的材料和交付物完整登记。进度日志与 state 不绑定，便于交付后记录 complete。
 
-旧项目保持 schema_version=1，无需重建或删除。先补齐独立润色前后稿及真实审查报告，再建立快照；不能为了通过检查补造历史记录。
+旧项目保持 schema_version=1。使用新流程续做正式交付时，重新打开旧来源并补齐实际核验记录和检索日志，保留已有稿件；记录变动后按当前材料重审并建立新快照。缺润色或审查记录时实际补做，不能回填虚假历史。

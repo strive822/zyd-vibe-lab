@@ -228,6 +228,75 @@ class WorkflowTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             literature.make_url('doi', 'https://untrusted.invalid/')
 
+    def literature_audit(self):
+        return subprocess.run(
+            [sys.executable, str(SKILL / 'scripts/check_literature.py'), str(self.root)],
+            capture_output=True, text=True, timeout=15,
+        )
+
+    def checked_literature(self):
+        self.fixture()
+        (self.root / 'literature/search-log.md').write_text('SYNTHETIC LOG', encoding='utf-8')
+        evidence = self.read('evidence.json')
+        evidence[0]['url'] = 'https://www.ncpssd.cn/fixture/record'
+        evidence[0]['source_check'] = {
+            'provider': 'SYNTHETIC TEST FIXTURE',
+            'record_url': 'https://www.ncpssd.cn/fixture/record',
+            'checked_on': '2026-11-20',
+            'publication_status': 'no_notice_found',
+            'status_url': 'https://www.ncpssd.cn/fixture/record',
+            'search_log_path': 'literature/search-log.md',
+        }
+        self.write('evidence.json', evidence)
+        return evidence
+
+    def test_literature_audit_requires_a_checked_source(self):
+        self.assertIn('No literature evidence', self.literature_audit().stderr)
+        self.fixture()
+        result = self.literature_audit()
+        self.assertEqual(result.returncode, 1)
+        self.assertIn('missing source_check', result.stderr)
+        self.assertEqual(project.audit(self.root), [])
+
+    def test_literature_audit_accepts_non_doi_record_and_binds_log(self):
+        evidence = self.checked_literature()
+        evidence[0]['url'] = 'https://www.ncpssd.cn:443/fixture/record'
+        self.write('evidence.json', evidence)
+        result = self.literature_audit()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        snapshot = project.review_snapshot(self.root, 'review.md')
+        self.assertIn('literature/search-log.md', snapshot['inputs'])
+        (self.root / 'literature/search-log.md').write_text('CHANGED SYNTHETIC LOG', encoding='utf-8')
+        self.assertTrue(any('stale' in e for e in project.audit(self.root)))
+
+    def test_literature_audit_rejects_unusable_records(self):
+        evidence = self.checked_literature()
+        cases = (
+            ('verification', 'candidate_only', 'verification must be checked'),
+            ('url', 'https://example.org/placeholder', 'invalid evidence URL'),
+            ('record_url', 'https://reader@publisher.org/a', 'invalid record_url'),
+            ('record_url', 'https://-publisher.org/a', 'invalid record_url'),
+            ('record_url', '\x00https://publisher.org/a', 'invalid record_url'),
+            ('record_url', 'https://publisher.org:noport/a', 'invalid record_url'),
+            ('status_url', 'http://localhost/example', 'invalid status_url'),
+            ('checked_on', '2026-02-30', 'invalid checked_on'),
+            ('publication_status', 'retracted', 'publication status blocks citation'),
+            ('publication_status', 'expression_of_concern', 'publication status blocks citation'),
+            ('publication_status', 'unconfirmed', 'publication status blocks citation'),
+            ('search_log_path', '../outside.md', 'search log must be'),
+            ('search_log_path', 'literature/missing.md', 'search log must be'),
+        )
+        for field, value, expected in cases:
+            with self.subTest(field=field, value=value):
+                record = evidence[0] if field in ('verification', 'url') else evidence[0]['source_check']
+                original = record[field]
+                record[field] = value
+                self.write('evidence.json', evidence)
+                result = self.literature_audit()
+                self.assertEqual(result.returncode, 1, result.stderr)
+                self.assertIn(expected, result.stderr)
+                record[field] = original
+
     def test_packages_are_self_contained(self):
         output = Path(self.temp.name) / 'dist'
         package.build(output)
@@ -242,7 +311,7 @@ class WorkflowTests(unittest.TestCase):
                 text = archive.read('graduation-thesis/SKILL.md').decode('utf-8')
                 if 'workbuddy' in target.name:
                     self.assertIn('description_zh:', text)
-                    self.assertIn('version: 0.4.0', text)
+                    self.assertIn('version: 0.5.0', text)
 
     def test_network_failure_writes_no_fake_results(self):
         output = self.root / 'literature' / 'failed.json'

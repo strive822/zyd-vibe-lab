@@ -7,7 +7,7 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / 'skills' / 'graduation-thesis'
-WORKBUDDY_VERSION = '0.4.0'
+WORKBUDDY_VERSION = '0.5.0'
 # 固定条目时间戳，使同一源码重复打包得到相同哈希（与 scripts/package_projects.py 一致）。
 ENTRY_DATE_TIME = (2026, 10, 23, 0, 0, 0)
 

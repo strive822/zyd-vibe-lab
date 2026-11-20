@@ -1,3 +1,9 @@
+# 0.5.0 验证记录（2026-11-20）
+
+- 公开样例通过题名和 DOI 在 Crossref 检索，并与 PubMed 书目和 PLOS 正式出版页核对。按 PLOS 正文方法、结果及讨论登记出处，记录效应为相关性。独立试跑将未能核实的第二条线索留在检索日志。全文定位以出版方实际可读的 HTML 为准。[PubMed 书目](https://pubmed.ncbi.nlm.nih.gov/17375194/)、[PLOS 出版页](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0000308)
+- 文献检查用合成记录覆盖缺少核验、无 DOI、占位链接、非法 URL、撤稿或待核状态、缺失及越界日志。修改审查快照中的检索日志后，原审查失效。合成记录仅用于测试。
+- 本机 Python 的 Crossref 请求因 TLS 证书验证失败，Windows 系统信任链下的公开查询成功。六项本机 Windows 安装和引导测试在脚本开始前被 PowerShell 执行策略拦截。未在四个原生宿主里分别完成真实论文交付。
+
 # 0.4.0 验证记录（2026-11-03）
 
 35 项 unittest 中 29 项流程测试全部通过；6 项 PowerShell 安装/环境测试在本机被执行策略阻止（UnauthorizedAccess，且安全模块无法加载，连 Get-ExecutionPolicy 都不可用）。测试文件与 bootstrap-windows.ps1 本次未改动，失败类型与 2026-10-24 GOTCHAS 记录一致，属环境限制，不计为通过。
