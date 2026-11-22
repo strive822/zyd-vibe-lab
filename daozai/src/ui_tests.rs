@@ -8760,14 +8760,15 @@ fn deepseek_compact_amount_fits_text_and_opens_account(){
     use crate::quota::{Provider,Event};
     let _g=ENV_LOCK.lock().unwrap_or_else(|e|e.into_inner());let mut h=H::new();h.quota_accounts(5);h.app.settings.pet=false;h.app.settings.resident_order=vec![1,9,2,0,5,6,7];
     let id=h.app.quota.config.connect_deepseek("preview".into(),"DeepSeek".into());let mut width:Option<f32>=None;let mut amount_rect=Rect::NOTHING;
-    for (amount,label) in [("4.18","¥4.1"),("12800.00","¥1.28万"),("128000.00","¥12.8万")]{
+    for (amount,label) in [("3.58","¥3.58"),("3.50","¥3.50"),("0","¥0.00"),("12800.00","¥12,800.00"),("128000.00","¥128,000.00")]{
         let snapshot=crate::quota::parse(Provider::DeepSeek,&serde_json::json!({"is_available":true,"balance_infos":[{"currency":"CNY","total_balance":amount,"topped_up_balance":amount,"granted_balance":"0.00"}]})).unwrap();h.app.quota_event(Event{id:id.clone(),result:Ok(snapshot)});
         for _ in 0..90{h.frame(vec![]);}
         let text_rect=|label:&str|h.shapes.iter().find_map(|shape|match &shape.shape{egui::Shape::Text(text) if text.galley.text()==label=>Some(text.visual_bounding_rect()),_=>None}).expect("常驻金额应可见");
         let fonts:Vec<_>=h.shapes.iter().filter_map(|shape|match &shape.shape{egui::Shape::Text(text) if text.galley.text()==label||text.galley.text()=="09:41"=>Some(text.galley.job.sections[0].format.font_id.clone()),_=>None}).collect();assert_eq!(fonts.len(),2);assert_eq!(fonts[0],fonts[1],"余额与时钟使用相同字体和字号");
         amount_rect=text_rect(label);assert!(amount_rect.right()<h.region.right());
         let gap=text_rect("09:41").left()-amount_rect.right();assert!((10.0..20.0).contains(&gap),"金额与时钟之间不应预留大片空白：{gap}");
-        if let Some(short_width)=width{assert!(h.app.current_width()>short_width+10.0,"短金额必须释放多余占位");}else{width=Some(h.app.current_width());}
+        let short_width=*width.get_or_insert(h.app.current_width());
+        if label.contains(','){assert!(h.app.current_width()>short_width+10.0,"短金额必须释放多余占位");}
     }
     h.click(amount_rect.center());assert_eq!(h.app.page(),6);assert_eq!(h.app.quota.config.selected,id);
 }
@@ -9187,7 +9188,7 @@ fn workbuddy_and_deepseek_balances_stay_ordered_and_clickable(){
     h.app.quota_event(Event{id:ds.clone(),result:crate::quota::parse(Provider::DeepSeek,&serde_json::json!({"is_available":true,"balance_infos":[{"currency":"CNY","total_balance":"4.18","granted_balance":"0","topped_up_balance":"4.18"}]}))});
     for _ in 0..90{h.frame(vec![]);}
     let rect=|label:&str|h.shapes.iter().find_map(|s|match &s.shape{egui::Shape::Text(t)if t.galley.text()==label=>Some(t.visual_bounding_rect()),_=>None}).expect("两个余额应同时显示");
-    let credits=rect("2.85万");let balance=rect("¥4.1");assert!(credits.right()+20.0<balance.left());
+    let credits=rect("2.85万");let balance=rect("¥4.18");assert!(credits.right()+20.0<balance.left());
     assert_eq!(h.app.quota_bar_indices().iter().skip(5).map(|i|h.app.quota.config.accounts[*i].provider).collect::<Vec<_>>(),vec![Provider::WorkBuddy,Provider::DeepSeek]);
     h.click(credits.center());assert_eq!(h.app.quota.config.selected,wb);assert_eq!(h.app.page(),6);
 }

@@ -39,7 +39,14 @@ pub(crate) struct State {
     pub doubao_connecting:Option<quota::doubao::Connect>,pub doubao_cookie:String,
 }
 impl State {
-    fn balance_text(&self,id:&str)->Option<String>{let s=self.rows.get(id)?.as_ref().ok()?;s.wallet.as_ref().map(|w|w.primary().compact()).or_else(||s.credits.as_ref().map(|c|c.compact())).or_else(||s.relay.as_ref().map(|q|q.compact()))}
+    fn balance_text(&self, id: &str) -> Option<String> {
+        let snapshot = self.rows.get(id)?.as_ref().ok()?;
+        snapshot.wallet.as_ref().map(|wallet| {
+            let balance = wallet.primary();
+            balance.full(balance.total)
+        }).or_else(|| snapshot.credits.as_ref().map(|credits| credits.compact()))
+            .or_else(|| snapshot.relay.as_ref().map(|quota| quota.compact()))
+    }
     fn balance_loading(&self,id:&str)->bool{self.balance_text(id).is_none()&&(self.busy.contains(id)||!self.rows.contains_key(id))}
     /// 环类账号跟随在图标右侧的数字：有具体点数时取主周期剩余点数（如 Kiro 的 904）。
     fn ring_tail_text(&self,id:&str)->Option<String>{self.rows.get(id)?.as_ref().ok()?.rings().first()?.amount.as_ref().map(Amount::short)}
