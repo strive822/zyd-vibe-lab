@@ -510,6 +510,74 @@ fn http_agent_with_connect_timeout(timeout:Duration)->ureq::Agent{
     let server=if text.contains('='){text.split(';').find_map(|s|s.trim().strip_prefix("https=")).or_else(||text.split(';').find_map(|s|s.trim().strip_prefix("http=")))?}else{text.trim()};
     if server.is_empty(){None}else if server.contains("://"){Some(server.into())}else{Some(format!("http://{server}"))}
 }
+fn codex_transport_issue(error: &ureq::Transport) -> (&'static str, bool) {
+    use std::{error::Error, io};
+    use ureq::ErrorKind;
+
+    match error.kind() {
+        ErrorKind::Dns => return ("Codex 额度请求的 DNS 解析失败", false),
+        ErrorKind::ProxyUnauthorized => return ("Codex 额度请求的代理认证失败", false),
+        ErrorKind::ProxyConnect | ErrorKind::InvalidProxyUrl => return ("Codex 额度请求无法通过代理连接", false),
+        ErrorKind::BadStatus | ErrorKind::BadHeader | ErrorKind::TooManyRedirects => {
+            return ("Codex 额度接口返回了异常 HTTP 响应", false);
+        }
+        _ => {}
+    }
+
+    let mut source = error.source();
+    let mut io_kind = None;
+    while let Some(cause) = source {
+        if let Some(tls) = cause.downcast_ref::<ureq::rustls::Error>() {
+            let message = match tls {
+                ureq::rustls::Error::InvalidCertificate(_) => "Codex 额度接口的证书验证失败",
+                _ => "Codex 额度接口的 TLS 连接失败",
+            };
+            return (message, false);
+        }
+        if let Some(io_error) = cause.downcast_ref::<io::Error>() {
+            io_kind = Some(io_error.kind());
+            if let Some(inner) = io_error.get_ref() {
+                source = Some(inner);
+                continue;
+            }
+        }
+        source = cause.source();
+    }
+
+    match io_kind {
+        Some(io::ErrorKind::UnexpectedEof | io::ErrorKind::ConnectionReset | io::ErrorKind::ConnectionAborted | io::ErrorKind::BrokenPipe) => {
+            ("Codex 额度接口连接中断，稍后会自动刷新", true)
+        }
+        Some(io::ErrorKind::TimedOut | io::ErrorKind::WouldBlock) => ("Codex 额度接口响应超时，稍后会自动刷新", false),
+        Some(io::ErrorKind::ConnectionRefused) => ("Codex 额度接口拒绝连接，稍后会自动刷新", false),
+        _ => ("Codex 额度接口连接失败，稍后会自动刷新", false),
+    }
+}
+
+fn subscription_response(
+    provider: Provider,
+    call: impl Fn() -> Result<ureq::Response, ureq::Error>,
+) -> Result<ureq::Response, (String, u64)> {
+    let response = match call() {
+        Err(ureq::Error::Transport(error)) if provider == Provider::Codex && codex_transport_issue(&error).1 => {
+            // 连接中途断开时，给同一个只读请求一次恢复机会。
+            std::thread::sleep(Duration::from_millis(350));
+            call()
+        }
+        response => response,
+    };
+    response.map_err(|error| match error {
+        ureq::Error::Status(401 | 403, _) => ("登录已失效或权限不足，请在对应工具中重新登录".into(), 0),
+        ureq::Error::Status(429, response) => (
+            "请求过于频繁，稍后自动重试".into(),
+            response.header("Retry-After").and_then(|value| value.parse().ok()).unwrap_or(180).clamp(30, 3600),
+        ),
+        ureq::Error::Status(status, _) => (format!("额度服务暂不可用（{status}）"), 60),
+        ureq::Error::Transport(error) if provider == Provider::Codex => (codex_transport_issue(&error).0.into(), 30),
+        _ => ("无法连接额度服务，请检查网络或代理".into(), 30),
+    })
+}
+
 fn fetch(agent:&ureq::Agent,account:&Account)->Result<Snapshot,(String,u64)>{
     let legacy_credential = match account.provider {
         Provider::Glm | Provider::DeepSeek => account.slot.as_deref() == Some("key"),
@@ -530,7 +598,7 @@ fn fetch(agent:&ureq::Agent,account:&Account)->Result<Snapshot,(String,u64)>{
     let url=match account.provider{Provider::Codex=>"https://chatgpt.com/backend-api/wham/usage",Provider::Kimi=>"https://api.kimi.com/coding/v1/usages",_=>unreachable!()};
     let mut req=agent.get(url).set("Authorization",&format!("Bearer {}",auth.token)).set("Accept","application/json").set("User-Agent","codex-cli/Daozai");
     if account.provider==Provider::Codex{if let Some(id)=&auth.account_id{req=req.set("ChatGPT-Account-Id",id);}}
-    let response=req.call().map_err(|e|match e{ureq::Error::Status(401|403,_)=>("登录已失效或权限不足，请在对应工具中重新登录".into(),0),ureq::Error::Status(429,r)=>("请求过于频繁，稍后自动重试".into(),r.header("Retry-After").and_then(|s|s.parse().ok()).unwrap_or(180).clamp(30,3600)),ureq::Error::Status(n,_)=>(format!("额度服务暂不可用（{n}）"),60),_=>("无法连接额度服务，请检查网络或代理".into(),30)})?;
+    let response=subscription_response(account.provider, || req.clone().call())?;
     let mut body=String::new();response.into_reader().take(1024*1024).read_to_string(&mut body).map_err(|_|("读取额度响应失败".into(),30))?;
     if auth.stamp!=fs::metadata(&account.source).and_then(|m|m.modified()).ok(){return Err(("登录信息已变化，请刷新额度".into(),0));}
     let value=serde_json::from_str(&body).map_err(|_|("服务没有返回有效的额度数据".into(),60))?;
@@ -539,6 +607,70 @@ fn fetch(agent:&ureq::Agent,account:&Account)->Result<Snapshot,(String,u64)>{
 
 #[cfg(test)] mod tests {
     use super::*;
+
+    #[test]
+    fn codex_quota_retries_an_interrupted_connection() {
+        let attempts = std::cell::Cell::new(0);
+        let response = subscription_response(Provider::Codex, || {
+            attempts.set(attempts.get() + 1);
+            if attempts.get() == 1 {
+                Err(std::io::Error::from(std::io::ErrorKind::UnexpectedEof).into())
+            } else {
+                ureq::Response::new(200, "OK", "{}")
+            }
+        }).unwrap();
+        assert_eq!(attempts.get(), 2);
+        assert_eq!(response.status(), 200);
+    }
+
+    #[test]
+    fn codex_quota_connection_errors_are_bounded_and_safe_to_show() {
+        let attempts = std::cell::Cell::new(0);
+        let error = subscription_response(Provider::Codex, || {
+            attempts.set(attempts.get() + 1);
+            Err(std::io::Error::new(std::io::ErrorKind::ConnectionReset, "private detail").into())
+        }).unwrap_err();
+        assert_eq!(attempts.get(), 2);
+        assert_eq!(error, ("Codex 额度接口连接中断，稍后会自动刷新".into(), 30));
+    }
+
+    #[test]
+    fn codex_quota_does_not_retry_http_or_certificate_errors() {
+        let attempts = std::cell::Cell::new(0);
+        let limited = subscription_response(Provider::Codex, || {
+            attempts.set(attempts.get() + 1);
+            let response = "HTTP/1.1 429 Too Many Requests\r\nRetry-After: 240\r\n\r\n".parse().unwrap();
+            Err(ureq::Error::Status(429, response))
+        }).unwrap_err();
+        assert_eq!(attempts.get(), 1);
+        assert_eq!(limited.1, 240);
+        let denied = subscription_response(Provider::Codex, || {
+            attempts.set(attempts.get() + 1);
+            Err(ureq::Error::Status(401, ureq::Response::new(401, "Unauthorized", "{}").unwrap()))
+        }).unwrap_err();
+        assert_eq!(attempts.get(), 2);
+        assert!(denied.0.contains("重新登录"));
+        let certificate = subscription_response(Provider::Codex, || {
+            attempts.set(attempts.get() + 1);
+            let source = ureq::rustls::Error::InvalidCertificate(ureq::rustls::CertificateError::UnknownIssuer);
+            let tls = ureq::Error::from(std::io::Error::new(std::io::ErrorKind::InvalidData, source));
+            Err(std::io::Error::other(tls).into())
+        }).unwrap_err();
+        assert_eq!(attempts.get(), 3);
+        assert!(certificate.0.contains("证书验证失败"));
+    }
+
+    #[test]
+    fn kimi_quota_retains_its_connection_error_behavior() {
+        let attempts = std::cell::Cell::new(0);
+        let error = subscription_response(Provider::Kimi, || {
+            attempts.set(attempts.get() + 1);
+            Err(std::io::Error::from(std::io::ErrorKind::UnexpectedEof).into())
+        }).unwrap_err();
+        assert_eq!(attempts.get(), 1);
+        assert_eq!(error, ("无法连接额度服务，请检查网络或代理".into(), 30));
+    }
+
     #[test] fn lightweight_quota_startup_has_no_unused_workers(){
         let mut service=Service::start();assert!(service.workers.is_empty(),"未启用额度来源时不应创建后台线程");
         assert!(service.refresh(vec![]));assert!(service.workers.is_empty());
