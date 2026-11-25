@@ -8,7 +8,7 @@ zhongyudi 的 12 个独立项目。仓库保存源码、测试、配置模板、
 | --- | --- | --- | --- | --- | --- |
 | [agent-desktop](agent-desktop/README.md) | 通过无障碍接口操作桌面应用 | [上游源码](agent-desktop/source/) | Windows x64 CLI 和 MCP 便携包 | [安装与验证](agent-desktop/INSTALL.md) | [Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/agent-desktop-v1.3.1-r1) |
 | [CodeGraph](codegraph/README.md) | 本地代码知识图谱与 Agent MCP | [上游源码](codegraph/source/) | Windows CLI 和 MCP 便携包 | [安装与验证](codegraph/INSTALL.md) | [上游 Release](https://github.com/colbymchenry/codegraph/releases/tag/v1.6.3) |
-| [岛仔 Daozai](daozai/README.md) | Windows 顶部信息岛 | [Rust 应用源码](daozai/src/) | Windows 安装器 | [安装与验证](daozai/INSTALL.md) | [Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/daozai-v0.6.66-r3) |
+| [岛仔 Daozai](daozai/README.md) | Windows 顶部信息岛 | [Rust 应用源码](daozai/src/) | Windows 安装器 | [安装与验证](daozai/INSTALL.md) | [Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/daozai-v0.6.66-r4) |
 | [三资产定投计算器](dca-calculator/README.md) | 三资产定投权重计算 | [前后端源码](dca-calculator/) | 网页启动包（前端已构建） | [安装与验证](dca-calculator/INSTALL.md) | [Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/dca-calculator-v1.0.0-r2) |
 | [飞鼠格式](flyingmouse-format/README.md) | 离线文件格式转换 | [应用源码](flyingmouse-format/) | 官方安装器联网安装入口 | [安装与验证](flyingmouse-format/INSTALL.md) | [Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/flyingmouse-format-v0.8.3-r1) |
 | [毕业论文工作流](graduation-thesis-workflow/README.md) | 论文研究、写作与交付工作流 | [技能与脚本](graduation-thesis-workflow/) | Codex / Claude Code / Pi / WorkBuddy 技能包 | [安装与验证](graduation-thesis-workflow/INSTALL.md) | [Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/graduation-thesis-workflow-v0.5.0-r1) |

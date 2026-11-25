@@ -15,9 +15,10 @@ use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 use crate::poll_clock::PollClock;
 use windows::Win32::Foundation::{COLORREF, HWND, LPARAM, LRESULT, POINT, RECT, WPARAM};
-use windows::Win32::Graphics::Gdi::{CombineRgn, CreatePolygonRgn, CreateRectRgn, CreateRoundRectRgn, DeleteObject, SetWindowRgn, HRGN, RGN_OR, WINDING};
+use windows::Win32::Graphics::Gdi::{ClientToScreen, CombineRgn, CreatePolygonRgn, CreateRectRgn, CreateRoundRectRgn, DeleteObject, SetWindowRgn, HRGN, RGN_OR, WINDING};
 use windows::Win32::System::Threading::GetCurrentProcessId;
 use windows::Win32::UI::Accessibility::{SetWinEventHook, UnhookWinEvent, HWINEVENTHOOK};
+use windows::Win32::UI::HiDpi::GetDpiForWindow;
 use windows::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState,VK_LBUTTON,VK_RBUTTON};
 use windows::Win32::UI::Shell::{DefSubclassProc, RemoveWindowSubclass, SetWindowSubclass};
 use windows::Win32::UI::WindowsAndMessaging::*;
@@ -45,6 +46,11 @@ static LEGACY_DROPS:OnceLock<Mutex<LegacyDrops>>=OnceLock::new();
 struct RightGesture {enabled:bool,press:Option<(u32,(i32,i32))>,click:Option<(u32,(i32,i32))>,fired:bool}
 thread_local!{static RIGHT_GESTURE:std::cell::RefCell<RightGesture>=std::cell::RefCell::new(RightGesture::default());}
 impl RightGesture {
+    fn distance(system: (i32, i32), dpi: u32) -> (i32, i32) {
+        let pointer_slop = (8 * dpi.max(96)).div_ceil(96) as i32;
+        ((system.0 / 2).max(pointer_slop), (system.1 / 2).max(pointer_slop))
+    }
+
     fn event(&mut self,msg:u32,other_down:bool,point:(i32,i32),inside:bool,time:u32,delay:u32,distance:(i32,i32)){
         let near=|a:(i32,i32),b:(i32,i32)|(a.0-b.0).abs()<=distance.0 && (a.1-b.1).abs()<=distance.1;
         if !self.enabled || !inside || other_down || matches!(msg,WM_LBUTTONDOWN|WM_MBUTTONDOWN|WM_XBUTTONDOWN|WM_MOUSELEAVE){self.press=None;self.click=None;return;}
@@ -304,14 +310,21 @@ unsafe extern "system" fn subclass(
     _data: usize,
 ) -> LRESULT {
     if matches!(msg,WM_RBUTTONDOWN|WM_RBUTTONUP|WM_LBUTTONDOWN|WM_MBUTTONDOWN|WM_XBUTTONDOWN|WM_MOUSEMOVE|WM_MOUSELEAVE){
-        let point=((lp.0&0xffff)as u16 as i16 as i32,((lp.0>>16)&0xffff)as u16 as i16 as i32);
-        let inside=msg!=WM_MOUSELEAVE&&hit().lock().unwrap_or_else(|e|e.into_inner()).first().is_some_and(|&(l,t,r,b)|point.0>=l&&point.0<r&&point.1>=t&&point.1<b);
-        // Message timestamps retain the real intervals even when several events
-        // are handled before the next egui frame. Winit's class has no DBLCLKS.
-        let delay=windows::Win32::UI::Input::KeyboardAndMouse::GetDoubleClickTime();
-        let distance=((GetSystemMetrics(SM_CXDOUBLECLK)/2).max(1),(GetSystemMetrics(SM_CYDOUBLECLK)/2).max(1));
-        RIGHT_GESTURE.with(|state|{
-            let mut state=state.borrow_mut();state.event(msg,wp.0&0x71!=0,point,inside,GetMessageTime()as u32,delay,distance);
+        RIGHT_GESTURE.with(|state| {
+            let mut state = state.borrow_mut();
+            if !state.enabled {
+                return;
+            }
+            let mut point = POINT { x: lp.0 as i16 as i32, y: (lp.0 >> 16) as i16 as i32 };
+            let on_island = msg != WM_MOUSELEAVE && hit().lock().unwrap_or_else(|e| e.into_inner())
+                .first().is_some_and(|&(l,t,r,b)| point.x >= l && point.x < r && point.y >= t && point.y < b);
+            // The island window can move while expanding between the two clicks.
+            let inside = on_island && ClientToScreen(hwnd, &mut point).as_bool();
+            let delay = windows::Win32::UI::Input::KeyboardAndMouse::GetDoubleClickTime();
+            let distance = RightGesture::distance(
+                (GetSystemMetrics(SM_CXDOUBLECLK), GetSystemMetrics(SM_CYDOUBLECLK)), GetDpiForWindow(hwnd),
+            );
+            state.event(msg, wp.0 & 0x71 != 0, (point.x, point.y), inside, GetMessageTime() as u32, delay, distance);
         });
     }
     if msg==WM_DROPFILES {
@@ -1076,6 +1089,34 @@ mod tests {
         state=RightGesture{enabled:true,..Default::default()};
         for (msg,time,x) in [(WM_RBUTTONDOWN,0,20),(WM_RBUTTONUP,10,24),(WM_RBUTTONDOWN,100,28),(WM_RBUTTONUP,110,24)]{state.event(msg,false,(x,10),true,time,500,(4,4));}
         assert!(!state.fired,"按下位置也要相邻，松开位置重合不能绕过距离限制");
+    }
+
+    #[test]
+    fn native_double_right_click_accepts_small_pointer_motion() {
+        for (dpi, drift) in [(96, 7), (144, 11)] {
+            let distance = RightGesture::distance((4, 4), dpi);
+            let mut state = RightGesture { enabled: true, ..Default::default() };
+            for (msg, time, x) in [
+                (WM_RBUTTONDOWN, 0, 20),
+                (WM_MOUSEMOVE, 5, 23),
+                (WM_RBUTTONUP, 10, 23),
+                (WM_RBUTTONDOWN, 100, 20 + drift),
+                (WM_RBUTTONUP, 110, 20 + drift),
+            ] {
+                state.event(msg, false, (x, 10), true, time, 500, distance);
+            }
+            assert!(std::mem::take(&mut state.fired), "轻微移动不应使双击失效，DPI={dpi}");
+
+            for (msg, time, x) in [
+                (WM_RBUTTONDOWN, 200, 20),
+                (WM_RBUTTONUP, 210, 20),
+                (WM_RBUTTONDOWN, 300, 40),
+                (WM_RBUTTONUP, 310, 40),
+            ] {
+                state.event(msg, false, (x, 10), true, time, 500, distance);
+            }
+            assert!(!state.fired, "距离较远的两次点击不应算作双击，DPI={dpi}");
+        }
     }
 
     #[test]
