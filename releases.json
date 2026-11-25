@@ -38,18 +38,18 @@
     },
     "dca-calculator": {
       "version": "1.0.0",
-      "tag": "dca-calculator-v1.0.0-r1",
+      "tag": "dca-calculator-v1.0.0-r2",
       "kind": "web-launcher",
       "assets": [
         {
           "name": "dca-calculator-windows.zip",
-          "bytes": 278231,
-          "sha256": "9494a135125cf6eb800e49b4f32ac1eb4d223a6af71875e552b4b16ce4d0e1c6"
+          "bytes": 278230,
+          "sha256": "eb6ff3ccc729b78fa2600293b3e773a552acab6881901bfb1fddd0ffb93faee9"
         },
         {
           "name": "SHA256SUMS.txt",
           "bytes": 93,
-          "sha256": "56712f57ae7bb2375558881e988d7019c4737dfaf598fc34b86d873fd77e92e0"
+          "sha256": "23e84aefa28dc31a9e9d36272bab87ebb0689480315cb8eee54e1789f6f410f4"
         }
       ]
     },
