@@ -1,7 +1,7 @@
 {
   "pyproject.toml": {
-    "after": "eb0cabdbd7316a17c3051eece19ff0b3b7cbf0ddf581bf29efd724612799d920",
-    "before": "d70d964d289fafecbd6f6989679f48111c8da6f075ef1de9f18fd13ddf9cb636",
+    "before": "3cf2968a8dbb5b4caf24de608c3c7b1dbd169aff1b2c9cfc481da2fe766dbac7",
+    "after": "6e363b5df44480e3302996acc3631641dccc090ecc56ddaa337a35be733408f3",
     "edits": [
       [
         21,
@@ -11,8 +11,8 @@
     ]
   },
   "src/windows_mcp/__main__.py": {
-    "after": "1ddaef0f6c140c290ff992cb8eccdcf7104d6dbd3e27a0c85bd3c8596ece8d2a",
     "before": "559bf08cc7a07d0a2fc45d60e468409556e062294f5bfa8f8627567f9aa1132f",
+    "after": "1ddaef0f6c140c290ff992cb8eccdcf7104d6dbd3e27a0c85bd3c8596ece8d2a",
     "edits": [
       [
         88,
@@ -67,8 +67,8 @@
     ]
   },
   "src/windows_mcp/desktop/control.py": {
-    "after": "12ff8206bddf48eba30b80168050aa4a8379b89fb1a1443b2bcd57b952e76c6c",
     "before": "00dd44a5d890340622d7e7b29270e99e805e0ae3333e9a19ed69fc37e3c562fe",
+    "after": "12ff8206bddf48eba30b80168050aa4a8379b89fb1a1443b2bcd57b952e76c6c",
     "edits": [
       [
         68,
@@ -103,8 +103,8 @@
     ]
   },
   "src/windows_mcp/desktop/control_consent.py": {
-    "after": "bacea8a427f90811dfc11ac8dc17d29d39b3dafb52573389d4ab294b53a81b40",
     "before": "2fd7616ac2064ef895980e621ae7df42321f906607fc125a928367010bbc6bb5",
+    "after": "bacea8a427f90811dfc11ac8dc17d29d39b3dafb52573389d4ab294b53a81b40",
     "edits": [
       [
         11,
@@ -129,8 +129,8 @@
     ]
   },
   "src/windows_mcp/desktop/control_win32.py": {
-    "after": "20233b3173ea817a3907e2bec88ec6c398fbaa40680cb99849df75b0f16323db",
     "before": "fa3b0d6b8b490daf2653cd3678dc51bb322a8575246565b212c9e3c85bd9d41e",
+    "after": "20233b3173ea817a3907e2bec88ec6c398fbaa40680cb99849df75b0f16323db",
     "edits": [
       [
         3,
@@ -175,8 +175,8 @@
     ]
   },
   "src/windows_mcp/desktop/control_worker.py": {
-    "after": "1d64dd151441ca469481245151ae7c29581e41f4ad6e6bfe0907a491d038798f",
     "before": "55b12b2c6769bc4add292de788127ddfd2b3180615542ebc05d5ac5bdee64825",
+    "after": "1d64dd151441ca469481245151ae7c29581e41f4ad6e6bfe0907a491d038798f",
     "edits": [
       [
         58,
@@ -186,8 +186,8 @@
     ]
   },
   "src/windows_mcp/desktop/flash_overlay.py": {
-    "after": "a25c241c638d1a18e2363cccead9d47ce1b625a28cd5951db4dcb38415e4483e",
     "before": "653f5dc87a24f9512b5e587cd2d72e6f7b63a6791f347a54b2227c887b2f4db9",
+    "after": "a25c241c638d1a18e2363cccead9d47ce1b625a28cd5951db4dcb38415e4483e",
     "edits": [
       [
         7,
@@ -257,154 +257,154 @@
     ]
   },
   "src/windows_mcp/desktop/service.py": {
-    "after": "b55a5c9d0ef6d62f2496ad050e43fcfda590a80c83390b4e6b125c277d397e9c",
-    "before": "3845a886031723d01921fcb4f5e30e6102168cffee665f04e7bf4046b29d9ff6",
+    "before": "a3e95f6bbdb1ea0c72f5c6046a8cf5dcda12c7248769e4037a6afafeea4b7403",
+    "after": "da835bd4e44146479fd6ddc4ad95012b706c51b27b4e37fb71dc05266f577d09",
     "edits": [
       [
-        135,
-        135,
+        141,
+        141,
         "    _focus_revision = 0\n\n"
       ],
       [
-        139,
-        139,
+        145,
+        145,
         "\n    def on_focus_change(self, sender) -> None:\n        # Record the event before any COM queries or diagnostic debounce.\n        self._focus_revision += 1\n        self.tree.on_focus_change(sender)\n"
       ],
       [
-        876,
-        876,
+        884,
+        884,
         "        field = None\n        if caret_position in (\"start\", \"end\") or text or clear or press_enter:\n            field = self._focused_element_at(x, y)\n        verify_writes = clear or press_enter\n        if verify_writes and field is None:\n            return \"Could not verify that the clicked field has keyboard focus.\"\n        focus_revision = self._focus_revision, owner.focus_revision\n"
       ],
       [
-        882,
-        883,
+        890,
+        891,
         ""
       ],
       [
-        886,
-        886,
+        894,
+        894,
         "            if verify_writes:\n                self._verify_field_focus(field)\n"
       ],
       [
-        889,
-        890,
+        897,
+        898,
         "        target = field\n"
       ],
       [
-        891,
-        893,
+        899,
+        901,
         ""
       ],
       [
-        898,
-        899,
+        906,
+        907,
         "            if verify_writes:\n                self._paste_text(text, focus_target=target)\n            else:\n                self._paste_text(text)\n"
       ],
       [
-        904,
-        904,
+        912,
+        912,
         "                if verify_writes and not self._has_input_focus(target):\n                    return \"Warning: focus moved while typing; remaining input was skipped.\"\n"
       ],
       [
-        906,
-        906,
+        914,
+        914,
         "        readback_focus_verified = True\n"
       ],
       [
-        907,
-        908,
+        915,
+        916,
         "            note, readback_focus_verified = self._read_back(target, text, clear, has_control_chars)\n            notes.append(note)\n"
       ],
       [
-        910,
-        910,
+        918,
+        918,
         "            if (\n                not readback_focus_verified\n                or not self._has_input_focus(target)\n                or (self._focus_revision, owner.focus_revision) != focus_revision\n            ):\n                notes.append(\"Enter was skipped because focus could not be verified.\")\n                return \" \".join(note for note in notes if note)\n"
       ],
       [
-        926,
-        926,
+        934,
+        934,
         "\n    def _has_input_focus(self, target) -> bool:\n        current = self._focused_control()\n        if target is None or current is None:\n            return False\n        try:\n            return uia.ControlsAreSame(target, current)\n        except Exception:\n            return False\n\n    def _verify_field_focus(self, target) -> None:\n        if not self._has_input_focus(target):\n            raise RuntimeError(\"Editing stopped because focus could not be verified.\")\n"
       ],
       [
-        1057,
-        1057,
+        1065,
+        1065,
         "            self._verify_field_focus(control)\n"
       ],
       [
-        1059,
-        1061,
-        "        self._verify_field_focus(control)\n"
-      ],
-      [
-        1062,
-        1062,
-        "        self._verify_field_focus(control)\n"
-      ],
-      [
-        1065,
         1067,
+        1069,
+        "        self._verify_field_focus(control)\n"
+      ],
+      [
+        1070,
+        1070,
+        "        self._verify_field_focus(control)\n"
+      ],
+      [
+        1073,
+        1075,
         "                writable = pattern is not None and not pattern.IsReadOnly\n            except Exception:\n                writable = False\n            if writable:\n                owner.checkpoint_current()\n                self._verify_field_focus(control)\n                try:\n"
       ],
       [
-        1071,
-        1073,
+        1079,
+        1081,
         "                except Exception:\n                    pass\n                self._verify_field_focus(control)\n"
       ],
       [
-        1077,
-        1083,
+        1085,
+        1091,
         "    def _read_back(self, control, text: str, clear: bool, has_control_chars: bool) -> tuple[str, bool]:\n        \"\"\"Return the readback report and whether focus stayed confirmed.\"\"\"\n"
       ],
       [
-        1084,
-        1098,
+        1092,
+        1106,
         "        if control is None or now is None:\n            return \"Could not verify the input focus for text readback.\", False\n        try:\n            same = uia.ControlsAreSame(control, now)\n        except Exception:\n            return \"Could not verify the input focus for text readback.\", False\n        if not same:\n            return \"Warning: focus moved while typing; some keystrokes may have gone elsewhere.\", False\n"
       ],
       [
-        1099,
-        1100,
+        1107,
+        1108,
         "            return \"\", True\n"
       ],
       [
-        1101,
-        1101,
+        1109,
+        1109,
         "        if not self._has_input_focus(control):\n            return \"Could not verify the input focus for text readback.\", False\n"
       ],
       [
-        1103,
-        1104,
+        1111,
+        1112,
         "                return \"\", True\n"
       ],
       [
-        1105,
-        1106,
+        1113,
+        1114,
         "                f\"Could not read the text back: the focused element is {self._describe(control)}.\", True\n"
       ],
       [
-        1110,
-        1111,
+        1118,
+        1119,
         "            return f\"Field reads back '{shown}'.\", True\n"
       ],
       [
-        1112,
-        1114,
+        1120,
+        1122,
         "            return f\"Warning: the field reads back '{shown}', not the typed text.\", True\n        return f\"Field reads back '{shown}'.\", True\n"
       ],
       [
-        1115,
-        1116,
+        1123,
+        1124,
         "    def _paste_text(self, text: str, *, focus_target=None):\n"
       ],
       [
-        1136,
-        1136,
+        1144,
+        1144,
         "            if focus_target is not None:\n                self._verify_field_focus(focus_target)\n"
       ]
     ]
   },
   "src/windows_mcp/infrastructure/config.py": {
-    "after": "56fa6741c95142a1c96c49ad170bf6afba1185918794ebc2f6f5008edef05c7e",
     "before": "052f84ce112e440636a3aafb3551a4d1ec8be61f77b3a4e82b67ddb6d08c16c8",
+    "after": "56fa6741c95142a1c96c49ad170bf6afba1185918794ebc2f6f5008edef05c7e",
     "edits": [
       [
         49,
@@ -414,8 +414,8 @@
     ]
   },
   "src/windows_mcp/tools/control_notifications.py": {
-    "after": "c7e9b8b469db7d2b1b17f6dc063743e73a495b6bda592740c02b401a5ab99d28",
     "before": "4ed1c9cc3be3b41478ee59a04b419b6a4d4c914fb591d4086bd3d865596864b5",
+    "after": "c7e9b8b469db7d2b1b17f6dc063743e73a495b6bda592740c02b401a5ab99d28",
     "edits": [
       [
         12,
@@ -450,8 +450,8 @@
     ]
   },
   "src/windows_mcp/tools/control_status.py": {
-    "after": "5905c6dd9cefc3eb5f3d2892a8de1f498291cc143c53dff8c86e1b279eab023a",
     "before": "194a0c851966079e97b45ac2297f7eb06d6fc1b104bb980f1fb2819dea64aaad",
+    "after": "5905c6dd9cefc3eb5f3d2892a8de1f498291cc143c53dff8c86e1b279eab023a",
     "edits": [
       [
         11,
@@ -461,8 +461,8 @@
     ]
   },
   "tests/test_click_type_validation.py": {
-    "after": "f90a82bf594067581428fe297ec561b0b236459b6b62e53e7b364191acd46c72",
     "before": "731a7c4df6e1c06eaf354ad40a7742673dcb76036b69d836cd294762d9c1eac1",
+    "after": "f90a82bf594067581428fe297ec561b0b236459b6b62e53e7b364191acd46c72",
     "edits": [
       [
         10,
@@ -477,8 +477,8 @@
     ]
   },
   "tests/test_control_config.py": {
-    "after": "ebcd5de5ba4ffc9c6474966372832a611b7af7f369eccaf6f461e2c70a7a4a8e",
     "before": "03dc43faa7bcac9be29bc07f4b54c49d7be627eaa6f914938bf54987f6a7626a",
+    "after": "ebcd5de5ba4ffc9c6474966372832a611b7af7f369eccaf6f461e2c70a7a4a8e",
     "edits": [
       [
         15,
@@ -488,8 +488,8 @@
     ]
   },
   "tests/test_control_consent.py": {
-    "after": "db361804e27cb7837651592caf3c0a39a93087917ec0e35f9db60d55847127ca",
     "before": "d0c8a7d12f8948bcbe21bca7da590e2e644d4dbe605da172338434533805221a",
+    "after": "db361804e27cb7837651592caf3c0a39a93087917ec0e35f9db60d55847127ca",
     "edits": [
       [
         2,
@@ -559,8 +559,8 @@
     ]
   },
   "tests/test_control_hook_rotation.py": {
-    "after": "bdb719045b3f38cc71898b6c2c62b5bcbb3d9f4436be83d10a23a93b34f4488c",
     "before": "735927a6282f533068147e3d3006e54cdfcc4e357b784bc4984be16dae42bbe4",
+    "after": "bdb719045b3f38cc71898b6c2c62b5bcbb3d9f4436be83d10a23a93b34f4488c",
     "edits": [
       [
         35,
@@ -575,8 +575,8 @@
     ]
   },
   "tests/test_control_idle_waits.py": {
-    "after": "c418aa26df95f71d3507895b7dc0259f9c38f7a31dd10494f4927a3efb30e3e7",
     "before": "0827653872ffed9e06cddc0c89a0375fd4b2fb50059c64880048fe50f269c6d3",
+    "after": "c418aa26df95f71d3507895b7dc0259f9c38f7a31dd10494f4927a3efb30e3e7",
     "edits": [
       [
         6,
@@ -596,8 +596,8 @@
     ]
   },
   "tests/test_control_lifecycle.py": {
-    "after": "677abb5bfa11a96592585aa9ea39374ccd369acca6a161b3a6a94a2bc0933de4",
     "before": "83fefdbfd2c58e1211890adbc6a67fa6c0fc198400ca1d552e07eceacf7bb3de",
+    "after": "677abb5bfa11a96592585aa9ea39374ccd369acca6a161b3a6a94a2bc0933de4",
     "edits": [
       [
         2,
@@ -622,8 +622,8 @@
     ]
   },
   "tests/test_control_mcp_gate.py": {
-    "after": "b774d1601775d0fd7c1809bacbba9486d24a75a3c9e7608ef656ab07bf01d664",
     "before": "4c79431bb4272aa2b6a5746a7e7ea4e68f11d00f7d3ce6050cb9f3b135a668eb",
+    "after": "b774d1601775d0fd7c1809bacbba9486d24a75a3c9e7608ef656ab07bf01d664",
     "edits": [
       [
         421,
@@ -633,8 +633,8 @@
     ]
   },
   "tests/test_control_recovery.py": {
-    "after": "266dcf34cd0b72a4a691aa22917f457a5b179f508b9254c089b99e2006e61929",
     "before": "2a324d9ced04037a196cce0abcfe37a9d59a56bb10dea20b989c5cd5aaa567f9",
+    "after": "266dcf34cd0b72a4a691aa22917f457a5b179f508b9254c089b99e2006e61929",
     "edits": [
       [
         255,
@@ -649,8 +649,8 @@
     ]
   },
   "tests/test_flash_overlay.py": {
-    "after": "c22ad3d817f990bda3caa3e03542ddfd8ae3dc1207bcb22d173b9e6b52708d2a",
     "before": "da9f4e551df589cf1dcc1c4c13071680a46cb15398ee7120d49e1b5fad02421b",
+    "after": "c22ad3d817f990bda3caa3e03542ddfd8ae3dc1207bcb22d173b9e6b52708d2a",
     "edits": [
       [
         8,
@@ -700,8 +700,8 @@
     ]
   },
   "tests/test_multi_edit_text.py": {
-    "after": "edade5c04aedc0fbe39ee46589c2e4585e6f2cd8d4b4148439da3c31f1c6635c",
     "before": "26dd7ee741372c0dce76bb387453b82b077afc33e753136b7024c109f6ce8fcf",
+    "after": "edade5c04aedc0fbe39ee46589c2e4585e6f2cd8d4b4148439da3c31f1c6635c",
     "edits": [
       [
         10,
@@ -721,8 +721,8 @@
     ]
   },
   "tests/test_type_clear_readback.py": {
-    "after": "57ad72643186f3cf06c11a10f704119cb3a4f78b02feca4b4c5b67ce4864850c",
     "before": "8de9c53a30013cfabfc10b61f8a97aac3f3002483ac7d012b6c065fda62e8eca",
+    "after": "57ad72643186f3cf06c11a10f704119cb3a4f78b02feca4b4c5b67ce4864850c",
     "edits": [
       [
         12,
@@ -747,8 +747,8 @@
     ]
   },
   "tests/test_watchdog_degradation.py": {
-    "after": "8cd5b4a6f0c3e9052e442f15b8a8c007f01814a20660f1a7bd9eaa2e83c43d30",
     "before": "23892f2d4968b6f27ec829b5ba22934b953d27d1a62228fd8a92a24d74193274",
+    "after": "8cd5b4a6f0c3e9052e442f15b8a8c007f01814a20660f1a7bd9eaa2e83c43d30",
     "edits": [
       [
         48,
@@ -763,18 +763,209 @@
     ]
   },
   "uv.lock": {
-    "after": "04e1f7ed97113f4592d7dcd52a01bfd32cbb5168911cb777f54685d2e65c1903",
-    "before": "2390840f1a138bdf1bc9d813955539258219b4bb652e4d2213b07c18502b57aa",
+    "before": "4e56d80c8823bbe98828fe1d0f58e26dae8e8ebd36eb987974351dffe02f7343",
+    "after": "c0b19399c0e474499581be0d26b1bca0f9402fbaaf69ff7307f4e2fe7241590d",
     "edits": [
       [
-        1727,
-        1727,
+        1707,
+        1707,
         "    { name = \"anyio\" },\n"
       ],
       [
-        1755,
-        1755,
+        1735,
+        1735,
         "    { name = \"anyio\", specifier = \">=4\" },\n"
+      ]
+    ]
+  },
+  "CLAUDE.md": {
+    "before": "bfaba7bf9e81ed7d289b46752df44790ab1e1cf87419ad4eaf502996faf3dbed",
+    "after": "5e6445e1f57932981d90b72567375f2366e31ea66371741a2eda3bca88694e54",
+    "edits": [
+      [
+        45,
+        46,
+        "**WatchDog** — `watchdog/service.py`: Runs in a separate thread monitoring UI focus changes via UIAutomation events. Notifies the Tree service of focus changes so the accessibility tree stays current.\n"
+      ],
+      [
+        82,
+        83,
+        "| `WINDOWS_MCP_WATCHDOG` | _(off)_ | Set to `on`/`1`/`true`/`yes`/`enabled` to start the UIA focus WatchDog thread. Unset, or any other value, leaves it off. Opt-in because it only emits debug logging today but can crash the server via the UIA event pump (#332). Resolved in `__main__.py`. |\n"
+      ]
+    ]
+  },
+  "README.md": {
+    "before": "249879fa7f60185fc6d9a4881ce78225dc742270f43732d171787aa726365487",
+    "after": "dd1390e1f789f7137f45b3e9d69106dcbdb4da2eac598923c6aba811d46bf9a7",
+    "edits": [
+      [
+        834,
+        835,
+        "| `WINDOWS_MCP_WATCHDOG` | `false` | Set to `on`, `1`, `true`, `yes`, or `enabled` (case-insensitive) to run the UIA focus watchdog. It is off by default because its only remaining effect is debug logging of focus changes, while it costs a background thread and a long-lived UIA event subscription that can crash the server on unstable UIA environments after long uptime (e.g. across a sleep/resume or session change). The accessibility tree is built on demand for every tool call either way, so tool behaviour is unaffected. |\n"
+      ]
+    ]
+  },
+  "src/windows_mcp/watchdog/event_handlers.py": {
+    "before": "abbc337b81a0648d7699d993a16af25918a84a0b2091ec173813388c98c1f0c6",
+    "after": "53271e2d6cf3ed306fd3b023b74b528d3cedf6166316ba2b69b36fe004eb2f46",
+    "edits": [
+      [
+        23,
+        23,
+        "\n\nclass FocusChangedEventHandler(comtypes.COMObject):\n    _com_interfaces_ = [UIA.IUIAutomationFocusChangedEventHandler]\n\n    def __init__(self, parent):\n        self._parent = weakref.ref(parent)\n        super(FocusChangedEventHandler, self).__init__()\n\n    def HandleFocusChangedEvent(self, sender):\n        parent = self._parent()\n        try:\n            if parent and parent._focus_callback:\n                parent._focus_callback(sender)\n            if parent:\n                parent._focus_fail_count = 0\n        except comtypes.COMError as e:\n            if parent:\n                _record_failure(parent, \"_focus_fail_count\")\n            logger.debug(\"Focus callback COM error: %s\", e)\n        except Exception as e:\n            logger.debug(\"Focus callback error: %s\", e)\n        return 0  # S_OK\n"
+      ]
+    ]
+  },
+  "src/windows_mcp/watchdog/service.py": {
+    "before": "f49ddd543fd807623197a52969dcfbf1b51bce604775009ed641bc412fdad0b3",
+    "after": "4e0b44b1b680a63370d501ca79a1bb418819dbaf46347b04cf102ed3248f4c0e",
+    "edits": [
+      [
+        3,
+        12,
+        ""
+      ],
+      [
+        23,
+        23,
+        "    FocusChangedEventHandler,\n"
+      ],
+      [
+        30,
+        34,
+        "# Consecutive per-callback COMErrors that trigger a full client rebuild.\n# UIA event subscriptions can silently go stale (desktop switch, sleep/resume,\n# session reconfig) without the failure ever becoming a catchable exception in\n# the pump loop, so we detect it from the callback side instead.\n"
+      ],
+      [
+        42,
+        45,
+        ""
+      ],
+      [
+        67,
+        70,
+        ""
+      ],
+      [
+        71,
+        71,
+        "        self._focus_handler = None\n"
+      ],
+      [
+        153,
+        154,
+        ""
+      ],
+      [
+        176,
+        203,
+        ""
+      ],
+      [
+        204,
+        206,
+        "        \"\"\"Pump UIA events against the current self.uia client until stopped\n        or a rebuild is requested.\"\"\"\n"
+      ],
+      [
+        207,
+        209,
+        "            # --- Focus Monitoring ---\n            if self._focus_callback and not self._focus_handler:\n                try:\n                    self._focus_handler = FocusChangedEventHandler(self)\n                    self.uia.AddFocusChangedEventHandler(None, self._focus_handler)\n                except Exception as e:\n                    logger.debug(f\"Failed to add focus handler: {e}\")\n            elif not self._focus_callback and self._focus_handler:\n                try:\n                    self.uia.RemoveFocusChangedEventHandler(self._focus_handler)\n                except Exception as e:\n                    logger.debug(f\"Failed to remove focus handler: {e}\")\n                self._focus_handler = None\n"
+      ],
+      [
+        296,
+        302,
+        "            # Pump events for this thread\n            comtypes.client.PumpEvents(0.1)\n"
+      ],
+      [
+        310,
+        310,
+        "\n        if self._focus_handler:\n            try:\n                self.uia.RemoveFocusChangedEventHandler(self._focus_handler)\n            except Exception:\n                pass\n            self._focus_handler = None\n"
+      ]
+    ]
+  },
+  "tests/test_watchdog_focus_polling.py": {
+    "before": "5bccca52b36d9587b0f6cccf94c2e2953fe389dd59ad86e9882f5ff49034fe0a",
+    "after": "c83b1a119fa75ea18c9f5799a67f6f8a33d13c0a9db489c99936022ce5d4ceea",
+    "edits": [
+      [
+        0,
+        232,
+        "# The upstream focus polling change and this test are pending integration.\n"
+      ]
+    ]
+  },
+  "tests/test_watchdog_recovery.py": {
+    "before": "d1b2e0903e3ae019ac363b7391aa87908633733f717f8e65733420678ab90b5e",
+    "after": "e4f2faef3990ea898198f343a6c63dec755ff70daaef4b77a8b253c5f64a2a41",
+    "edits": [
+      [
+        3,
+        6,
+        "event handlers and the WatchDog's rebuild bookkeeping without going through a\nlive UIA event pump (that needs a real desktop and isn't practical to unit\ntest).\n"
+      ],
+      [
+        11,
+        11,
+        "from windows_mcp.watchdog.event_handlers import FocusChangedEventHandler\n"
+      ],
+      [
+        18,
+        43,
+        ""
+      ],
+      [
+        45,
+        46,
+        "        watchdog = WatchDog()\n"
+      ],
+      [
+        47,
+        47,
+        "        handler = FocusChangedEventHandler(watchdog)\n"
+      ],
+      [
+        48,
+        49,
+        "        handler.HandleFocusChangedEvent(sender=object())\n"
+      ],
+      [
+        54,
+        55,
+        "        watchdog = WatchDog()\n        handler = FocusChangedEventHandler(watchdog)\n"
+      ],
+      [
+        61,
+        62,
+        "            handler.HandleFocusChangedEvent(sender=object())\n"
+      ],
+      [
+        65,
+        66,
+        "        handler.HandleFocusChangedEvent(sender=object())\n"
+      ],
+      [
+        71,
+        72,
+        "        watchdog = WatchDog()\n        handler = FocusChangedEventHandler(watchdog)\n"
+      ],
+      [
+        79,
+        80,
+        "            handler.HandleFocusChangedEvent(sender=object())\n"
+      ],
+      [
+        83,
+        84,
+        "        handler.HandleFocusChangedEvent(sender=object())\n"
+      ],
+      [
+        88,
+        89,
+        "        watchdog = WatchDog()\n        handler = FocusChangedEventHandler(watchdog)\n"
+      ],
+      [
+        95,
+        96,
+        "            handler.HandleFocusChangedEvent(sender=object())\n"
       ]
     ]
   }

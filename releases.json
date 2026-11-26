@@ -137,19 +137,19 @@
       ]
     },
     "rea": {
-      "version": "6.9.0",
-      "tag": "rea-v6.9.0-r1",
+      "version": "6.10.1",
+      "tag": "rea-v6.10.1-r1",
       "kind": "network-cli-installer",
       "assets": [
         {
           "name": "rea-windows.zip",
           "bytes": 6632,
-          "sha256": "c03ef21c36f2151b9198c91ba3b3e708a819b4a4044ca6a92b1fe2a24d8c1ea4"
+          "sha256": "81f0ec10b54ed64637480ef8be062561d370c0daa7b54cbdc9ab79009a698fb3"
         },
         {
           "name": "SHA256SUMS.txt",
           "bytes": 82,
-          "sha256": "5f245a4f449873d86ec4c2bf8372d61a73e8db29565d77868e84d15ed4619ec7"
+          "sha256": "e4898fb5f898099fa42aca918d0c68889f5086b4a4581106dadf3eee9cd19c58"
         }
       ]
     },
@@ -171,36 +171,36 @@
       ]
     },
     "windows-mcp": {
-      "version": "0.8.9",
-      "tag": "windows-mcp-v0.8.9-r2",
+      "version": "0.9.0",
+      "tag": "windows-mcp-v0.9.0-r1",
       "kind": "network-mcp-installer",
       "assets": [
         {
           "name": "windows-mcp-windows.zip",
-          "bytes": 21085,
-          "sha256": "0c6ec38146de4d1dfcf003675c8d7fb646a653efbee1e7d4a29152071eb212eb"
+          "bytes": 23729,
+          "sha256": "6324ea2e233c2cb6cd656c880343d7f82e2ab7088c251f8a201676185402546f"
         },
         {
           "name": "SHA256SUMS.txt",
           "bytes": 90,
-          "sha256": "6c2bb33333233e1d4189d745e0e2c9c0a2b438e0f0408b098f2d7cf98513b7b4"
+          "sha256": "021b93218b0ded73ae1e41a9a5d358b1925631687a075ccea34910f6c8414607"
         }
       ]
     },
     "yt-dlp": {
-      "version": "2026.10.26",
-      "tag": "yt-dlp-v2026.10.26-r4",
+      "version": "2026.11.23",
+      "tag": "yt-dlp-v2026.11.23-r1",
       "kind": "network-cli-installer",
       "assets": [
         {
           "name": "yt-dlp-windows.zip",
-          "bytes": 7274,
-          "sha256": "52ab728fa3e76c68da782d0490c206227209037741e3f1a9520a79ccef33cb07"
+          "bytes": 7252,
+          "sha256": "48e9f1c086aea78496bed0293607a703a5bbefeec98f533b0f415b60b204eba6"
         },
         {
           "name": "SHA256SUMS.txt",
           "bytes": 85,
-          "sha256": "00af3fd51202e6e9d911fd67670959e4c4c605554c1151c893f28abdbe026ede"
+          "sha256": "bbd58fcfe88f2e9399514febf839044ba665407a8ee3339b02c8e1e35b563207"
         }
       ]
     }

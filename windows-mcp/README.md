@@ -16,7 +16,7 @@
 
 例如：“用截图查看窗口，打开指定程序，把结果保存到我指定的文件夹，并核对文件确实存在。”运行服务不等于 Agent 已发现它；应按 [INSTALL.md](INSTALL.md) 注册到目标宿主，再在目标聊天实际调用一次 Snapshot 等工具验证。
 
-本项目面向 Windows 10/11。本包不自动接管桌面、不自动登记宿主，也不提高系统权限。工具清单以上游固定快照为准，见 [上游说明](https://github.com/CursorTouch/Windows-MCP/blob/3e24d26aa2d7ee8c07d0aa8b17b9f395e569b828/README.md)。
+本项目面向 Windows 10/11。本包不自动接管桌面、不自动登记宿主，也不提高系统权限。工具清单以上游固定快照为准，见 [上游说明](https://github.com/CursorTouch/Windows-MCP/blob/3333dbdac75ea3cae2a1eea00dccb207db9c5e4d/README.md)。
 
 ## 直接让 Agent 帮你使用
 
@@ -38,7 +38,7 @@
 
 # 我的 Windows-MCP 入口
 
-固定 Windows-MCP 0.8.9，Python 3.14.7；独立运行目录，stdio，关闭匿名遥测。恢复脚本准备固定源码和相对路径启动入口。已有全局连接不需要重复安装。
+固定 Windows-MCP 0.9.0 个人版，Python 3.14.7；独立运行目录，stdio，关闭匿名遥测。恢复脚本准备固定源码和相对路径启动入口。已有全局连接不需要重复安装。
 
 新电脑需要已有 Windows uv，先检查 `uv --version`，然后在恢复目录运行 `install.cmd`。uv 按固定源码的 uv.lock 安装，在本目录管理独立 Python、source/.venv 和 cache，不升级无关软件。`start.cmd` 使用本目录固定解释器，不依赖手动激活环境。
 
@@ -48,4 +48,4 @@
 
 ## 成品下载
 
-[固定 Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/windows-mcp-v0.8.9-r2)：MCP 服务联网准备包，附 SHA256SUMS.txt。完整步骤见 [INSTALL.md](INSTALL.md)。仓库内保留源码，不保存构建包或依赖缓存。
+[固定 Release](https://github.com/strive822/zyd-vibe-lab/releases/tag/windows-mcp-v0.9.0-r1)：MCP 服务联网准备包，附 SHA256SUMS.txt。完整步骤见 [INSTALL.md](INSTALL.md)。仓库内保留源码，不保存构建包或依赖缓存。
